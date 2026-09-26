@@ -12,6 +12,9 @@
         { name: "Holger Peters" },
       ],
       xref: false,
+      lint: {
+        "no-unused-dfns": false,
+      },
       localBiblio: {
         "FMC-NOTATION-REFERENCE": {
           title: "FMC Notation Reference (Appendix version)",
@@ -46,39 +49,30 @@
   <section id="abstract">
     <p>
       This document specifies the notation of the Fundamental Modeling
-      Concepts (FMC) as implemented by Fumoco, a browser-based visual
-      editor. It defines FMC's core terminology, the three FMC diagram
-      types (block diagrams, Petri nets, and entity-relationship
-      diagrams) as bipartite graphs over that terminology, and the rules
-      that make a diagram of each type well-formed. The block diagram
-      section is normative and matches Fumoco's shipped editor; the
-      Petri net and entity-relationship sections are drafted normatively
-      in advance of their editors being built, so later implementation
-      work has something concrete to conform to rather than improvising
-      semantics while also writing code. An informative appendix
-      summarizes layout guidance that shaped several of Fumoco's editor
-      features.
+      Concepts (FMC). It defines FMC's core terminology and the three FMC
+      diagram types — block diagrams, Petri nets, and entity-relationship
+      diagrams — as bipartite graphs over that terminology, together with
+      the rules that make a diagram of each type well-formed. The block
+      diagram, Petri net, and entity-relationship sections are all
+      normative. An informative appendix summarizes general and
+      diagram-type-specific layout guidance.
     </p>
   </section>
 
   <section id="sotd">
     <p>
       This is not a W3C specification and is not on the W3C standards
-      track. It is Fumoco's own working specification of FMC notation,
-      written in a W3C-ReSpec-style document because that format gives a
+      track; it is an independent working specification of FMC notation,
+      written as a W3C-ReSpec-style document because that format gives a
       free table of contents, section numbering, and a references
       section for a document that otherwise has no such tooling of its
       own. It is derived from, and should be read alongside, the FMC
       Consortium's own reference material at
       <a href="https://www.fmc-modeling.org/">fmc-modeling.org</a> — in
       particular the Notation Reference, the Metamodel page, and the
-      Visualization Guidelines (see the References section, and
-      <code>spec/SOURCES.md</code> in this repository for the full list
-      of source material screened while writing this document). Where
-      this document and the FMC Consortium's own material disagree, the
-      Consortium's material is authoritative for what FMC *is*; this
-      document only aims to be authoritative for what Fumoco's editor
-      *implements and enforces*.
+      Visualization Guidelines (see the References section). Where this
+      document and the FMC Consortium's own material disagree, the
+      Consortium's material is authoritative.
     </p>
   </section>
 
@@ -118,7 +112,7 @@
     <h2>Terminology and Conformance</h2>
     <p>
       This section fixes the core FMC vocabulary that the rest of this
-      document, and Fumoco's data model, builds on.
+      document builds on.
     </p>
 
     <section id="term-components">
@@ -160,9 +154,10 @@
         outlines and locations with rounded outlines, regardless of
         which specific diagram type they appear in — this angular/rounded
         distinction is what a diagram reader uses to tell the two
-        bipartite node kinds apart at a glance, and Fumoco preserves it
-        (a channel is drawn as a small near-circular location; an
-        ordinary storage as a rounded-corner rectangle).
+        bipartite node kinds apart at a glance. A channel is typically
+        drawn smaller than an ordinary storage (often near-circular)
+        while keeping the same rounded family of outlines, since it still
+        needs to read as a location.
       </p>
     </section>
 
@@ -200,14 +195,14 @@
         Any component (agent or location) may be drawn nested inside
         another component to show a whole-part relationship; nesting is
         purely a display convention layered on top of the bipartite
-        access structure, not a third node or edge kind of its own.
-        Fumoco treats containment as many-to-many (a component can be
-        nested inside more than one container) rather than assuming a
-        strict tree, and separately tracks whether a given containment
-        relationship is actually <em>displayed</em> nested in a
-        particular view — see Fumoco's own
-        <code>PFLICHTENHEFT.md</code> for that distinction, which is an
-        editor design decision rather than part of FMC notation itself.
+        access structure, not a third node or edge kind of its own. This
+        specification does not require containment to form a strict
+        tree — a component may legitimately be nested inside more than
+        one container (for instance, a resource shared by two composites)
+        — nor does it require every occurrence of a containment
+        relationship to be displayed nested wherever it holds; an
+        implementation may choose to show the same underlying
+        relationship nested in one diagram and not in another.
       </p>
       <p>
         <dfn>Structure variance</dfn> is the notational convention for
@@ -255,8 +250,9 @@
 
   <section id="block-diagrams">
     <h2>Block Diagrams</h2>
-    <p class="issue" data-number="1">Normative. Matches Fumoco's
-      Milestone A editor.</p>
+    <aside class="note" title="Normative status">
+      <p>This section is normative.</p>
+    </aside>
 
     <p>
       A block diagram depicts a system's compositional structure. Its
@@ -287,12 +283,12 @@
           receiver.</li>
         <li><strong>Request/response channel</strong>: one agent
           requests something from another, which then responds — modeled
-          as two unidirectional channels (or, in Fumoco's model, two
-          access edges on one shared channel location) in opposite
-          directions. Because this pattern is extremely common, a
-          <dfn>shorthand</dfn> notation exists: a single bold, direction-
-          carrying glyph label (Fumoco uses "R▶") in place of separate
-          request/response arrowheads and separate REQ/RES labels.</li>
+          as two unidirectional channels in opposite directions (a
+          request leg and a response leg). Because this pattern is
+          extremely common, a <dfn>shorthand</dfn> notation exists: a
+          single bold, direction-carrying glyph label (e.g. "R▶") in
+          place of separate request/response arrowheads and separate
+          REQ/RES labels.</li>
       </ul>
     </section>
 
@@ -310,9 +306,9 @@
 
   <section id="petri-nets">
     <h2>Petri Nets</h2>
-    <p class="issue" data-number="2">Normative-in-advance. No Fumoco
-      editor support yet (Milestone B) — this section is what that
-      editor must conform to once built.</p>
+    <aside class="note" title="Normative status">
+      <p>This section is normative.</p>
+    </aside>
 
     <p>
       An FMC Petri net depicts a system's dynamic structure as a
@@ -394,9 +390,9 @@
 
   <section id="er-diagrams">
     <h2>Entity-Relationship Diagrams</h2>
-    <p class="issue" data-number="3">Normative-in-advance. No Fumoco
-      editor support yet (Milestone C) — this section is what that
-      editor must conform to once built.</p>
+    <aside class="note" title="Normative status">
+      <p>This section is normative.</p>
+    </aside>
 
     <p>
       An FMC entity-relationship (ER) diagram depicts a system's value
@@ -459,17 +455,11 @@
     <p>
       This appendix is informative, not normative — it doesn't define
       what a diagram of a given type *means*, only what tends to make
-      one easier for a human to read. It summarizes the guidance that
-      motivated several already-shipped Fumoco editor features
-      (orthogonal edge routing with rounded corners, grid snap, resize
-      handles) as well as several not-yet-built ones tracked as
-      <code>OPEN</code> items in <code>implementation_plan.org</code>
-      (see that file and <code>LASTENHEFT.md</code>'s "Visualization
-      guidance" section for the concrete, actionable list). It groups
-      the general guidance below into two intentions that sometimes
-      pull in opposite directions — a diagram can't always be optimized
-      for both at once, and treating these as advice to weigh rather
-      than hard rules is itself part of the guidance.
+      one easier for a human to read. It groups the general guidance
+      below into two intentions that sometimes pull in opposite
+      directions — a diagram can't always be optimized for both at once,
+      and treating these as advice to weigh rather than hard rules is
+      itself part of the guidance.
     </p>
 
     <section id="viz-perception">
