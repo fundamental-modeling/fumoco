@@ -473,10 +473,30 @@ export default class CanvasView extends Component {
     }
     this.buildEdges(view, effectiveBoxes);
     this.transformer.moveToTop();
-    this.attachTransformer();
-    this.refreshNodeStyling();
-    this.refreshEdgeStyling();
     this.shapeLayer.batchDraw();
+    // Deferred to the next runloop tick, *outside* this modifier's own
+    // autotracking frame: attachTransformer/refreshNodeStyling/
+    // refreshEdgeStyling all read `selection` state, and calling them
+    // synchronously from inside syncShapes would make `selection` one of
+    // *this modifier's* tracked dependencies too -- meaning merely
+    // selecting something (any element, any edge) would re-run this
+    // whole destroy-and-rebuild-everything modifier on every click. That
+    // was silently happening: it doesn't corrupt state, but it destroys
+    // and recreates every Konva node on each click, which breaks Konva's
+    // own same-node double-click detection (a dblclick to insert an edge
+    // waypoint would never fire, since the node under the second click is
+    // a freshly-rebuilt one, not the node the first click landed on).
+    // A queued microtask still applies current selection styling right
+    // after a real rebuild, just without making the rebuild itself
+    // reactive to selection changes -- `syncSelection`/`syncEdgeSelection`
+    // already own reacting to those on their own. By the time this runs,
+    // the modifier's own synchronous (and thus autotracked) extent has
+    // already closed.
+    queueMicrotask(() => {
+      this.attachTransformer();
+      this.refreshNodeStyling();
+      this.refreshEdgeStyling();
+    });
   });
 
   refreshEdges() {
