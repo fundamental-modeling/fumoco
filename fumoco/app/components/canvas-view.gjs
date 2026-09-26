@@ -2,6 +2,7 @@ import Component from '@glimmer/component';
 import { service } from '@ember/service';
 import { modifier } from 'ember-modifier';
 import Konva from 'konva';
+import { TrackedArray } from 'tracked-built-ins';
 import { FmcModelError } from 'fumoco/utils/fmc-model';
 import { ConnectorKind, connectorRule } from 'fumoco/services/connector-tool';
 
@@ -202,6 +203,67 @@ function orthogonalPath(a, b) {
 }
 
 const EDGE_CORNER_RADIUS = 10;
+
+// A user-added routing waypoint is just a point the edge must pass
+// through -- representing it as a zero-size box lets orthogonalPath route
+// to/from it (and between two of them) exactly like it already routes
+// between two real boxes, with no separate point-to-point routing logic.
+function pointBox(point) {
+  return { x: point.x, y: point.y, width: 0, height: 0 };
+}
+
+// Chains orthogonalPath across every consecutive pair of anchors (real
+// boxes and/or waypoint point-boxes) into one continuous route. Each
+// segment's start point is the same as the previous segment's end point
+// (both are the shared anchor's boundary/position), so every segment
+// after the first drops its own first point to avoid duplicating it.
+function buildRoutedPath(anchors) {
+  let points = [];
+  for (let i = 0; i < anchors.length - 1; i++) {
+    const segment = orthogonalPath(anchors[i], anchors[i + 1]);
+    points = points.length ? [...points, ...segment.slice(1)] : segment;
+  }
+  return points;
+}
+
+function pointToSegmentDistance(p, a, b) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const lengthSquared = dx * dx + dy * dy;
+  const t =
+    lengthSquared === 0
+      ? 0
+      : Math.max(
+          0,
+          Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / lengthSquared),
+        );
+  const projX = a.x + t * dx;
+  const projY = a.y + t * dy;
+  return Math.hypot(p.x - projX, p.y - projY);
+}
+
+// Where a newly double-clicked point should be inserted among an edge's
+// existing waypoints: whichever straight segment (agent center -> each
+// waypoint in order -> location center) it's closest to. Approximates
+// against anchor *centers* rather than the actual rounded/orthogonal
+// rendered path -- close enough to feel natural for picking a position,
+// without needing to reproduce the rendering geometry here.
+function nearestWaypointInsertIndex(point, anchorCenters) {
+  let bestIndex = 0;
+  let bestDistance = Infinity;
+  for (let i = 0; i < anchorCenters.length - 1; i++) {
+    const distance = pointToSegmentDistance(
+      point,
+      anchorCenters[i],
+      anchorCenters[i + 1],
+    );
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = i;
+    }
+  }
+  return bestIndex;
+}
 
 function drawRoundedPolyline(ctx, points, radius) {
   ctx.beginPath();
@@ -408,6 +470,7 @@ export default class CanvasView extends Component {
     this.transformer.moveToTop();
     this.attachTransformer();
     this.refreshNodeStyling();
+    this.refreshEdgeStyling();
     this.shapeLayer.batchDraw();
   });
 
@@ -418,6 +481,7 @@ export default class CanvasView extends Component {
     if (view)
       this.buildEdges(view, computeEffectiveBoxes(this.modelStore.model, view));
     this.transformer.moveToTop();
+    this.refreshEdgeStyling();
     this.shapeLayer.batchDraw();
   }
 
@@ -431,26 +495,46 @@ export default class CanvasView extends Component {
       const locationBox = effectiveBoxes.get(access.location);
       if (!agentBox || !locationBox) continue;
       const locationElement = model.elements.get(access.location);
-      this.drawAccessEdge(access, agentBox, locationBox, locationElement);
+      this.drawAccessEdge(access, agentBox, locationBox, locationElement, view);
     }
   }
 
   // A single Konva.Shape drawing a rounded-corner rectilinear path (native
   // canvas arcTo does the rounding), plus separate small filled triangles
   // for whichever end(s) need an arrowhead -- Konva.Arrow doesn't support
-  // rounded corners, so this replaces it for every routed edge.
-  addRoutedEdge(points, { arrowStart = false, arrowEnd = false } = {}) {
-    this.shapeLayer.add(
-      new Konva.Shape({
-        stroke: '#000000',
-        strokeWidth: 2,
-        name: 'fumoco-edge',
-        sceneFunc: (ctx, shapeNode) => {
-          drawRoundedPolyline(ctx, points, EDGE_CORNER_RADIUS);
-          ctx.strokeShape(shapeNode);
-        },
-      }),
-    );
+  // rounded corners, so this replaces it for every routed edge. `edgeId`
+  // and `view` are only needed to make the main path clickable (select the
+  // edge) and dbl-clickable (insert a waypoint there) -- omitted for the
+  // arrowhead triangles, which are purely decorative.
+  addRoutedEdge(
+    points,
+    { arrowStart = false, arrowEnd = false, edgeId = null, view = null } = {},
+  ) {
+    const mainShape = new Konva.Shape({
+      stroke: '#000000',
+      strokeWidth: 2,
+      hitStrokeWidth: 16, // a 2px line is hard to click on directly
+      name: 'fumoco-edge',
+      sceneFunc: (ctx, shapeNode) => {
+        drawRoundedPolyline(ctx, points, EDGE_CORNER_RADIUS);
+        ctx.strokeShape(shapeNode);
+      },
+    });
+    if (edgeId) {
+      mainShape.setAttr('fumocoEdgeId', edgeId);
+      mainShape.setAttr('fumocoEdgeMain', true);
+      mainShape.on('click', (event) => {
+        event.cancelBubble = true;
+        this.selection.selectEdge(edgeId);
+      });
+      mainShape.on('dblclick dbltap', (event) => {
+        event.cancelBubble = true;
+        if (!view) return;
+        const point = this.stage.getRelativePointerPosition();
+        this.insertWaypoint(edgeId, view, point);
+      });
+    }
+    this.shapeLayer.add(mainShape);
     if (arrowEnd) {
       this.shapeLayer.add(
         new Konva.Line({
@@ -458,6 +542,7 @@ export default class CanvasView extends Component {
           closed: true,
           fill: '#000000',
           name: 'fumoco-edge',
+          listening: false,
         }),
       );
     }
@@ -468,6 +553,7 @@ export default class CanvasView extends Component {
           closed: true,
           fill: '#000000',
           name: 'fumoco-edge',
+          listening: false,
         }),
       );
     }
@@ -482,23 +568,84 @@ export default class CanvasView extends Component {
   // a channel place draws as a plain line (line-circle-line, no
   // arrowheads) instead of the double-headed curved arrow used for modify
   // access to an ordinary storage location.
-  drawAccessEdge(access, agentBox, locationBox, locationElement) {
+  //
+  // Routing: `view.edgeWaypoints` stores each edge's user-added points in
+  // a fixed agent-to-location order regardless of which way it visually
+  // draws; `orderedWaypoints` below re-orders them to match whichever end
+  // is actually `from`/`to` for this access kind (read draws
+  // location-to-agent) before chaining them into the path.
+  drawAccessEdge(access, agentBox, locationBox, locationElement, view) {
     const isChannel = !!locationElement?.channel;
     const suppressArrow = locationElement?.channel?.shorthand === true;
+    const waypoints = [...(view.edgeWaypoints.get(access.id) ?? [])];
     if (access.kind === 'modify') {
-      const path = orthogonalPath(agentBox, locationBox);
-      this.addRoutedEdge(
-        path,
-        isChannel ? {} : { arrowStart: true, arrowEnd: true },
-      );
+      const path = buildRoutedPath([
+        agentBox,
+        ...waypoints.map(pointBox),
+        locationBox,
+      ]);
+      this.addRoutedEdge(path, {
+        ...(isChannel ? {} : { arrowStart: true, arrowEnd: true }),
+        edgeId: access.id,
+        view,
+      });
       return;
     }
     const [from, to] =
       access.kind === 'read'
         ? [locationBox, agentBox]
         : [agentBox, locationBox];
-    const path = orthogonalPath(from, to);
-    this.addRoutedEdge(path, { arrowEnd: !suppressArrow });
+    const orderedWaypoints =
+      access.kind === 'read' ? waypoints.reverse() : waypoints;
+    const path = buildRoutedPath([from, ...orderedWaypoints.map(pointBox), to]);
+    this.addRoutedEdge(path, {
+      arrowEnd: !suppressArrow,
+      edgeId: access.id,
+      view,
+    });
+  }
+
+  // Inserts a new waypoint at `point`, positioned among the edge's
+  // existing waypoints by proximity (see nearestWaypointInsertIndex),
+  // always stored in agent-to-location order regardless of draw direction
+  // (drawAccessEdge re-orders for display -- see its comment).
+  insertWaypoint(edgeId, view, point) {
+    const model = this.modelStore.model;
+    const access = model.accesses.find((a) => a.id === edgeId);
+    if (!access) return;
+    const effectiveBoxes = computeEffectiveBoxes(model, view);
+    const agentBox = effectiveBoxes.get(access.agent);
+    const locationBox = effectiveBoxes.get(access.location);
+    if (!agentBox || !locationBox) return;
+    this.modelStore.mutate(() => {
+      if (!view.edgeWaypoints.has(edgeId)) {
+        view.edgeWaypoints.set(edgeId, new TrackedArray());
+      }
+      const waypoints = view.edgeWaypoints.get(edgeId);
+      const anchorCenters = [
+        {
+          x: agentBox.x + agentBox.width / 2,
+          y: agentBox.y + agentBox.height / 2,
+        },
+        ...waypoints,
+        {
+          x: locationBox.x + locationBox.width / 2,
+          y: locationBox.y + locationBox.height / 2,
+        },
+      ];
+      const index = nearestWaypointInsertIndex(point, anchorCenters);
+      waypoints.splice(index, 0, { x: point.x, y: point.y });
+    });
+    this.refreshEdges();
+    this.syncEdgeHandles();
+  }
+
+  removeWaypoint(edgeId, view, index) {
+    this.modelStore.mutate(() => {
+      view.edgeWaypoints.get(edgeId)?.splice(index, 1);
+    });
+    this.refreshEdges();
+    this.syncEdgeHandles();
   }
 
   // Re-runs on selection changes only, without touching shape geometry.
@@ -509,6 +656,16 @@ export default class CanvasView extends Component {
   syncSelection = modifier(() => {
     this.attachTransformer();
     this.refreshNodeStyling();
+  });
+
+  // Re-runs whenever the selected edge changes -- highlights its path and
+  // (re)builds its draggable waypoint handles. A separate modifier from
+  // syncSelection since edge selection and element selection are mutually
+  // exclusive but independently tracked (see selection.js).
+  syncEdgeSelection = modifier(() => {
+    void this.selection.selectedEdgeId;
+    this.refreshEdgeStyling();
+    this.syncEdgeHandles();
   });
 
   // Re-runs whenever the armed connector kind or its pending source changes
@@ -553,6 +710,76 @@ export default class CanvasView extends Component {
     if (!pendingSourceId) return rule.source.includes(element.type);
     if (id === pendingSourceId) return false;
     return rule.target.includes(element.type);
+  }
+
+  // Highlights the selected edge's main path the same way a selected
+  // node gets a blue stroke -- skips the arrowhead triangles (not tagged
+  // `fumocoEdgeMain`), which stay solid black regardless of selection.
+  refreshEdgeStyling() {
+    if (!this.shapeLayer) return;
+    const selectedId = this.selection.selectedEdgeId;
+    this.shapeLayer.find('.fumoco-edge').forEach((node) => {
+      if (!node.getAttr('fumocoEdgeMain')) return;
+      const selected = node.getAttr('fumocoEdgeId') === selectedId;
+      node.stroke(selected ? '#0078ff' : '#000000');
+      node.strokeWidth(selected ? 3 : 2);
+    });
+    this.shapeLayer.batchDraw();
+  }
+
+  // Small draggable circles at the selected edge's current waypoints (in
+  // their stored agent-to-location order -- display order doesn't matter
+  // here since each handle just needs to show/move its own point).
+  // Rebuilt from scratch on every selection/edit rather than diffed, same
+  // as the shape layer itself -- there are never more than a handful.
+  syncEdgeHandles() {
+    if (!this.shapeLayer) return;
+    this.shapeLayer
+      .find('.fumoco-edge-handle')
+      .forEach((node) => node.destroy());
+    const edgeId = this.selection.selectedEdgeId;
+    const view = this.modelStore.activeView;
+    if (!edgeId || !view) {
+      this.shapeLayer.batchDraw();
+      return;
+    }
+    const waypoints = view.edgeWaypoints.get(edgeId);
+    if (!waypoints) {
+      this.shapeLayer.batchDraw();
+      return;
+    }
+    waypoints.forEach((point, index) => {
+      const handle = new Konva.Circle({
+        x: point.x,
+        y: point.y,
+        radius: 5,
+        fill: '#0078ff',
+        stroke: '#ffffff',
+        strokeWidth: 1,
+        draggable: true,
+        name: 'fumoco-edge-handle',
+      });
+      handle.on('dragmove', () => {
+        waypoints[index] = { x: handle.x(), y: handle.y() };
+        this.refreshEdges();
+        this.shapeLayer.batchDraw();
+      });
+      handle.on('dragend', () => {
+        this.modelStore.mutate(() => {
+          waypoints[index] = { x: handle.x(), y: handle.y() };
+        });
+        this.refreshEdges();
+      });
+      handle.on('click', (event) => {
+        event.cancelBubble = true;
+      });
+      handle.on('dblclick dbltap', (event) => {
+        event.cancelBubble = true;
+        this.removeWaypoint(edgeId, view, index);
+      });
+      this.shapeLayer.add(handle);
+    });
+    this.shapeLayer.batchDraw();
   }
 
   attachTransformer() {
@@ -1030,6 +1257,7 @@ export default class CanvasView extends Component {
       {{this.setupStage}}
       {{this.syncShapes}}
       {{this.syncSelection}}
+      {{this.syncEdgeSelection}}
       {{this.syncConnectorEligibility}}
     ></div>
   </template>

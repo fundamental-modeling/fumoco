@@ -118,6 +118,11 @@ implementation notes here — that's the other two documents' job.
 - As a modeler, I want to manipulate an arrow's routing by adding and
   moving waypoints, while it stays strictly horizontal/vertical
   (rectangular) in nature — no free-angle segments.
+- As a modeler, I want the properties panel to show the arrows/connections
+  to and from a selected box, not just its own label/flags.
+- As a modeler, I want arrows to be entities tracked in the world model,
+  also visible in the left (tree) panel — not just implicit lines drawn
+  between two elements.
 
 ## Nesting / containment
 

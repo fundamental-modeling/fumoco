@@ -185,6 +185,106 @@ module('Unit | Utility | fmc-model', function () {
     assert.strictEqual(restoredView.nestedUnder.get(unnested), null);
   });
 
+  module('access edges as addressable entities', function () {
+    test('addAccess gives each edge a stable, distinct id', function (assert) {
+      const model = new FmcModel();
+      const agent = model.addElement(ElementType.AGENT);
+      const location = model.addElement(ElementType.LOCATION);
+
+      const edge1 = model.addAccess(agent, 'read', location);
+      const edge2 = model.addAccess(agent, 'write', location);
+
+      assert.ok(edge1.id);
+      assert.ok(edge2.id);
+      assert.notStrictEqual(edge1.id, edge2.id);
+    });
+
+    test('updateAccessKind changes just that edge, leaving its id and endpoints alone', function (assert) {
+      const model = new FmcModel();
+      const agent = model.addElement(ElementType.AGENT);
+      const location = model.addElement(ElementType.LOCATION);
+      const edge = model.addAccess(agent, 'read', location);
+
+      model.updateAccessKind(edge.id, 'write');
+
+      assert.strictEqual(model.accesses.length, 1);
+      assert.strictEqual(model.accesses[0].id, edge.id);
+      assert.strictEqual(model.accesses[0].kind, 'write');
+      assert.strictEqual(model.accesses[0].agent, agent);
+      assert.strictEqual(model.accesses[0].location, location);
+    });
+
+    test('removeAccess deletes just that edge and its routing waypoints, leaving others alone', function (assert) {
+      const model = new FmcModel();
+      const agent = model.addElement(ElementType.AGENT);
+      const location = model.addElement(ElementType.LOCATION);
+      const edge1 = model.addAccess(agent, 'read', location);
+      const edge2 = model.addAccess(agent, 'write', location);
+      const viewId = model.createView('v');
+      const view = model.views.get(viewId);
+      view.edgeWaypoints.set(edge1.id, [{ x: 10, y: 10 }]);
+
+      model.removeAccess(edge1.id);
+
+      assert.strictEqual(model.accesses.length, 1);
+      assert.strictEqual(model.accesses[0].id, edge2.id);
+      assert.false(view.edgeWaypoints.has(edge1.id));
+    });
+
+    test('removeElement also drops routing waypoints for any edge it was part of', function (assert) {
+      const model = new FmcModel();
+      const agent = model.addElement(ElementType.AGENT);
+      const location = model.addElement(ElementType.LOCATION);
+      const edge = model.addAccess(agent, 'read', location);
+      const viewId = model.createView('v');
+      const view = model.views.get(viewId);
+      view.edgeWaypoints.set(edge.id, [{ x: 10, y: 10 }]);
+
+      model.removeElement(agent);
+
+      assert.false(view.edgeWaypoints.has(edge.id));
+    });
+
+    test("a view's edge routing waypoints round-trip", function (assert) {
+      const model = new FmcModel();
+      const agent = model.addElement(ElementType.AGENT);
+      const location = model.addElement(ElementType.LOCATION);
+      const edge = model.addAccess(agent, 'read', location);
+      const viewId = model.createView('v');
+      model.views.get(viewId).edgeWaypoints.set(edge.id, [
+        { x: 10, y: 20 },
+        { x: 30, y: 40 },
+      ]);
+
+      const restored = FmcModel.fromJSON(model.toJSON());
+      const restoredEdge = restored.accesses[0];
+      const waypoints = restored.views
+        .get(viewId)
+        .edgeWaypoints.get(restoredEdge.id);
+
+      assert.strictEqual(restoredEdge.id, edge.id);
+      assert.deepEqual(
+        [...waypoints],
+        [
+          { x: 10, y: 20 },
+          { x: 30, y: 40 },
+        ],
+      );
+    });
+
+    test('a legacy access edge with no id gets one assigned on load', function (assert) {
+      const restored = FmcModel.fromJSON({
+        elements: {
+          a: { type: 'agent', label: 'A', parents: [], dashed: false },
+          l: { type: 'location', label: 'L', parents: [], dashed: false },
+        },
+        accesses: [{ agent: 'a', kind: 'read', location: 'l' }],
+      });
+
+      assert.ok(restored.accesses[0].id);
+    });
+  });
+
   module('legacy JSON migration (pre-rename autosaves/files)', function () {
     test('an old "storage" element and AccessEdge.storage load as a location', function (assert) {
       const restored = FmcModel.fromJSON({

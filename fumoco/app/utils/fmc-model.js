@@ -58,15 +58,18 @@ export class Element {
   }
 }
 
-// Access edges are recreated wholesale (not field-mutated) on edit, so
-// plain objects -- held in a TrackedArray -- are enough: pushing/splicing
-// the array is what's reactive, not any one edge's fields.
-export function makeAccessEdge(agentId, kind, locationId) {
-  return { agent: agentId, kind, location: locationId };
-}
-
 function makeId() {
   return crypto.randomUUID();
+}
+
+// Access edges are recreated wholesale (not field-mutated) on edit, so
+// plain objects -- held in a TrackedArray -- are enough: pushing/splicing
+// the array is what's reactive, not any one edge's fields. `id` exists so
+// an edge can be an addressable entity in its own right (selected on the
+// canvas, listed in the model tree, given routing waypoints in a view)
+// rather than only ever being matched by its endpoints.
+export function makeAccessEdge(agentId, kind, locationId) {
+  return { id: makeId(), agent: agentId, kind, location: locationId };
 }
 
 // Upgrades a pre-rename export (ElementType "storage", AccessEdge.storage,
@@ -176,6 +179,12 @@ export class View {
   // element out of its container's box only ever writes `null` here --
   // it never touches Element.parents (see canvas-view.gjs).
   nestedUnder = new TrackedMap();
+  // AccessEdge id -> TrackedArray<{x, y}>, ordered agent-to-location
+  // regardless of which way the edge visually draws (see canvas-view.gjs's
+  // drawAccessEdge). User-added routing waypoints an edge's rectilinear
+  // path is routed through, in a view -- routing is a per-view display
+  // choice, same as nestedUnder, not a model-level fact.
+  edgeWaypoints = new TrackedMap();
 
   constructor(id, name, diagramType = 'block') {
     this.id = id;
@@ -219,10 +228,21 @@ export class FmcModel {
     // is just an ordinary element losing an ordinary access edge -- no
     // separate channel-cleanup needed now that a channel isn't its own
     // edge type.
+    const removedEdgeIds = this.accesses
+      .filter((a) => a.agent === id || a.location === id)
+      .map((a) => a.id);
     this._removeInPlace(
       this.accesses,
       (a) => a.agent === id || a.location === id,
     );
+    for (const view of this.views.values()) {
+      for (const edgeId of removedEdgeIds) view.edgeWaypoints.delete(edgeId);
+    }
+  }
+
+  removeAccess(id) {
+    this._removeInPlace(this.accesses, (a) => a.id === id);
+    for (const view of this.views.values()) view.edgeWaypoints.delete(id);
   }
 
   _removeInPlace(trackedArray, matches) {
@@ -303,6 +323,15 @@ export class FmcModel {
     const edge = makeAccessEdge(agentId, kind, locationId);
     this.accesses.push(edge);
     return edge;
+  }
+
+  // Access edges are recreated wholesale on edit (see makeAccessEdge's
+  // comment) rather than field-mutated, so a kind change is a splice, not
+  // an assignment -- that's what makes it visible to the TrackedArray.
+  updateAccessKind(id, kind) {
+    const index = this.accesses.findIndex((a) => a.id === id);
+    if (index === -1) return;
+    this.accesses.splice(index, 1, { ...this.accesses[index], kind });
   }
 
   // Creates the channel's place (a Location Element with `channel` render
@@ -414,6 +443,12 @@ export class FmcModel {
             included: [...view.included],
             boxes: Object.fromEntries(view.boxes),
             nestedUnder: Object.fromEntries(view.nestedUnder),
+            edgeWaypoints: Object.fromEntries(
+              [...view.edgeWaypoints].map(([edgeId, points]) => [
+                edgeId,
+                points.map((p) => ({ ...p })),
+              ]),
+            ),
           },
         ]),
       ),
@@ -435,7 +470,10 @@ export class FmcModel {
       );
     }
     for (const access of json.accesses ?? []) {
-      model.accesses.push({ ...access });
+      // `id: makeId()` first, then spread `access` over it, so an already-
+      // current export's own id wins and only a legacy/missing one gets a
+      // fresh one assigned here.
+      model.accesses.push({ id: makeId(), ...access });
     }
     for (const [id, view] of Object.entries(json.views ?? {})) {
       const v = new View(id, view.name, view.diagramType);
@@ -446,6 +484,12 @@ export class FmcModel {
         view.nestedUnder ?? {},
       ))
         v.nestedUnder.set(elementId, parentId);
+      for (const [edgeId, points] of Object.entries(view.edgeWaypoints ?? {})) {
+        v.edgeWaypoints.set(
+          edgeId,
+          new TrackedArray(points.map((p) => ({ ...p }))),
+        );
+      }
       model.views.set(id, v);
     }
     return model;

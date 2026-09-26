@@ -14,6 +14,46 @@ export default class PropertiesPanel extends Component {
     return id ? this.modelStore.model.elements.get(id) : null;
   }
 
+  get selectedAccess() {
+    const id = this.selection.selectedEdgeId;
+    if (!id) return null;
+    return this.modelStore.model.accesses.find((a) => a.id === id) ?? null;
+  }
+
+  get selectedAccessAgent() {
+    return this.modelStore.model.elements.get(this.selectedAccess?.agent);
+  }
+
+  get selectedAccessLocation() {
+    return this.modelStore.model.elements.get(this.selectedAccess?.location);
+  }
+
+  // Every access edge touching the selected element (as either endpoint --
+  // an agent's writes/reads and a location's incoming accesses both count),
+  // labeled with the *other* endpoint and which way it points, so a box's
+  // connections are readable at a glance without switching to the canvas.
+  get incidentAccesses() {
+    const element = this.selectedElement;
+    if (!element) return [];
+    const model = this.modelStore.model;
+    return model.accesses
+      .filter((a) => a.agent === element.id || a.location === element.id)
+      .map((access) => {
+        const isAgentEnd = access.agent === element.id;
+        const otherId = isAgentEnd ? access.location : access.agent;
+        const other = model.elements.get(otherId);
+        return {
+          access,
+          otherLabel: other?.label ?? `(unnamed ${other?.type ?? 'element'})`,
+          // From the selected element's point of view: an agent "reads"/
+          // "writes"/"modifies" its location; a location is the target of
+          // those same verbs from its agent's point of view -- same kind,
+          // just described from whichever end is selected.
+          description: isAgentEnd ? `${access.kind} →` : `← ${access.kind}`,
+        };
+      });
+  }
+
   // Every other element is offered as a possible container -- the model's
   // own cycle/self-containment checks (surfaced via an alert) are the
   // actual guard, rather than trying to duplicate that logic here just to
@@ -88,6 +128,26 @@ export default class PropertiesPanel extends Component {
   }
 
   @action
+  selectAccess(id) {
+    this.selection.selectEdge(id);
+  }
+
+  @action
+  updateAccessKind(event) {
+    const access = this.selectedAccess;
+    if (!access) return;
+    this.modelStore.mutate((model) =>
+      model.updateAccessKind(access.id, event.target.value),
+    );
+  }
+
+  @action
+  deleteAccess(id) {
+    this.modelStore.mutate((model) => model.removeAccess(id));
+    if (this.selection.selectedEdgeId === id) this.selection.clear();
+  }
+
+  @action
   updateViewName(event) {
     const view = this.modelStore.activeView;
     if (!view) return;
@@ -153,6 +213,53 @@ export default class PropertiesPanel extends Component {
             {{/each}}
           </select>
         </div>
+        <div class="properties-panel-field">
+          <span class="properties-panel-subhead">Connections</span>
+          {{#if this.incidentAccesses.length}}
+            <ul class="properties-panel-parents">
+              {{#each this.incidentAccesses as |entry|}}
+                <li>
+                  <button
+                    type="button"
+                    class="properties-panel-access-row"
+                    {{on "click" (fn this.selectAccess entry.access.id)}}
+                  >{{entry.description}}
+                    {{entry.otherLabel}}</button>
+                  <button
+                    type="button"
+                    {{on "click" (fn this.deleteAccess entry.access.id)}}
+                  >&times;</button>
+                </li>
+              {{/each}}
+            </ul>
+          {{else}}
+            <p class="properties-panel-empty">No connections.</p>
+          {{/if}}
+        </div>
+      {{else if this.selectedAccess}}
+        <div class="properties-panel-row">
+          <span class="properties-panel-type">connector</span>
+        </div>
+        <p class="properties-panel-access-endpoints">
+          {{this.selectedAccessAgent.label}}
+          &rarr;
+          {{this.selectedAccessLocation.label}}
+        </p>
+        <label class="properties-panel-field">
+          Kind
+          <select
+            value={{this.selectedAccess.kind}}
+            {{on "change" this.updateAccessKind}}
+          >
+            <option value="read">read</option>
+            <option value="write">write</option>
+            <option value="modify">modify</option>
+          </select>
+        </label>
+        <button
+          type="button"
+          {{on "click" (fn this.deleteAccess this.selectedAccess.id)}}
+        >Delete connector</button>
       {{else if this.modelStore.activeView}}
         <div class="properties-panel-row">
           <span class="properties-panel-type">view</span>

@@ -157,11 +157,27 @@ click" gesture, not just "selection is empty."
 Currently wraps to its own line because the title button is
 =width: 100%=.
 
-** OPEN Select an arrow; properties panel lets its access kind be changed
-Read/write/modify (and possibly a combined read-write).
+** DONE Select an arrow; properties panel lets its access kind be changed
+Click an edge's path on the canvas or a row under the tree's new "Arrows"
+section; the properties panel shows its endpoints and a read/write/modify
+dropdown, plus a delete button.
 
-** OPEN Manipulate an arrow's routing via addable/movable waypoints
+** DONE Manipulate an arrow's routing via addable/movable waypoints
 Stays strictly horizontal/vertical (rectangular); no free-angle segments.
+Double-click a selected edge's path to insert a waypoint near that point;
+drag the small blue handle to move it; double-click a handle to remove it.
+
+** DONE Arrows (access edges) are addressable world-model entities, listed in the tree
+Not just lines implied by two elements' ids: each access edge now has its
+own stable =id=, survives being selected/edited/deleted independently of
+its endpoints, and appears in the model tree under a new "Arrows" section
+(clicking one selects it and pulls both endpoints into the active view,
+same as clicking an unplaced element).
+
+** DONE The properties panel lists a selected box's connections
+Every access edge touching the selected element (either end), labeled
+with the other endpoint and direction; click one to select that arrow,
+or delete it directly from the list.
 
 ** OPEN Canvas text renders in Barlow, with narrow-variant width configurable
 

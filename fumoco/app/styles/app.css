@@ -145,6 +145,24 @@ body {
   color: #999;
 }
 
+.properties-panel-access-row {
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.properties-panel-access-row:hover {
+  text-decoration: underline;
+}
+
+.properties-panel-access-endpoints {
+  font-size: 13px;
+  margin: 4px 0 10px;
+}
+
 .model-tree-section {
   margin-bottom: 16px;
 }

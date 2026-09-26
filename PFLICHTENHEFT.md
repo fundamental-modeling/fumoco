@@ -189,6 +189,82 @@ box).
   locations" below), so it's freely draggable and positioned like any
   other box — no separate `channelPlaces` map or dedicated drag handling.
 
+## Access edges as entities; arrow selection, kind editing, routing waypoints
+
+An `AccessEdge` now carries its own `id` (`makeAccessEdge`), not just its
+`agent`/`kind`/`location` fields — it's an addressable entity like an
+`Element`, not just an implicit line between two of them:
+- `FmcModel.updateAccessKind(id, kind)`: splices in a new edge object with
+  the same id/endpoints and a different kind (edges are recreated
+  wholesale on edit, same as everywhere else — see `makeAccessEdge`'s
+  comment).
+- `FmcModel.removeAccess(id)`: removes one specific edge (vs. deleting an
+  element, which already swept every edge touching it); also sweeps any
+  view's `edgeWaypoints` entry for that id.
+- `fromJSON` assigns a fresh id to any access edge that doesn't already
+  have one (`{ id: makeId(), ...access }`), so a pre-this-feature
+  autosave/file still loads without every edge silently losing its
+  identity.
+
+`View.edgeWaypoints: TrackedMap<edgeId, TrackedArray<{x, y}>>` holds a
+per-view list of user-added routing points for an edge, always stored in
+agent-to-location order regardless of which way the edge visually draws
+(`drawAccessEdge` reverses them for a `read` edge, which draws
+location-to-agent). Routing is a per-view display choice, same spirit as
+`nestedUnder` — not a model-level fact.
+
+Rendering (`canvas-view.gjs`): a waypoint is represented as a zero-size
+"point box" (`pointBox`), letting `orthogonalPath` route to/from/between
+them exactly like it already routes between two real element boxes, with
+no separate point-to-point geometry needed. `buildRoutedPath` chains
+`orthogonalPath` across every consecutive anchor pair (agent box, each
+waypoint in display order, location box), dropping each segment's
+duplicate leading point.
+
+Interaction, all on `addRoutedEdge`'s main path shape (the arrowhead
+triangles stay `listening: false`, purely decorative):
+- `hitStrokeWidth: 16` makes a 2px stroke practically clickable.
+- Click selects the edge (`selection.selectEdge`, mutually exclusive with
+  element selection — see `selection.js`); the selected edge's stroke
+  turns blue via `refreshEdgeStyling`, mirroring a selected node's border.
+- Double-click inserts a waypoint at the click position
+  (`insertWaypoint`), positioned among any existing waypoints by
+  `nearestWaypointInsertIndex` — whichever straight segment (agent center
+  → each waypoint in order → location center) the click point is closest
+  to, via ordinary point-to-segment distance. This approximates against
+  anchor *centers* rather than the actual rendered rounded/orthogonal
+  path — close enough to feel natural without reproducing the rendering
+  geometry just to pick an insertion index.
+- `syncEdgeHandles` draws a small draggable `Konva.Circle` at each of the
+  selected edge's waypoints (rebuilt from scratch on every
+  selection/edit, same as the shape layer — there are never more than a
+  handful); dragging one live-updates its point (and calls `refreshEdges`
+  for immediate visual feedback, uncommitted until `dragend`, same
+  live/commit split as every other drag in this file); double-clicking a
+  handle removes that waypoint (`removeWaypoint`).
+- A known rendering wart: two waypoints that happen to be exactly
+  horizontally/vertically aligned still get an unnecessary small jog
+  instead of a dead-straight segment, since `orthogonalPath`'s "already
+  share an axis" check needs a nonzero-width overlap, which two
+  zero-size point-boxes can never produce even when equal on one axis.
+  No crash, just a minor visual imperfection — not worth special-casing
+  for v1.
+
+The properties panel (`properties-panel.gjs`) shows a selected edge's
+endpoints (read-only) and a `kind` `<select>` bound to
+`updateAccessKind`, plus a delete button; when an *element* is selected
+instead, it lists every access edge touching it (either end) via
+`incidentAccesses`, each row clickable to select that edge and a `×`
+button to delete it directly.
+
+The model tree (`model-tree.gjs` + new `arrow-row.gjs`) lists every
+`FmcModel.accesses` entry under a new "Arrows" section, same tree level
+as "Elements"/"Views" (access edges are world-model entities, not
+per-view artifacts). Clicking one selects it and pulls both endpoints
+into the active view if either isn't already shown there — same "make it
+visible" convenience `ModelTreeNode.selectElement` already does for a
+lone element.
+
 ## Canvas viewport (pan)
 
 Wheel/trackpad scroll pans by translating `stage.x()`/`stage.y()`

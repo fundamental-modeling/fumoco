@@ -4,6 +4,7 @@ import { service } from '@ember/service';
 import { on } from '@ember/modifier';
 import ModelTreeNode from 'fumoco/components/model-tree-node';
 import ViewRow from 'fumoco/components/view-row';
+import ArrowRow from 'fumoco/components/arrow-row';
 import Icon from 'fumoco/components/icon';
 import FilePlus from '@lucide/icons/icons/file-plus';
 import FolderOpen from '@lucide/icons/icons/folder-open';
@@ -26,6 +27,10 @@ export default class ModelTree extends Component {
 
   get views() {
     return [...this.modelStore.model.views.values()];
+  }
+
+  get accesses() {
+    return [...this.modelStore.model.accesses];
   }
 
   @action
@@ -89,6 +94,15 @@ export default class ModelTree extends Component {
         <ul class="model-tree-list">
           {{#each this.rootElements as |element|}}
             <ModelTreeNode @element={{element}} />
+          {{/each}}
+        </ul>
+      </div>
+
+      <div class="model-tree-section">
+        <h3>Arrows</h3>
+        <ul class="model-tree-list">
+          {{#each this.accesses as |access|}}
+            <ArrowRow @access={{access}} />
           {{/each}}
         </ul>
       </div>
