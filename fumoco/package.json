@@ -61,7 +61,6 @@
     "ember-resolver": "^13.2.0",
     "ember-source": "~7.1.0",
     "ember-template-lint": "^7.9.3",
-    "ember-welcome-page": "^8.0.5",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-ember": "^12.7.5",
@@ -84,6 +83,7 @@
     "edition": "octane"
   },
   "dependencies": {
-    "konva": "^10.7.0"
+    "konva": "^10.7.0",
+    "tracked-built-ins": "^4.1.2"
   }
 }
