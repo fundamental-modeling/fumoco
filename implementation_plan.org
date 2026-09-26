@@ -211,9 +211,9 @@ Currently every new box is 120x60 regardless of type; fine as a shared
 default, but nothing currently nudges an oversized/undersized box back
 toward its type's norm.
 
-** OPEN Node line weight reads heavier than edge line weight
-Both currently stroke at =strokeWidth: 2=; the guideline calls for nodes
-roughly twice an edge's weight.
+** DONE Node line weight reads heavier than edge line weight
+Nodes now stroke at =NODE_STROKE_WIDTH= (3, 4 when selected); edges stay
+at =strokeWidth: 2=.
 
 ** OPEN One-click "standard block diagram arrangement" starting layout
 System-of-interest centered, environment/users placed around it — an
@@ -227,8 +227,20 @@ Petri net element types exist.
 An alternative to drawing every instance when the exact count doesn't
 matter.
 
-** OPEN Grouping/structuring boxes default to a muted, low-saturation fill
-Currently every box is plain white fill regardless of role.
+** DONE Grouping/structuring boxes default to a muted, low-saturation fill
+A container (auto-fit around displayed children) now fills =#f2f2f2=
+instead of white; a plain leaf box is unaffected.
+
+** OPEN Warn (don't block) when deleting an access edge would leave a channel/storage under FMC's minimum arity
+Surfaced by writing =spec/index.html='s formal Access-arity laws
+(channel needs >=2 agents, storage needs >=1): =FmcModel.removeAccess=
+doesn't currently check either. Deliberately not enforced eagerly like
+the bipartite/acyclic-containment rules are, since arity is a
+well-formedness condition on a *finished* diagram (you're already
+allowed to create an unconnected storage or a half-wired channel) --
+needs a design decision on what "warn" even looks like (a one-time
+alert? a persistent visual marker on the under-connected location?)
+before this is actionable, not just a quick fix.
 
 ** OPEN Soft diagram-size nudge past a standard page/screen size
 Advisory, not a hard limit — surface it, don't block on it.

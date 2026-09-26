@@ -124,6 +124,14 @@ reactivity bug there. Instead:
   resized-then-dragged container doesn't snap back to its pre-drag
   position on the next render; a container with no manual box (still
   purely auto-fit) has nothing there to shift.
+- A container's fill is `#f2f2f2` instead of the plain-white `#ffffff`
+  every leaf box gets -- a muted backdrop reads as a grouping frame
+  without competing with the elements it contains (Visualization
+  Guidelines: use color sparingly, prefer muted tones for grouping).
+- Every node strokes at `NODE_STROKE_WIDTH` (3, or `NODE_STROKE_WIDTH_SELECTED`
+  4 when selected) while every edge stays at `strokeWidth: 2`, so a node's
+  outline reads visibly heavier than an edge's (Visualization Guidelines'
+  "line weight of edges and nodes").
 
 ### World-model containment vs. per-view display (`View.nestedUnder`)
 

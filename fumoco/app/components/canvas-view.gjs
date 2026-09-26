@@ -10,6 +10,11 @@ const GRID = 10;
 const MIN_SIZE = 20;
 const MARQUEE_THRESHOLD = 3; // px of movement before a stage mousedown counts as a drag, not a click
 const NESTING_PADDING = 30;
+// A node's outline should read visibly heavier than an edge's so the two
+// are never ambiguous (FMC Visualization Guidelines' "line weight of
+// edges and nodes"); edges stay at their existing strokeWidth: 2.
+const NODE_STROKE_WIDTH = 3;
+const NODE_STROKE_WIDTH_SELECTED = 4;
 
 function snapToGrid(value) {
   return Math.round(value / GRID) * GRID;
@@ -699,7 +704,9 @@ export default class CanvasView extends Component {
       if (!rect) continue;
       const selected = this.selection.isSelected(id);
       rect.stroke(selected ? '#0078ff' : '#000000');
-      rect.strokeWidth(selected ? 3 : 2);
+      rect.strokeWidth(
+        selected ? NODE_STROKE_WIDTH_SELECTED : NODE_STROKE_WIDTH,
+      );
     }
     this.shapeLayer?.batchDraw();
   }
@@ -982,9 +989,14 @@ export default class CanvasView extends Component {
     const rect = new Konva.Rect({
       width: box.width,
       height: box.height,
-      fill: '#ffffff',
+      // A container drawn nested (auto-fit around its displayed children)
+      // gets a muted fill instead of plain white -- a structuring/
+      // grouping box should read as a backdrop, not compete visually
+      // with the elements it groups (FMC Visualization Guidelines' "use
+      // colors sparingly, prefer muted tones for grouping frames").
+      fill: nested ? '#f2f2f2' : '#ffffff',
       stroke: '#000000',
-      strokeWidth: 2,
+      strokeWidth: NODE_STROKE_WIDTH,
       cornerRadius,
       dash: isLocation && element.dashed ? [6, 4] : undefined,
     });
