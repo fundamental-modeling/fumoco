@@ -64,10 +64,10 @@ backlog, not a historical log (git history is the log).
   (e.g. a shared resource nested under two different composites at once).
   Model-level support is done; there's no UI yet to actually create a
   containment relationship (see below).
-- [planned] As a modeler, I want a way to actually nest one element inside
-  another from the UI (drag onto a container on the canvas, or a tree
-  action) -- the model supports many-to-many containment now, but nothing
-  in the UI creates that relationship yet.
+- [done] As a modeler, I want a way to actually nest one element inside
+  another from the UI -- the properties panel now lists an element's
+  current containers (with a way to remove each) and a dropdown to add
+  another. (A canvas drag-to-nest gesture is still open, see below.)
 - [planned] As a modeler, when an element is nested in more than one
   container and both containers are in the same view, I want it drawn
   once per container (visually duplicated) -- this is the same underlying

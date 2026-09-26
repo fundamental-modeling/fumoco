@@ -2,7 +2,9 @@ import Component from '@glimmer/component';
 import { action } from '@ember/object';
 import { service } from '@ember/service';
 import { on } from '@ember/modifier';
+import { fn } from '@ember/helper';
 import eq from 'fumoco/helpers/eq';
+import { FmcModelError } from 'fumoco/utils/fmc-model';
 
 export default class PropertiesPanel extends Component {
   @service modelStore;
@@ -11,6 +13,24 @@ export default class PropertiesPanel extends Component {
   get selectedElement() {
     const id = this.selection.selectedIds.at(-1);
     return id ? this.modelStore.model.elements.get(id) : null;
+  }
+
+  // Every other element is offered as a possible container -- the model's
+  // own cycle/self-containment checks (surfaced via an alert) are the
+  // actual guard, rather than trying to duplicate that logic here just to
+  // pre-filter the list.
+  get availableContainers() {
+    const element = this.selectedElement;
+    if (!element) return [];
+    return [...this.modelStore.model.elements.values()].filter(
+      (candidate) =>
+        candidate.id !== element.id && !element.parents.includes(candidate.id),
+    );
+  }
+
+  get parentElements() {
+    const element = this.selectedElement;
+    return element ? this.modelStore.model.parentsOf(element.id) : [];
   }
 
   @action
@@ -29,6 +49,31 @@ export default class PropertiesPanel extends Component {
     this.modelStore.mutate(() => {
       element.dashed = event.target.checked;
     });
+  }
+
+  @action
+  addToContainer(event) {
+    const containerId = event.target.value;
+    const element = this.selectedElement;
+    if (!containerId || !element) return;
+    try {
+      this.modelStore.mutate((model) =>
+        model.addContainment(containerId, element.id),
+      );
+    } catch (error) {
+      if (!(error instanceof FmcModelError)) throw error;
+      window.alert(error.message);
+    }
+    event.target.value = '';
+  }
+
+  @action
+  removeFromContainer(parentId) {
+    const element = this.selectedElement;
+    if (!element) return;
+    this.modelStore.mutate((model) =>
+      model.removeContainment(parentId, element.id),
+    );
   }
 
   @action
@@ -66,6 +111,37 @@ export default class PropertiesPanel extends Component {
             Dashed (structure variance)
           </label>
         {{/if}}
+        <div class="properties-panel-field">
+          <span class="properties-panel-subhead">Contained in</span>
+          {{#if this.parentElements.length}}
+            <ul class="properties-panel-parents">
+              {{#each this.parentElements as |parent|}}
+                <li>
+                  <span>{{parent.label}}
+                    <span
+                      class="properties-panel-type-inline"
+                    >({{parent.type}})</span></span>
+                  <button
+                    type="button"
+                    {{on "click" (fn this.removeFromContainer parent.id)}}
+                  >&times;</button>
+                </li>
+              {{/each}}
+            </ul>
+          {{else}}
+            <p class="properties-panel-empty">Not nested in anything.</p>
+          {{/if}}
+          <select
+            aria-label="Add to container"
+            {{on "change" this.addToContainer}}
+          >
+            <option value="">Add to container&hellip;</option>
+            {{#each this.availableContainers as |candidate|}}
+              <option value={{candidate.id}}>{{candidate.label}}
+                ({{candidate.type}})</option>
+            {{/each}}
+          </select>
+        </div>
       {{else if this.modelStore.activeView}}
         <div class="properties-panel-row">
           <span class="properties-panel-type">view</span>
