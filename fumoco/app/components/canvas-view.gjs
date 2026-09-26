@@ -1,5 +1,4 @@
 import Component from '@glimmer/component';
-import { tracked } from '@glimmer/tracking';
 import { service } from '@ember/service';
 import { modifier } from 'ember-modifier';
 import Konva from 'konva';
@@ -131,7 +130,6 @@ export default class CanvasView extends Component {
   guideLayer;
   transformer;
   nodesById = new Map();
-  @tracked shapesVersion = 0; // bumped by syncShapes so syncConnectorEligibility re-entangles on rebuild
   marqueeRect;
   marqueeStart = null;
 
@@ -219,12 +217,15 @@ export default class CanvasView extends Component {
         this.promptRename(id);
         return;
       }
-      // Delete/Backspace removes the selection from *this view only* --
-      // the elements stay in the model (and the tree), just not shown
-      // here. Deleting an element from the whole model is a separate
-      // action (the tree's own delete button).
-      if (event.key === 'Delete' || event.key === 'Backspace') {
+      // Delete removes the selection from *this view only* -- the
+      // elements stay in the model (and the tree), just not shown here.
+      // Backspace deletes them from the model entirely (same as the
+      // tree's own delete button), since diagramming tools commonly draw
+      // that same distinction between the two keys.
+      if (event.key === 'Delete') {
         this.removeSelectionFromView();
+      } else if (event.key === 'Backspace') {
+        this.deleteSelectionFromModel();
       }
     };
     window.addEventListener('keydown', keydown);
@@ -267,8 +268,8 @@ export default class CanvasView extends Component {
     this.buildEdges(view);
     this.transformer.moveToTop();
     this.attachTransformer();
+    this.refreshNodeStyling();
     this.shapeLayer.batchDraw();
-    this.shapesVersion++;
   });
 
   refreshEdges() {
@@ -415,25 +416,30 @@ export default class CanvasView extends Component {
   // have zero visual feedback, so every selected shape also gets an
   // explicit highlight border here, independent of the Transformer.
   syncSelection = modifier(() => {
-    void this.shapesVersion; // re-entangle after syncShapes rebuilds nodesById
     this.attachTransformer();
-    for (const [id, node] of this.nodesById) {
-      const rect = node.findOne('Rect');
-      if (!rect) continue;
-      const selected = this.selection.isSelected(id);
-      rect.stroke(selected ? '#0078ff' : '#000000');
-      rect.strokeWidth(selected ? 3 : 2);
-    }
-    this.shapeLayer?.batchDraw();
+    this.refreshNodeStyling();
   });
 
   // Re-runs whenever the armed connector kind or its pending source changes
   // -- dims elements that aren't valid picks for the current step, without
   // rebuilding the shape layer (so it doesn't disturb an in-progress drag).
   syncConnectorEligibility = modifier(() => {
+    void this.connectorTool.kind;
+    void this.connectorTool.pendingSourceId;
+    this.refreshNodeStyling();
+  });
+
+  // Applies both the selection highlight (stroke) and the connector
+  // eligibility dimming (opacity) to every current node. Called directly
+  // from syncShapes after a rebuild (rather than having syncShapes write a
+  // tracked "version" counter for the other modifiers to react to, which
+  // is a backtracking-rerender violation -- Ember asserts if a tracked
+  // value is written after being read earlier in the same render pass),
+  // and from syncSelection/syncConnectorEligibility whenever selection or
+  // the armed connector kind changes on their own.
+  refreshNodeStyling() {
     const kind = this.connectorTool.kind;
     const pendingSourceId = this.connectorTool.pendingSourceId;
-    void this.shapesVersion; // re-entangle after syncShapes rebuilds nodesById
     for (const [id, node] of this.nodesById) {
       const element = this.modelStore.model.elements.get(id);
       node.opacity(
@@ -441,9 +447,14 @@ export default class CanvasView extends Component {
           ? 1
           : 0.25,
       );
+      const rect = node.findOne('Rect');
+      if (!rect) continue;
+      const selected = this.selection.isSelected(id);
+      rect.stroke(selected ? '#0078ff' : '#000000');
+      rect.strokeWidth(selected ? 3 : 2);
     }
     this.shapeLayer?.batchDraw();
-  });
+  }
 
   isEligibleForConnector(element, id, kind, pendingSourceId) {
     if (!kind || !element) return true;
@@ -485,6 +496,15 @@ export default class CanvasView extends Component {
         if (index !== -1) view.included.splice(index, 1);
         view.boxes.delete(id);
       }
+    });
+    this.selection.clear();
+  }
+
+  deleteSelectionFromModel() {
+    const ids = [...this.selection.selectedIds];
+    if (!ids.length) return;
+    this.modelStore.mutate((model) => {
+      for (const id of ids) model.removeElement(id);
     });
     this.selection.clear();
   }
