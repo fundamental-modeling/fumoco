@@ -96,14 +96,62 @@ view's name if nothing is selected), editable in place.
   point→target), each still rectilinear via the same `orthogonalPath`
   fed a zero-size "point box."
 
-## Open technical questions (mirrors Lastenheft's "open question" items)
+## Containment (`Element.parents`)
 
-- **Multiple occurrences of one element per view**: not yet designed.
-  Current `View.included`/`boxes` assume one box per element id per view.
-  Supporting duplicates means each placement needs its own instance id
-  (distinct from the element id), and edges need a rule for which
-  instance(s) they draw to. Not started until the Lastenheft item above
-  is resolved with the user.
+Many-to-many, not a single `parent`: `Element.parents` is a `TrackedArray`
+of container ids. `FmcModel.addContainment(parentId, childId)`/
+`removeContainment` replace the old `setParent`; `_isAncestor` is now a
+graph search (DFS/BFS over all parent links, not one chain) so cycles are
+still blocked even through an indirect ancestor. `childrenOf(id)` filters
+by `element.parents.includes(id)`. The model tree renders an element once
+under *each* of its parents (and at the root only if it has none) --
+`ModelTreeNode`'s existing recursive `childrenOf` call already does this
+for free, no changes needed there.
+
+**Not yet built**: any UI to actually create a containment relationship
+(no drag-onto-container, no tree action), and the canvas-side consequence
+of many-to-many containment -- drawing an element nested inside each of
+its containers when more than one is in the same view. That's the same
+underlying mechanism as the "multiple occurrences per view" item below,
+now resolved: draw once per occurrence, not once per element id.
+
+## Planned: view instances (multiple occurrences per view + visual nesting)
+
+Not started. Current `View.included: elementId[]` / `boxes: Map<elementId,
+Box>` assume exactly one box per element id per view -- this needs to
+become `View.instances: Map<instanceId, { elementId, containerInstanceId,
+box }>` (an instance id distinct from the element id) so:
+- the same element can have more than one box in one view (e.g. nested
+  under two different container instances, or just placed twice to avoid
+  line crossings);
+- an edge can be told to draw to (or be hidden from) one specific
+  occurrence, per the Lastenheft item on removable per-instance edges.
+
+This touches `canvas-view.gjs` throughout (shape building keys off
+element id everywhere currently: drag/resize commit, connector
+click-to-id, `nodesById`, selection) -- deliberately scoped as its own
+pass rather than folded into the containment-model change above.
+
+## Planned: channel places as locations
+
+Not started. `Channel { id, source, target, directed, place }` as a
+distinct edge type goes away; a channel's place becomes an ordinary
+`Element` (type `storage`) with a rendering flag (e.g. `renderAsChannel:
+true`) that draws it as a small circle instead of a rounded rect, with
+direction carried by which agent has `read` vs `write` access to it
+(matching FMC's arrow-circle-arrow / line-circle-line convention) rather
+than a `directed` flag on a separate edge concept:
+- directed channel A→B: one place-storage, A has `write`, B has `read`.
+- bidirectional channel: one place-storage, both agents have `modify`.
+- req/res long form: two place-storages (REQ: source writes/target
+  reads; RES: target writes/source reads).
+- req/res shorthand: one place-storage, same access pattern as directed,
+  plus the existing bold-label/no-arrowhead rendering flags.
+
+This removes `FmcModel.channels`/`addChannel`/`addReqRes` and the
+`Channel`-specific canvas code (`drawChannel`, `channelPlaces`) in favor
+of routing everything through `addAccess` plus the new rendering flag --
+a real reduction in the number of concepts, not just a relabeling.
 
 ## Process note
 

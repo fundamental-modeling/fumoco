@@ -9,8 +9,12 @@ export default class ModelTree extends Component {
   @service modelStore;
 
   get rootElements() {
+    // An element with no containers is shown here at the root; one that's
+    // nested somewhere is instead shown once under each of its parents
+    // (many-to-many containment -- see ModelTreeNode) so it never also
+    // duplicates at the root.
     return [...this.modelStore.model.elements.values()].filter(
-      (element) => element.parent === null,
+      (element) => element.parents.length === 0,
     );
   }
 

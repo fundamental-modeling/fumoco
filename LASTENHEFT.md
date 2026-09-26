@@ -49,7 +49,9 @@ backlog, not a historical log (git history is the log).
 - [done] As a modeler, I want to freely reposition a channel's place
   (the circle) instead of it always sitting at the auto-computed midpoint.
 - [done] As a modeler, I want to remove an element from just the current
-  view (Delete/Backspace), without deleting it from the model/tree.
+  view (Delete key), without deleting it from the model/tree. Backspace
+  instead deletes the selection from the model entirely (same as the
+  tree's own delete button) -- two different, discoverable actions.
 - [done] As a modeler, I want the app laid out like Archi: model tree on
   the left, a palette of element/connector tools on the right, and a
   properties panel along the bottom for editing the selected item's
@@ -57,17 +59,29 @@ backlog, not a historical log (git history is the log).
 - [done] As a modeler, I want to save my model to a file and reopen it
   later, and have work-in-progress survive an accidental reload
   (New/Open/Save/Save As in the tree's toolbar; localStorage autosave).
+- [done] As a modeler, I want to nest locations and actors inside each
+  other as a many-to-many relationship, not a strict single-parent tree
+  (e.g. a shared resource nested under two different composites at once).
+  Model-level support is done; there's no UI yet to actually create a
+  containment relationship (see below).
+- [planned] As a modeler, I want a way to actually nest one element inside
+  another from the UI (drag onto a container on the canvas, or a tree
+  action) -- the model supports many-to-many containment now, but nothing
+  in the UI creates that relationship yet.
+- [planned] As a modeler, when an element is nested in more than one
+  container and both containers are in the same view, I want it drawn
+  once per container (visually duplicated) -- this is the same underlying
+  mechanism as "element appears multiple times per view" below, and
+  resolves that open question: yes, draw per occurrence.
+- [planned] As a modeler, I want a channel's place (the small circle) to
+  actually be a location/storage element in its own right -- "channel"
+  becomes a rendering style a location can have (small circle, optional
+  arrowheads carrying direction) rather than a separate model concept,
+  connected to its agents via ordinary read/write/modify access edges
+  instead of a distinct Channel edge type.
 - [planned] As a modeler, I want to export a view as PNG and as SVG.
 - [planned] As a modeler, I want to delete an edge (not just an element),
   e.g. by selecting it on the canvas.
-- [open question] As a modeler, I want the same element to appear more
-  than once in one view (e.g. to reduce line crossings), and I want to be
-  able to hide/remove a specific edge's rendering near one occurrence
-  without deleting the edge from the model. Needs a decision: should an
-  edge, by default, draw to *every* occurrence of an element that's in the
-  view (with a way to suppress it per-occurrence), or should creating a
-  connector require picking *which* occurrence it attaches to? (Raised
-  2026, not yet resolved.)
 
 ## Milestone A.5 — Formal FMC specification
 

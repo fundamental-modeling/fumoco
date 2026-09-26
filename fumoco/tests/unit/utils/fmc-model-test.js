@@ -29,15 +29,60 @@ module('Unit | Utility | fmc-model', function () {
   test('an element cannot contain itself', function (assert) {
     const model = new FmcModel();
     const agent = model.addElement(ElementType.AGENT);
-    assert.throws(() => model.setParent(agent, agent), FmcModelError);
+    assert.throws(() => model.addContainment(agent, agent), FmcModelError);
   });
 
   test('containment cannot create a cycle', function (assert) {
     const model = new FmcModel();
     const a = model.addElement(ElementType.AGENT);
     const b = model.addElement(ElementType.AGENT);
-    model.setParent(b, a); // a contains b
-    assert.throws(() => model.setParent(a, b), FmcModelError);
+    model.addContainment(a, b); // a contains b
+    assert.throws(() => model.addContainment(b, a), FmcModelError);
+  });
+
+  test('containment cannot create a cycle through an indirect ancestor', function (assert) {
+    const model = new FmcModel();
+    const a = model.addElement(ElementType.AGENT);
+    const b = model.addElement(ElementType.AGENT);
+    const c = model.addElement(ElementType.AGENT);
+    model.addContainment(a, b); // a contains b
+    model.addContainment(b, c); // b contains c
+    assert.throws(() => model.addContainment(c, a), FmcModelError);
+  });
+
+  test('an element can be nested inside more than one container at once', function (assert) {
+    const model = new FmcModel();
+    const a = model.addElement(ElementType.AGENT);
+    const b = model.addElement(ElementType.AGENT);
+    const child = model.addElement(ElementType.AGENT);
+    model.addContainment(a, child);
+    model.addContainment(b, child);
+
+    assert.deepEqual(
+      [...model.elements.get(child).parents].sort(),
+      [a, b].sort(),
+    );
+    assert.deepEqual(
+      model.childrenOf(a).map((e) => e.id),
+      [child],
+    );
+    assert.deepEqual(
+      model.childrenOf(b).map((e) => e.id),
+      [child],
+    );
+  });
+
+  test('removeContainment detaches just that one relationship', function (assert) {
+    const model = new FmcModel();
+    const a = model.addElement(ElementType.AGENT);
+    const b = model.addElement(ElementType.AGENT);
+    const child = model.addElement(ElementType.AGENT);
+    model.addContainment(a, child);
+    model.addContainment(b, child);
+
+    model.removeContainment(a, child);
+
+    assert.deepEqual([...model.elements.get(child).parents], [b]);
   });
 
   test('removeElement detaches children and drops incident edges', function (assert) {
@@ -45,12 +90,12 @@ module('Unit | Utility | fmc-model', function () {
     const parent = model.addElement(ElementType.AGENT);
     const child = model.addElement(ElementType.AGENT);
     const storage = model.addElement(ElementType.STORAGE);
-    model.setParent(child, parent);
+    model.addContainment(parent, child);
     model.addAccess(parent, 'read', storage);
 
     model.removeElement(parent);
 
-    assert.strictEqual(model.elements.get(child).parent, null);
+    assert.deepEqual([...model.elements.get(child).parents], []);
     assert.strictEqual(model.accesses.length, 0);
     assert.false(model.elements.has(parent));
   });

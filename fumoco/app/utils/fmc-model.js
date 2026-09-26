@@ -22,14 +22,18 @@ export class Element {
   id;
   type;
   @tracked label;
-  @tracked parent = null; // containing composite's id, if any
+  // Many-to-many containment: an element can be nested inside more than
+  // one container at once (e.g. a shared resource nested under two
+  // different composites) -- not a strict tree, so this is a list, not a
+  // single `parent`.
+  parents = new TrackedArray();
   @tracked dashed = false; // storage only -- structure variance
 
-  constructor(id, type, { label = null, parent = null, dashed = false } = {}) {
+  constructor(id, type, { label = null, parents = [], dashed = false } = {}) {
     this.id = id;
     this.type = type;
     this.label = label;
-    this.parent = parent;
+    for (const parentId of parents) this.parents.push(parentId);
     this.dashed = dashed;
   }
 }
@@ -87,8 +91,9 @@ export class FmcModel {
   }
 
   removeElement(id) {
-    for (const child of this.childrenOf(id)) {
-      child.parent = null;
+    for (const element of this.elements.values()) {
+      const index = element.parents.indexOf(id);
+      if (index !== -1) element.parents.splice(index, 1);
     }
     this.elements.delete(id);
     for (const [viewId, view] of this.views) {
@@ -121,32 +126,55 @@ export class FmcModel {
   }
 
   childrenOf(id) {
-    return [...this.elements.values()].filter(
-      (element) => element.parent === id,
+    return [...this.elements.values()].filter((element) =>
+      element.parents.includes(id),
     );
   }
 
-  setParent(childId, parentId) {
+  parentsOf(id) {
+    return (
+      this.elements
+        .get(id)
+        ?.parents.map((parentId) => this.elements.get(parentId)) ?? []
+    );
+  }
+
+  addContainment(parentId, childId) {
     if (childId === parentId) {
       throw new FmcModelError(`${childId} cannot contain itself`);
     }
-    if (parentId !== null) {
-      this._require(parentId, null); // just existence, containment allows any type mix
-      if (this._isAncestor(childId, parentId)) {
-        throw new FmcModelError(
-          `containing ${childId} in ${parentId} would create a cycle`,
-        );
-      }
-    }
+    this._require(parentId, null); // just existence, containment allows any type mix
     this._require(childId, null);
-    this.elements.get(childId).parent = parentId;
+    if (this._isAncestor(childId, parentId)) {
+      throw new FmcModelError(
+        `containing ${childId} in ${parentId} would create a cycle`,
+      );
+    }
+    const child = this.elements.get(childId);
+    if (!child.parents.includes(parentId)) child.parents.push(parentId);
   }
 
+  removeContainment(parentId, childId) {
+    const child = this.elements.get(childId);
+    const index = child?.parents.indexOf(parentId) ?? -1;
+    if (index !== -1) child.parents.splice(index, 1);
+  }
+
+  // Is `candidateId` reachable by walking *any* combination of parent
+  // links starting from `id`? (Not just one chain -- many-to-many
+  // containment means `id` can have several parents, each with their own
+  // several parents, so this is a graph search, not a linear walk.)
   _isAncestor(candidateId, id) {
-    let current = this.elements.get(id);
-    while (current?.parent != null) {
-      if (current.parent === candidateId) return true;
-      current = this.elements.get(current.parent);
+    const seen = new Set();
+    const stack = [...(this.elements.get(id)?.parents ?? [])];
+    while (stack.length) {
+      const current = stack.pop();
+      if (current === candidateId) return true;
+      if (seen.has(current)) continue;
+      seen.add(current);
+      for (const parentId of this.elements.get(current)?.parents ?? []) {
+        stack.push(parentId);
+      }
     }
     return false;
   }
@@ -222,7 +250,7 @@ export class FmcModel {
           {
             type: element.type,
             label: element.label,
-            parent: element.parent,
+            parents: [...element.parents],
             dashed: element.dashed,
           },
         ]),
@@ -251,7 +279,7 @@ export class FmcModel {
         id,
         new Element(id, element.type, {
           label: element.label,
-          parent: element.parent,
+          parents: element.parents ?? [],
           dashed: element.dashed,
         }),
       );
