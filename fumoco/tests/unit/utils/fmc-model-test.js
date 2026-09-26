@@ -4,26 +4,26 @@ import { ElementType, FmcModel, FmcModelError } from 'fumoco/utils/fmc-model';
 module('Unit | Utility | fmc-model', function () {
   test('addAccess rejects a non-agent source', function (assert) {
     const model = new FmcModel();
-    const storage1 = model.addElement(ElementType.STORAGE);
-    const storage2 = model.addElement(ElementType.STORAGE);
+    const location1 = model.addElement(ElementType.LOCATION);
+    const location2 = model.addElement(ElementType.LOCATION);
     assert.throws(
-      () => model.addAccess(storage1, 'read', storage2),
+      () => model.addAccess(location1, 'read', location2),
       FmcModelError,
     );
   });
 
-  test('addAccess rejects a non-storage target', function (assert) {
+  test('addAccess rejects a non-location target', function (assert) {
     const model = new FmcModel();
     const agent1 = model.addElement(ElementType.AGENT);
     const agent2 = model.addElement(ElementType.AGENT);
     assert.throws(() => model.addAccess(agent1, 'read', agent2), FmcModelError);
   });
 
-  test('addChannel rejects a storage endpoint', function (assert) {
+  test('addChannel rejects a location endpoint', function (assert) {
     const model = new FmcModel();
     const agent = model.addElement(ElementType.AGENT);
-    const storage = model.addElement(ElementType.STORAGE);
-    assert.throws(() => model.addChannel(agent, storage, true), FmcModelError);
+    const location = model.addElement(ElementType.LOCATION);
+    assert.throws(() => model.addChannel(agent, location, true), FmcModelError);
   });
 
   test('an element cannot contain itself', function (assert) {
@@ -132,9 +132,9 @@ module('Unit | Utility | fmc-model', function () {
     const model = new FmcModel();
     const parent = model.addElement(ElementType.AGENT);
     const child = model.addElement(ElementType.AGENT);
-    const storage = model.addElement(ElementType.STORAGE);
+    const location = model.addElement(ElementType.LOCATION);
     model.addContainment(parent, child);
-    model.addAccess(parent, 'read', storage);
+    model.addAccess(parent, 'read', location);
 
     model.removeElement(parent);
 
@@ -146,13 +146,13 @@ module('Unit | Utility | fmc-model', function () {
   test('toJSON/fromJSON round-trips a model', function (assert) {
     const model = new FmcModel();
     const agent = model.addElement(ElementType.AGENT, { label: 'A' });
-    const storage = model.addElement(ElementType.STORAGE, {
+    const location = model.addElement(ElementType.LOCATION, {
       label: 'S',
       dashed: true,
     });
-    model.addAccess(agent, 'modify', storage);
+    model.addAccess(agent, 'modify', location);
     const viewId = model.createView('overview', 'block');
-    model.views.get(viewId).included.push(agent, storage);
+    model.views.get(viewId).included.push(agent, location);
     model.views
       .get(viewId)
       .boxes.set(agent, { x: 0, y: 0, width: 120, height: 60 });
@@ -160,7 +160,7 @@ module('Unit | Utility | fmc-model', function () {
     const restored = FmcModel.fromJSON(model.toJSON());
 
     assert.strictEqual(restored.elements.get(agent).label, 'A');
-    assert.true(restored.elements.get(storage).dashed);
+    assert.true(restored.elements.get(location).dashed);
     assert.strictEqual(restored.accesses.length, 1);
     assert.strictEqual(restored.views.get(viewId).included.length, 2);
     assert.strictEqual(restored.views.get(viewId).boxes.get(agent).width, 120);
@@ -185,36 +185,93 @@ module('Unit | Utility | fmc-model', function () {
     assert.strictEqual(restoredView.nestedUnder.get(unnested), null);
   });
 
-  test('channels get a stable id, and its custom place position round-trips', function (assert) {
-    const model = new FmcModel();
-    const a = model.addElement(ElementType.AGENT);
-    const b = model.addElement(ElementType.AGENT);
-    const channel = model.addChannel(a, b, true);
-    assert.strictEqual(typeof channel.id, 'string');
-    assert.true(channel.id.length > 0);
+  module('channels as locations', function () {
+    test('addChannel(directed) creates a location with write/read access, not a separate edge type', function (assert) {
+      const model = new FmcModel();
+      const a = model.addElement(ElementType.AGENT);
+      const b = model.addElement(ElementType.AGENT);
 
-    const viewId = model.createView('overview', 'block');
-    model.views.get(viewId).channelPlaces.set(channel.id, { x: 42, y: 7 });
+      const placeId = model.addChannel(a, b, true);
 
-    const restored = FmcModel.fromJSON(model.toJSON());
-    const restoredChannel = restored.channels[0];
-    assert.strictEqual(restoredChannel.id, channel.id);
-    assert.deepEqual(restored.views.get(viewId).channelPlaces.get(channel.id), {
-      x: 42,
-      y: 7,
+      const place = model.elements.get(placeId);
+      assert.strictEqual(place.type, ElementType.LOCATION);
+      assert.deepEqual(place.channel, { shorthand: false });
+      assert.deepEqual(
+        model.accesses.map((edge) => [edge.agent, edge.kind, edge.location]),
+        [
+          [a, 'write', placeId],
+          [b, 'read', placeId],
+        ],
+      );
     });
-  });
 
-  test('removeElement drops that element channels custom place overrides too', function (assert) {
-    const model = new FmcModel();
-    const a = model.addElement(ElementType.AGENT);
-    const b = model.addElement(ElementType.AGENT);
-    const channel = model.addChannel(a, b, true);
-    const viewId = model.createView('overview', 'block');
-    model.views.get(viewId).channelPlaces.set(channel.id, { x: 1, y: 2 });
+    test('addChannel(bidirectional) gives both agents modify access to the place', function (assert) {
+      const model = new FmcModel();
+      const a = model.addElement(ElementType.AGENT);
+      const b = model.addElement(ElementType.AGENT);
 
-    model.removeElement(a);
+      const placeId = model.addChannel(a, b, false);
 
-    assert.false(model.views.get(viewId).channelPlaces.has(channel.id));
+      assert.deepEqual(
+        model.accesses.map((edge) => [edge.agent, edge.kind]),
+        [
+          [a, 'modify'],
+          [b, 'modify'],
+        ],
+      );
+      assert.strictEqual(model.accesses[0].location, placeId);
+      assert.strictEqual(model.accesses[1].location, placeId);
+    });
+
+    test('addReqRes(shorthand) creates one bold-labeled place with write/read access', function (assert) {
+      const model = new FmcModel();
+      const a = model.addElement(ElementType.AGENT);
+      const b = model.addElement(ElementType.AGENT);
+
+      const [placeId] = model.addReqRes(a, b, { shorthand: true });
+
+      const place = model.elements.get(placeId);
+      assert.strictEqual(place.label, 'R▶');
+      assert.deepEqual(place.channel, { shorthand: true });
+      assert.deepEqual(
+        model.accesses.map((edge) => [edge.agent, edge.kind]),
+        [
+          [a, 'write'],
+          [b, 'read'],
+        ],
+      );
+    });
+
+    test('addReqRes(long form) creates two places, REQ and RES, with opposite access directions', function (assert) {
+      const model = new FmcModel();
+      const a = model.addElement(ElementType.AGENT);
+      const b = model.addElement(ElementType.AGENT);
+
+      const [reqId, resId] = model.addReqRes(a, b, { shorthand: false });
+
+      assert.strictEqual(model.elements.get(reqId).label, 'REQ');
+      assert.strictEqual(model.elements.get(resId).label, 'RES');
+      assert.deepEqual(
+        model.accesses.map((edge) => [edge.agent, edge.kind, edge.location]),
+        [
+          [a, 'write', reqId],
+          [b, 'read', reqId],
+          [b, 'write', resId],
+          [a, 'read', resId],
+        ],
+      );
+    });
+
+    test('removing a channel place removes its access edges like any other location', function (assert) {
+      const model = new FmcModel();
+      const a = model.addElement(ElementType.AGENT);
+      const b = model.addElement(ElementType.AGENT);
+      const placeId = model.addChannel(a, b, true);
+
+      model.removeElement(placeId);
+
+      assert.strictEqual(model.accesses.length, 0);
+      assert.false(model.elements.has(placeId));
+    });
   });
 });

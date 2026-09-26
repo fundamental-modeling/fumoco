@@ -17,29 +17,31 @@ export const ConnectorKind = Object.freeze({
 });
 
 const AGENT_TYPES = ['agent', 'human_agent'];
-const STORAGE_TYPES = ['storage'];
+const LOCATION_TYPES = ['location'];
 
 // What each connector kind's source/target must be -- both for eligibility
 // highlighting on the canvas and for the toolbar's step-by-step hint text.
-// Access edges are agent->storage; channels/reqres are agent->agent.
+// Access edges are agent->location; channels/reqres are agent->agent (a
+// channel's own place is created automatically, not picked by the user --
+// see FmcModel.addChannel/addReqRes).
 const RULES = {
   [ConnectorKind.READ]: {
     source: AGENT_TYPES,
-    target: STORAGE_TYPES,
+    target: LOCATION_TYPES,
     sourceLabel: 'agent that reads',
-    targetLabel: 'storage/location being read',
+    targetLabel: 'location being read',
   },
   [ConnectorKind.WRITE]: {
     source: AGENT_TYPES,
-    target: STORAGE_TYPES,
+    target: LOCATION_TYPES,
     sourceLabel: 'agent that writes',
-    targetLabel: 'storage/location being written',
+    targetLabel: 'location being written',
   },
   [ConnectorKind.MODIFY]: {
     source: AGENT_TYPES,
-    target: STORAGE_TYPES,
+    target: LOCATION_TYPES,
     sourceLabel: 'agent with modifying access',
-    targetLabel: 'storage/location being modified',
+    targetLabel: 'location being modified',
   },
   [ConnectorKind.CHANNEL_DIRECTED]: {
     source: AGENT_TYPES,

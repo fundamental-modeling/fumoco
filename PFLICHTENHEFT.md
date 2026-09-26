@@ -15,14 +15,14 @@ folded in here too.
   have to be hand-rolled (`Konva.Transformer` for resize handles).
 - **Reactivity**: `tracked-built-ins`' `TrackedMap`/`TrackedArray`
   (backed by Ember's own `@ember/reactive/collections`) for the model's
-  dynamic-keyed state (`elements`, `views`, `boxes`, `channelPlaces`).
+  dynamic-keyed state (`elements`, `views`, `boxes`).
   Canvas shapes are kept in sync with two different mechanisms, not one:
   - **Structural changes** (add/remove element, switch view, add/remove
     edge) go through `syncShapes`, an `ember-modifier` function-modifier
     that auto-tracks whatever it reads and does a full teardown+rebuild
     of the shape layer when any of it changes.
-  - **Interactive per-shape changes** (drag, resize, dragging a channel's
-    place circle) commit their new box/position into the tracked model
+  - **Interactive per-shape changes** (drag, resize) commit their new
+    box/position into the tracked model
     as usual, but *also* call `refreshEdges()`/etc. directly, right in
     the same event handler — not relying on the reactive rebuild to
     happen in time, and specifically avoiding tearing down the shape
@@ -38,26 +38,33 @@ folded in here too.
 FmcModel {
   elements: TrackedMap<id, Element>
   accesses: TrackedArray<AccessEdge>
-  channels: TrackedArray<Channel>
   views: TrackedMap<id, View>
 }
 
-Element { id, type: "agent"|"human_agent"|"storage", label, parent, dashed }
-AccessEdge { agent, kind: "read"|"write"|"modify", storage }
-Channel { id, source, target, directed, place: { label, shorthand } }
+Element { id, type: "agent"|"human_agent"|"location", label, parents: id[], dashed, channel }
+AccessEdge { agent, kind: "read"|"write"|"modify", location }
 
 View {
   id, name, diagramType
   included: TrackedArray<elementId>
   boxes: TrackedMap<elementId, { x, y, width, height }>
-  channelPlaces: TrackedMap<channelId, { x, y }>  // manual override of the
-                                                    // auto-computed midpoint
+  nestedUnder: TrackedMap<elementId, parentId | null>
 }
 ```
 
 Bipartite validation (`_require`) and containment cycle-checking
 (`_isAncestor`) are ports of `attic/src/fmc/model.py`'s equivalents.
 Ids are `crypto.randomUUID()` (native, no dependency).
+
+Terminology per FMC's own notation reference
+(https://www.fmc-modeling.org/notation_reference): "Location" is the
+general term for the passive system component, with "Storage" and
+"Channel" as its two specific kinds, not two unrelated concepts —
+`ElementType.STORAGE`/`AccessEdge.storage` were renamed to `LOCATION`/
+`location` to match. A channel is not a distinct edge type here (see
+"Channels as locations" below): `Element.channel` is `null` for an
+ordinary location, or `{ shorthand }` to render it as a channel place (a
+small circle) instead.
 
 ## Layout (`editor.gjs` + `app/styles/app.css`)
 
@@ -66,7 +73,7 @@ flexbox, since the properties panel spans only the center+canvas column
 (not under the tree or palette): `model-tree` occupies column 1 across
 both rows, `palette` column 3 across both rows, `editor-canvas-area`
 column 2 row 1, `properties-panel` column 2 row 2. Element creation
-(agent/human agent/storage) and the connector-arming buttons moved from
+(agent/human agent/location) and the connector-arming buttons moved from
 the tree/a dedicated toolbar into `palette.gjs`; `properties-panel.gjs`
 shows the last-selected element's type/label/dashed-flag (or the active
 view's name if nothing is selected), editable in place.
@@ -169,11 +176,9 @@ box).
 - Corners are rounded via a custom `Konva.Shape` using native canvas
   `arcTo` (`Konva.Arrow` doesn't support this) plus hand-drawn triangle
   arrowheads.
-- A channel's place circle is `draggable`; dragging it commits an
-  `{x, y}` into that view's `channelPlaces` for that channel's id. When
-  set, the edge routes through it as two independent legs (source→point,
-  point→target), each still rectilinear via the same `orthogonalPath`
-  fed a zero-size "point box."
+- A channel's place is an ordinary `Location` element (see "Channels as
+  locations" below), so it's freely draggable and positioned like any
+  other box — no separate `channelPlaces` map or dedicated drag handling.
 
 ## Canvas viewport (pan)
 
@@ -226,26 +231,40 @@ element id everywhere currently: drag/resize commit, connector
 click-to-id, `nodesById`, selection) -- deliberately scoped as its own
 pass rather than folded into the containment-model change above.
 
-## Planned: channel places as locations
+## Channels as locations (`fmc-model.js`, `canvas-view.gjs`)
 
-Not started. `Channel { id, source, target, directed, place }` as a
-distinct edge type goes away; a channel's place becomes an ordinary
-`Element` (type `storage`) with a rendering flag (e.g. `renderAsChannel:
-true`) that draws it as a small circle instead of a rounded rect, with
-direction carried by which agent has `read` vs `write` access to it
-(matching FMC's arrow-circle-arrow / line-circle-line convention) rather
-than a `directed` flag on a separate edge concept:
-- directed channel A→B: one place-storage, A has `write`, B has `read`.
-- bidirectional channel: one place-storage, both agents have `modify`.
-- req/res long form: two place-storages (REQ: source writes/target
-  reads; RES: target writes/source reads).
-- req/res shorthand: one place-storage, same access pattern as directed,
-  plus the existing bold-label/no-arrowhead rendering flags.
+Done. `Channel { id, source, target, directed, place }` as a distinct
+edge type is gone; a channel's place is an ordinary `Location` `Element`
+with `channel: { shorthand }` set, connected to its agents via ordinary
+`addAccess` edges instead of a `directed` flag on a separate concept:
+- `addChannel(source, target, directed)`: one location; directed gives
+  source `write`/target `read` (draws arrow-circle-arrow); bidirectional
+  gives both `modify` (draws line-circle-line, no arrowheads).
+- `addReqRes(source, target, { shorthand })`: shorthand creates one
+  bold-labeled (`"R▶"`) location with the same write/read access pattern
+  as a directed channel, its glyph carrying direction instead of
+  arrowheads; long form creates two locations, `REQ` (source writes/
+  target reads) and `RES` (target writes/source reads).
 
-This removes `FmcModel.channels`/`addChannel`/`addReqRes` and the
-`Channel`-specific canvas code (`drawChannel`, `channelPlaces`) in favor
-of routing everything through `addAccess` plus the new rendering flag --
-a real reduction in the number of concepts, not just a relabeling.
+Rendering (`canvas-view.gjs`'s `buildShape`/`drawAccessEdge`): a
+`channel`-flagged location gets a near-circular `cornerRadius` (a squashed
+`Konva.Rect`, not a dedicated `Konva.Circle`, to reuse all the existing
+shape-generic code — drag, resize, label, selection — for free);
+`drawAccessEdge` branches on `locationElement.channel` to pick
+arrow-circle-arrow vs. line-circle-line and whether to suppress
+arrowheads for `shorthand`. `FmcModel.channels`/the old `drawChannel`
+method/`View.channelPlaces` are all gone — this was a real reduction in
+the number of concepts, not just a relabeling.
+
+## Removed: automatic box-to-box smart guides
+
+Tried, then explicitly disabled (`showSnapGuides` and its `dragmove`
+listener deleted from `canvas-view.gjs`): with more than a few boxes on a
+view, a guide line flashing on every nearby-box alignment was too
+invasive. Grid snap (`dragBoundFunc`/`snapToGrid`) is unaffected and still
+active. The `implementation_plan.org` "draggable ruler guide lines" item
+is the intended replacement — a guide you drag in deliberately, not one
+the canvas throws up automatically.
 
 ## Process note
 

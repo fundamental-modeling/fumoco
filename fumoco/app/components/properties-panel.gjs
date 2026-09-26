@@ -3,7 +3,6 @@ import { action } from '@ember/object';
 import { service } from '@ember/service';
 import { on } from '@ember/modifier';
 import { fn } from '@ember/helper';
-import eq from 'fumoco/helpers/eq';
 import { FmcModelError } from 'fumoco/utils/fmc-model';
 
 export default class PropertiesPanel extends Component {
@@ -31,6 +30,13 @@ export default class PropertiesPanel extends Component {
   get parentElements() {
     const element = this.selectedElement;
     return element ? this.modelStore.model.parentsOf(element.id) : [];
+  }
+
+  // Dashed (structure variance) is a plain-storage-box convention -- a
+  // channel place drawn as a dashed circle isn't a real FMC combination.
+  get showsDashedOption() {
+    const element = this.selectedElement;
+    return element?.type === 'location' && !element.channel;
   }
 
   @action
@@ -106,7 +112,7 @@ export default class PropertiesPanel extends Component {
             {{on "input" this.updateLabel}}
           />
         </label>
-        {{#if (eq this.selectedElement.type "storage")}}
+        {{#if this.showsDashedOption}}
           <label class="properties-panel-field properties-panel-checkbox">
             <input
               type="checkbox"

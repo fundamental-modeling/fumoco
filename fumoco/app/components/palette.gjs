@@ -63,8 +63,8 @@ export default class Palette extends Component {
   }
 
   @action
-  addStorage() {
-    this.addElement(ElementType.STORAGE, 'New storage');
+  addLocation() {
+    this.addElement(ElementType.LOCATION, 'New location');
   }
 
   @action
@@ -77,7 +77,7 @@ export default class Palette extends Component {
       <h3>Elements</h3>
       <button type="button" {{on "click" this.addAgent}}>Agent</button>
       <button type="button" {{on "click" this.addHumanAgent}}>Human agent</button>
-      <button type="button" {{on "click" this.addStorage}}>Storage</button>
+      <button type="button" {{on "click" this.addLocation}}>Location</button>
 
       <h3>Connectors</h3>
       {{#each this.connectorButtons as |option|}}

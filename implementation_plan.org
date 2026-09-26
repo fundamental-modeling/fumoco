@@ -24,8 +24,12 @@ So a model bigger than one screen can still be navigated.
 
 ** DONE Resize a box by dragging its corner/edge handles
 
-** DONE Boxes snap to a grid and align automatically against nearby boxes while dragging
-With visual guides.
+** DONE Boxes snap to a grid while dragging
+Grid snap only. Automatic box-to-box smart guides (visual alignment lines
+against other boxes) were tried and then explicitly disabled — with more
+boxes on a view they were too invasive. See the =OPEN= draggable-ruler-guide
+item below for the replacement approach (guides you drag in deliberately,
+not automatic).
 
 ** DONE Select multiple boxes and see clearly which ones are selected
 Shift-click, cmd/ctrl-click, or drag a rectangle over them.
@@ -107,14 +111,19 @@ needs the instance-based view schema (see the open item below).
 ** TODO Delete a connector, not just an element
 E.g. by selecting it on the canvas.
 
-** OPEN Channel places become ordinary location elements, not a separate concept
-"Channel" becomes a rendering style a location can have (small circle,
-optional arrowheads carrying direction) rather than a separate model
-concept; connects to its agents via ordinary read/write/modify access
-edges instead of a distinct Channel edge type. Removes
-=FmcModel.channels=/=addChannel=/=addReqRes= and the Channel-specific
-canvas code in favor of routing everything through =addAccess= plus the
-new rendering flag.
+** DONE Channel places become ordinary location elements, not a separate concept
+"Channel" is now a rendering style a location can have (=Element.channel=:
+=null= or ={ shorthand }=; drawn as a near-circle via a squashed
+=cornerRadius=, not a dedicated Konva.Circle) rather than a separate model
+concept. =addChannel=/=addReqRes= now create an ordinary =Location=
+element and connect it to its agents via ordinary read/write/modify
+access edges; =FmcModel.channels= and =View.channelPlaces= are gone.
+Also renamed =ElementType.STORAGE= to =ElementType.LOCATION= (and
+=AccessEdge.storage= to =AccessEdge.location=) to match FMC's actual
+notation-reference terminology: "Location" is the general term for the
+passive component, with "Storage" and "Channel" as its two specific
+kinds, not two unrelated concepts (confirmed against
+https://www.fmc-modeling.org/notation_reference).
 
 ** OPEN Draggable ruler guide lines that boxes snap to
 Dragged in from a ruler on the left or top edge of the canvas.

@@ -3,9 +3,18 @@
 // instead of Python's direct object references, and made reactive with
 // tracked-built-ins so Ember components re-render on mutation.
 //
-// Milestone A scope only: agents/human_agents/storage, access edges,
-// channels (incl. reqres). Petri/ER element types are added in
-// Milestones B/C without changing this shape's spirit -- see the plan.
+// Terminology per FMC's own notation reference (fmc-modeling.org): the
+// passive system component is a "Location", with "Storage" and "Channel"
+// as its two specific kinds -- not two unrelated concepts. A channel is
+// NOT a distinct edge type here (unlike attic/src/fmc/model.py, where it
+// was): per explicit request, a channel's "place" (the small circle) is
+// an ordinary Location Element with `channel` rendering metadata set,
+// connected to its agents via ordinary access edges. Direction is carried
+// by which agents have read/write access to it (arrow-circle-arrow) or
+// modify access (line-circle-line, no arrowheads) -- not by a `directed`
+// flag on a separate concept. See addChannel/addReqRes below and
+// PFLICHTENHEFT.md for the rendering side. Petri/ER element types are added
+// in Milestones B/C without changing this shape's spirit -- see the plan.
 
 import { tracked } from '@glimmer/tracking';
 import { TrackedArray, TrackedMap } from 'tracked-built-ins';
@@ -15,7 +24,7 @@ export class FmcModelError extends Error {}
 export const ElementType = Object.freeze({
   AGENT: 'agent',
   HUMAN_AGENT: 'human_agent',
-  STORAGE: 'storage',
+  LOCATION: 'location',
 });
 
 export class Element {
@@ -27,36 +36,37 @@ export class Element {
   // different composites) -- not a strict tree, so this is a list, not a
   // single `parent`.
   parents = new TrackedArray();
-  @tracked dashed = false; // storage only -- structure variance
+  @tracked dashed = false; // location only -- structure variance
+  // location only -- null for an ordinary storage box; { shorthand } to
+  // render as a channel place (small circle) instead -- FMC's other kind
+  // of location. `shorthand` bolds the label and suppresses arrowheads on
+  // edges touching it (the label's own glyph, e.g. "R▶", carries
+  // direction instead). See canvas-view.gjs.
+  @tracked channel;
 
-  constructor(id, type, { label = null, parents = [], dashed = false } = {}) {
+  constructor(
+    id,
+    type,
+    { label = null, parents = [], dashed = false, channel = null } = {},
+  ) {
     this.id = id;
     this.type = type;
     this.label = label;
     for (const parentId of parents) this.parents.push(parentId);
     this.dashed = dashed;
+    this.channel = channel;
   }
 }
 
-// Access edges and channels are recreated wholesale (not field-mutated) on
-// edit, so plain objects -- held in a TrackedArray -- are enough: pushing/
-// splicing the array is what's reactive, not any one edge's fields.
-export function makeAccessEdge(agentId, kind, storageId) {
-  return { agent: agentId, kind, storage: storageId };
+// Access edges are recreated wholesale (not field-mutated) on edit, so
+// plain objects -- held in a TrackedArray -- are enough: pushing/splicing
+// the array is what's reactive, not any one edge's fields.
+export function makeAccessEdge(agentId, kind, locationId) {
+  return { agent: agentId, kind, location: locationId };
 }
 
 function makeId() {
   return crypto.randomUUID();
-}
-
-export function makeChannel(sourceId, targetId, directed, place = {}) {
-  return {
-    id: makeId(),
-    source: sourceId,
-    target: targetId,
-    directed,
-    place: { label: place.label ?? null, shorthand: place.shorthand ?? false },
-  };
 }
 
 export class View {
@@ -65,9 +75,6 @@ export class View {
   @tracked diagramType;
   included = new TrackedArray(); // element ids shown in this view
   boxes = new TrackedMap(); // element id -> { x, y, width, height }
-  // channel id -> { x, y }, overriding the auto-computed midpoint when the
-  // user has dragged that channel's place circle to a custom spot.
-  channelPlaces = new TrackedMap();
   // Whether/under-which-parent an element is *displayed* nested in this
   // view -- independent of Element.parents (the world-model fact).
   // element id -> parentId (display nested under that parent, which must
@@ -89,7 +96,6 @@ export class View {
 export class FmcModel {
   elements = new TrackedMap(); // id -> Element
   accesses = new TrackedArray(); // AccessEdge[]
-  channels = new TrackedArray(); // Channel[]
   views = new TrackedMap(); // id -> View
 
   // ---- elements & containment ----
@@ -118,21 +124,14 @@ export class FmcModel {
         if (parentId === id) view.nestedUnder.delete(childId);
       }
     }
+    // A channel place (a location Element) that loses one of its agents
+    // is just an ordinary element losing an ordinary access edge -- no
+    // separate channel-cleanup needed now that a channel isn't its own
+    // edge type.
     this._removeInPlace(
       this.accesses,
-      (a) => a.agent === id || a.storage === id,
+      (a) => a.agent === id || a.location === id,
     );
-    const removedChannelIds = this.channels
-      .filter((c) => c.source === id || c.target === id)
-      .map((c) => c.id);
-    this._removeInPlace(
-      this.channels,
-      (c) => c.source === id || c.target === id,
-    );
-    for (const view of this.views.values()) {
-      for (const channelId of removedChannelIds)
-        view.channelPlaces.delete(channelId);
-    }
   }
 
   _removeInPlace(trackedArray, matches) {
@@ -207,34 +206,66 @@ export class FmcModel {
 
   // ---- bipartite edges ----
 
-  addAccess(agentId, kind, storageId) {
+  addAccess(agentId, kind, locationId) {
     this._require(agentId, ElementType.AGENT, ElementType.HUMAN_AGENT);
-    this._require(storageId, ElementType.STORAGE);
-    const edge = makeAccessEdge(agentId, kind, storageId);
+    this._require(locationId, ElementType.LOCATION);
+    const edge = makeAccessEdge(agentId, kind, locationId);
     this.accesses.push(edge);
     return edge;
   }
 
-  addChannel(sourceId, targetId, directed) {
+  // Creates the channel's place (a Location Element with `channel` render
+  // metadata) and connects it to both agents via ordinary access edges --
+  // directed: source writes, target reads (draws as arrow-circle-arrow);
+  // bidirectional: both agents get modify access (draws as a plain
+  // line-circle-line, no arrowheads -- see canvas-view.gjs). Returns the
+  // new place element's id so the caller can add it to a view's boxes.
+  addChannel(sourceId, targetId, directed, { label = null } = {}) {
     this._require(sourceId, ElementType.AGENT, ElementType.HUMAN_AGENT);
     this._require(targetId, ElementType.AGENT, ElementType.HUMAN_AGENT);
-    const channel = makeChannel(sourceId, targetId, directed);
-    this.channels.push(channel);
-    return channel;
+    const placeId = this.addElement(ElementType.LOCATION, {
+      label,
+      channel: { shorthand: false },
+    });
+    if (directed) {
+      this.addAccess(sourceId, 'write', placeId);
+      this.addAccess(targetId, 'read', placeId);
+    } else {
+      this.addAccess(sourceId, 'modify', placeId);
+      this.addAccess(targetId, 'modify', placeId);
+    }
+    return placeId;
   }
 
+  // shorthand: one place (source writes, target reads), labeled "R▶",
+  // bold, no arrowheads -- the glyph itself carries direction. Long form:
+  // two places, REQ (source writes/target reads) and RES (target writes/
+  // source reads). Returns the new place element id(s).
   addReqRes(sourceId, targetId, { shorthand = false } = {}) {
+    this._require(sourceId, ElementType.AGENT, ElementType.HUMAN_AGENT);
+    this._require(targetId, ElementType.AGENT, ElementType.HUMAN_AGENT);
     if (shorthand) {
-      const channel = this.addChannel(sourceId, targetId, true);
-      channel.place.label = 'R▶';
-      channel.place.shorthand = true;
-      return [channel];
+      const placeId = this.addElement(ElementType.LOCATION, {
+        label: 'R▶',
+        channel: { shorthand: true },
+      });
+      this.addAccess(sourceId, 'write', placeId);
+      this.addAccess(targetId, 'read', placeId);
+      return [placeId];
     }
-    const request = this.addChannel(sourceId, targetId, true);
-    request.place.label = 'REQ';
-    const response = this.addChannel(targetId, sourceId, true);
-    response.place.label = 'RES';
-    return [request, response];
+    const reqId = this.addElement(ElementType.LOCATION, {
+      label: 'REQ',
+      channel: { shorthand: false },
+    });
+    this.addAccess(sourceId, 'write', reqId);
+    this.addAccess(targetId, 'read', reqId);
+    const resId = this.addElement(ElementType.LOCATION, {
+      label: 'RES',
+      channel: { shorthand: false },
+    });
+    this.addAccess(targetId, 'write', resId);
+    this.addAccess(sourceId, 'read', resId);
+    return [reqId, resId];
   }
 
   _require(id, ...expectedTypes) {
@@ -278,11 +309,11 @@ export class FmcModel {
             label: element.label,
             parents: [...element.parents],
             dashed: element.dashed,
+            channel: element.channel ? { ...element.channel } : null,
           },
         ]),
       ),
       accesses: [...this.accesses],
-      channels: [...this.channels],
       views: Object.fromEntries(
         [...this.views].map(([id, view]) => [
           id,
@@ -291,7 +322,6 @@ export class FmcModel {
             diagramType: view.diagramType,
             included: [...view.included],
             boxes: Object.fromEntries(view.boxes),
-            channelPlaces: Object.fromEntries(view.channelPlaces),
             nestedUnder: Object.fromEntries(view.nestedUnder),
           },
         ]),
@@ -308,26 +338,18 @@ export class FmcModel {
           label: element.label,
           parents: element.parents ?? [],
           dashed: element.dashed,
+          channel: element.channel ? { ...element.channel } : null,
         }),
       );
     }
     for (const access of json.accesses ?? []) {
       model.accesses.push({ ...access });
     }
-    for (const channel of json.channels ?? []) {
-      model.channels.push({
-        ...channel,
-        id: channel.id ?? makeId(),
-        place: { ...channel.place },
-      });
-    }
     for (const [id, view] of Object.entries(json.views ?? {})) {
       const v = new View(id, view.name, view.diagramType);
       for (const elementId of view.included ?? []) v.included.push(elementId);
       for (const [elementId, box] of Object.entries(view.boxes ?? {}))
         v.boxes.set(elementId, { ...box });
-      for (const [channelId, place] of Object.entries(view.channelPlaces ?? {}))
-        v.channelPlaces.set(channelId, { ...place });
       for (const [elementId, parentId] of Object.entries(
         view.nestedUnder ?? {},
       ))

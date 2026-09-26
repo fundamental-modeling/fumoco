@@ -6,7 +6,6 @@ import { FmcModelError } from 'fumoco/utils/fmc-model';
 import { ConnectorKind, connectorRule } from 'fumoco/services/connector-tool';
 
 const GRID = 10;
-const SNAP_TOLERANCE = 6;
 const MIN_SIZE = 20;
 const MARQUEE_THRESHOLD = 3; // px of movement before a stage mousedown counts as a drag, not a click
 const NESTING_PADDING = 30;
@@ -406,21 +405,15 @@ export default class CanvasView extends Component {
 
   buildEdges(view, effectiveBoxes) {
     const included = new Set(view.included);
-    for (const access of this.modelStore.model.accesses) {
-      if (!included.has(access.agent) || !included.has(access.storage))
+    const model = this.modelStore.model;
+    for (const access of model.accesses) {
+      if (!included.has(access.agent) || !included.has(access.location))
         continue;
       const agentBox = effectiveBoxes.get(access.agent);
-      const storageBox = effectiveBoxes.get(access.storage);
-      if (!agentBox || !storageBox) continue;
-      this.drawAccessEdge(access, agentBox, storageBox);
-    }
-    for (const channel of this.modelStore.model.channels) {
-      if (!included.has(channel.source) || !included.has(channel.target))
-        continue;
-      const sourceBox = effectiveBoxes.get(channel.source);
-      const targetBox = effectiveBoxes.get(channel.target);
-      if (!sourceBox || !targetBox) continue;
-      this.drawChannel(channel, sourceBox, targetBox, view);
+      const locationBox = effectiveBoxes.get(access.location);
+      if (!agentBox || !locationBox) continue;
+      const locationElement = model.elements.get(access.location);
+      this.drawAccessEdge(access, agentBox, locationBox, locationElement);
     }
   }
 
@@ -462,75 +455,32 @@ export default class CanvasView extends Component {
     }
   }
 
-  drawAccessEdge(access, agentBox, storageBox) {
+  // A channel's place (locationElement.channel set) is agent<->location
+  // access like any other, just rendered differently: a shorthand place's
+  // label glyph (e.g. "R▶") carries direction itself, so its edges never
+  // get arrowheads; a plain channel place still gets the ordinary
+  // read/write arrowhead on each leg (which is what makes two such edges
+  // meeting at one place look like "arrow-circle-arrow"). Modify access to
+  // a channel place draws as a plain line (line-circle-line, no
+  // arrowheads) instead of the double-headed curved arrow used for modify
+  // access to an ordinary storage location.
+  drawAccessEdge(access, agentBox, locationBox, locationElement) {
+    const isChannel = !!locationElement?.channel;
+    const suppressArrow = locationElement?.channel?.shorthand === true;
     if (access.kind === 'modify') {
-      const path = orthogonalPath(agentBox, storageBox);
-      this.addRoutedEdge(path, { arrowStart: true, arrowEnd: true });
+      const path = orthogonalPath(agentBox, locationBox);
+      this.addRoutedEdge(
+        path,
+        isChannel ? {} : { arrowStart: true, arrowEnd: true },
+      );
       return;
     }
     const [from, to] =
-      access.kind === 'read' ? [storageBox, agentBox] : [agentBox, storageBox];
+      access.kind === 'read'
+        ? [locationBox, agentBox]
+        : [agentBox, locationBox];
     const path = orthogonalPath(from, to);
-    this.addRoutedEdge(path, { arrowEnd: true });
-  }
-
-  drawChannel(channel, sourceBox, targetBox, view) {
-    const override = view.channelPlaces.get(channel.id);
-    let path, mid;
-    if (override) {
-      // Route through the user-placed point as a zero-size "box" -- keeps
-      // both legs rectilinear via the same orthogonalPath logic, just
-      // split into two hops instead of one.
-      const point = { x: override.x, y: override.y, width: 0, height: 0 };
-      const firstLeg = orthogonalPath(sourceBox, point);
-      const secondLeg = orthogonalPath(point, targetBox);
-      path = [...firstLeg, ...secondLeg.slice(1)];
-      mid = override;
-    } else {
-      path = orthogonalPath(sourceBox, targetBox);
-      mid =
-        path.length === 3
-          ? path[1]
-          : { x: (path[0].x + path[1].x) / 2, y: (path[0].y + path[1].y) / 2 };
-    }
-    const drawArrows = channel.directed && !channel.place.shorthand;
-
-    this.addRoutedEdge(path, { arrowEnd: drawArrows });
-    const placeCircle = new Konva.Circle({
-      x: mid.x,
-      y: mid.y,
-      radius: 7,
-      fill: '#ffffff',
-      stroke: '#000000',
-      strokeWidth: 2,
-      name: 'fumoco-edge',
-      draggable: true,
-      dragBoundFunc: (pos) => ({ x: snapToGrid(pos.x), y: snapToGrid(pos.y) }),
-    });
-    placeCircle.on('dragend', () => {
-      this.modelStore.mutate(() => {
-        view.channelPlaces.set(channel.id, {
-          x: placeCircle.x(),
-          y: placeCircle.y(),
-        });
-      });
-      this.refreshEdges();
-    });
-    this.shapeLayer.add(placeCircle);
-    if (channel.place.label) {
-      this.shapeLayer.add(
-        new Konva.Text({
-          x: mid.x - 20,
-          y: mid.y - 22,
-          width: 40,
-          text: channel.place.label,
-          align: 'center',
-          fontSize: 13,
-          fontStyle: channel.place.shorthand ? 'bold' : 'normal',
-          name: 'fumoco-edge',
-        }),
-      );
-    }
+    this.addRoutedEdge(path, { arrowEnd: !suppressArrow });
   }
 
   // Re-runs on selection changes only, without touching shape geometry.
@@ -664,6 +614,7 @@ export default class CanvasView extends Component {
     }
     const sourceId = tool.pendingSourceId;
     tool.pendingSourceId = null;
+    const view = this.modelStore.activeView;
     try {
       this.modelStore.mutate((model) => {
         switch (tool.kind) {
@@ -674,13 +625,27 @@ export default class CanvasView extends Component {
           case ConnectorKind.MODIFY:
             return model.addAccess(sourceId, 'modify', id);
           case ConnectorKind.CHANNEL_DIRECTED:
-            return model.addChannel(sourceId, id, true);
+            return this.placeChannelElementsInView(view, sourceId, id, [
+              model.addChannel(sourceId, id, true),
+            ]);
           case ConnectorKind.CHANNEL_BIDIRECTIONAL:
-            return model.addChannel(sourceId, id, false);
+            return this.placeChannelElementsInView(view, sourceId, id, [
+              model.addChannel(sourceId, id, false),
+            ]);
           case ConnectorKind.REQRES_LONG:
-            return model.addReqRes(sourceId, id, { shorthand: false });
+            return this.placeChannelElementsInView(
+              view,
+              sourceId,
+              id,
+              model.addReqRes(sourceId, id, { shorthand: false }),
+            );
           case ConnectorKind.REQRES_SHORTHAND:
-            return model.addReqRes(sourceId, id, { shorthand: true });
+            return this.placeChannelElementsInView(
+              view,
+              sourceId,
+              id,
+              model.addReqRes(sourceId, id, { shorthand: true }),
+            );
           default:
             throw new FmcModelError(`unknown connector kind: ${tool.kind}`);
         }
@@ -692,6 +657,49 @@ export default class CanvasView extends Component {
         throw error;
       }
     }
+  }
+
+  // A channel/reqres's place(s) are now ordinary Location elements (see
+  // FmcModel.addChannel/addReqRes) -- they need an actual box in the
+  // active view to be visible at all, unlike the old dedicated
+  // Channel/channelPlaces concept. Default position: the midpoint between
+  // source and target, offset sideways per place so a req/res pair
+  // doesn't start out overlapping. Freely draggable afterward, like any
+  // other element.
+  placeChannelElementsInView(view, sourceId, targetId, placeIds) {
+    if (!view) return;
+    const sourceBox = view.boxes.get(sourceId);
+    const targetBox = view.boxes.get(targetId);
+    const midX =
+      sourceBox && targetBox
+        ? (sourceBox.x +
+            sourceBox.width / 2 +
+            targetBox.x +
+            targetBox.width / 2) /
+          2
+        : 200;
+    const midY =
+      sourceBox && targetBox
+        ? (sourceBox.y +
+            sourceBox.height / 2 +
+            targetBox.y +
+            targetBox.height / 2) /
+          2
+        : 200;
+    const size = 50;
+    placeIds.forEach((placeId, index) => {
+      view.included.push(placeId);
+      view.boxes.set(placeId, {
+        x:
+          midX -
+          size / 2 +
+          index * (size + 10) -
+          ((placeIds.length - 1) * (size + 10)) / 2,
+        y: midY - size / 2,
+        width: size,
+        height: size,
+      });
+    });
   }
 
   // `nested`: this element has at least one child also present in the
@@ -717,15 +725,27 @@ export default class CanvasView extends Component {
     });
     group.setAttr('fumocoNested', nested);
 
-    const isStorage = element.type === 'storage';
+    const isLocation = element.type === 'location';
+    const isChannel = !!element.channel;
+    // A channel's place is an ordinary Location element rendered as a
+    // circle instead of a (rounded) rect -- a plain Konva.Rect with
+    // cornerRadius = half its (square) box reads as a perfect circle,
+    // which keeps every other piece of shape-generic code (hit area,
+    // resize/transform, selection styling, snap guides) working
+    // unchanged rather than needing a Rect-vs-Circle branch throughout.
+    const cornerRadius = isChannel
+      ? Math.min(box.width, box.height) / 2
+      : isLocation
+        ? Math.min(12, box.width / 2, box.height / 2)
+        : 0;
     const rect = new Konva.Rect({
       width: box.width,
       height: box.height,
       fill: '#ffffff',
       stroke: '#000000',
       strokeWidth: 2,
-      cornerRadius: isStorage ? Math.min(12, box.width / 2, box.height / 2) : 0,
-      dash: isStorage && element.dashed ? [6, 4] : undefined,
+      cornerRadius,
+      dash: isLocation && element.dashed ? [6, 4] : undefined,
     });
     group.add(rect);
 
@@ -733,28 +753,36 @@ export default class CanvasView extends Component {
       group.add(this.buildStickFigure(box));
     }
 
-    // A container's label must never render smaller than a leaf's --
-    // parent labels shrinking below their children's was a real,
-    // repeatedly-flagged complaint about the old Python auto-layouter
-    // too. Same fontSize as a leaf, just top-left-positioned and gray so
-    // it still reads as a container label rather than centered content.
-    const label = nested
-      ? new Konva.Text({
-          text: element.label ?? '',
-          x: 8,
-          y: 6,
-          fontSize: 15,
-          fill: '#666666',
-        })
-      : new Konva.Text({
-          text: element.label ?? '',
-          width: box.width,
-          height: box.height,
-          align: 'center',
-          verticalAlign: 'middle',
-          fontSize: 15,
-          padding: 8,
-        });
+    let label;
+    if (nested) {
+      // A container's label must never render smaller than a leaf's --
+      // parent labels shrinking below their children's was a real,
+      // repeatedly-flagged complaint about the old Python auto-layouter
+      // too. Same fontSize as a leaf, just top-left-positioned and gray
+      // so it still reads as a container label rather than centered
+      // content.
+      label = new Konva.Text({
+        text: element.label ?? '',
+        x: 8,
+        y: 6,
+        fontSize: 15,
+        fill: '#666666',
+      });
+    } else {
+      label = new Konva.Text({
+        text: element.label ?? '',
+        width: box.width,
+        height: box.height,
+        align: 'center',
+        verticalAlign: 'middle',
+        fontSize: 15,
+        padding: 8,
+        // A shorthand channel's label glyph (e.g. "R▶") is what carries
+        // direction, in place of arrowheads -- bold makes that glyph the
+        // thing your eye catches, matching the FMC convention.
+        fontStyle: isChannel && element.channel.shorthand ? 'bold' : 'normal',
+      });
+    }
     group.add(label);
 
     group.on('click', (event) => {
@@ -814,10 +842,7 @@ export default class CanvasView extends Component {
         this.refreshEdges();
       });
     } else {
-      group.on('dragmove', () => this.showSnapGuides(group, view));
       group.on('dragend', () => {
-        this.guideLayer.destroyChildren();
-        this.guideLayer.batchDraw();
         this.modelStore.mutate(() => {
           view.boxes.set(element.id, { ...box, x: group.x(), y: group.y() });
           this.updateContainmentAfterDrag(element.id, view);
@@ -968,67 +993,6 @@ export default class CanvasView extends Component {
       }),
     );
     return group;
-  }
-
-  showSnapGuides(node, view) {
-    this.guideLayer.destroyChildren();
-    const w = node.findOne('Rect').width();
-    const h = node.findOne('Rect').height();
-    const x0 = node.x();
-    const y0 = node.y();
-    const targetsX = [
-      { v: x0, e: 'left' },
-      { v: x0 + w / 2, e: 'centerx' },
-      { v: x0 + w, e: 'right' },
-    ];
-    const targetsY = [
-      { v: y0, e: 'top' },
-      { v: y0 + h / 2, e: 'centery' },
-      { v: y0 + h, e: 'bottom' },
-    ];
-
-    for (const [id, other] of view.boxes) {
-      if (id === node.id()) continue;
-      const others = [
-        { v: other.x, e: 'left' },
-        { v: other.x + other.width / 2, e: 'centerx' },
-        { v: other.x + other.width, e: 'right' },
-      ];
-      const othersY = [
-        { v: other.y, e: 'top' },
-        { v: other.y + other.height / 2, e: 'centery' },
-        { v: other.y + other.height, e: 'bottom' },
-      ];
-      for (const target of targetsX) {
-        for (const candidate of others) {
-          if (Math.abs(target.v - candidate.v) <= SNAP_TOLERANCE) {
-            node.x(node.x() + (candidate.v - target.v));
-            this.guideLayer.add(
-              new Konva.Line({
-                points: [candidate.v, -4000, candidate.v, 4000],
-                stroke: '#ff4081',
-                strokeWidth: 1,
-              }),
-            );
-          }
-        }
-      }
-      for (const target of targetsY) {
-        for (const candidate of othersY) {
-          if (Math.abs(target.v - candidate.v) <= SNAP_TOLERANCE) {
-            node.y(node.y() + (candidate.v - target.v));
-            this.guideLayer.add(
-              new Konva.Line({
-                points: [-4000, candidate.v, 4000, candidate.v],
-                stroke: '#ff4081',
-                strokeWidth: 1,
-              }),
-            );
-          }
-        }
-      }
-    }
-    this.guideLayer.batchDraw();
   }
 
   <template>
