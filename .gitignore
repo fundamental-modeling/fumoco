@@ -1,0 +1,12 @@
+# external/generated reference material, not project source
+ext/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.pytest_cache/
+dist/
+build/
+_build/
