@@ -248,6 +248,132 @@
     </section>
   </section>
 
+  <section id="formal-model">
+    <h2>Formal Model</h2>
+    <p>
+      <a href="#terminology">Terminology and Conformance</a> above is
+      deliberately prose-first, since that's how a diagram reader
+      actually approaches the notation. This section restates the same
+      concepts as a small set-theoretic structure — the universes,
+      relations, and laws that exist prior to and independently of any
+      particular diagram. Each of the three diagram-type sections that
+      follow then gives a <em>denotational semantics</em>: a precise
+      mapping from that diagram type's graph structure onto (a fragment
+      of) this model, plus the well-formedness predicate a diagram must
+      satisfy to conform. A diagram is a syntax for describing part of an
+      instance of this structure; this section fixes what that structure
+      actually is, independent of how it's drawn.
+    </p>
+
+    <section id="fm-universes">
+      <h3>Universes</h3>
+      <ul>
+        <li><var>𝒜</var> — the set of agents.</li>
+        <li><var>ℒ</var> — the set of locations, partitioned into
+          disjoint subsets <var>𝒮</var> (storages) and <var>𝒞</var>
+          (channels): <var>ℒ = 𝒮 ∪ 𝒞</var>, <var>𝒮 ∩ 𝒞 = ∅</var>.</li>
+        <li><var>𝒱</var> — the set of values. This specification leaves
+          the structure of <var>𝒱</var> open beyond the unstructured/
+          structured distinction in <a href="#term-values">Values</a>.</li>
+        <li><var>𝕋</var> — a totally ordered set of instants, used only
+          to state ordering laws below; it does not imply a single
+          observable global clock exists inside the system itself.</li>
+      </ul>
+    </section>
+
+    <section id="fm-access">
+      <h3>Access</h3>
+      <p>
+        Let <var>Kind = {read, write, modify}</var>. The access structure
+        is a relation
+        <var>Access ⊆ 𝒜 × Kind × ℒ</var>. Two laws hold on it,
+        corresponding to <a href="#term-components">System components</a>'
+        minimum-arity requirements:
+      </p>
+      <ul>
+        <li><strong>Channel arity</strong>:
+          <var>∀c ∈ 𝒞, |{a ∈ 𝒜 : ∃k. (a,k,c) ∈ Access}| ≥ 2</var> — at
+          least two distinct agents access any given channel.</li>
+        <li><strong>Storage arity</strong>:
+          <var>∀s ∈ 𝒮, |{a ∈ 𝒜 : ∃k. (a,k,s) ∈ Access}| ≥ 1</var>.</li>
+      </ul>
+    </section>
+
+    <section id="fm-containment">
+      <h3>Containment</h3>
+      <p>
+        Let <var>PartOf ⊆ (𝒜 ∪ ℒ) × (𝒜 ∪ ℒ)</var>, read
+        <var>(x, y) ∈ PartOf</var> as "<var>x</var> is nested in
+        <var>y</var>." The only law required is
+        <strong>acyclicity</strong>: the transitive closure
+        <var>PartOf⁺</var> is irreflexive — no component is, even
+        transitively, part of itself. Nothing requires <var>PartOf</var>
+        to be a partial function of its first argument, so a component
+        being nested in more than one container at once is permitted,
+        matching <a href="#term-containment">Containment and structure
+        variance</a>.
+      </p>
+    </section>
+
+    <section id="fm-events">
+      <h3>Values over time, events, and operations</h3>
+      <p>
+        Let <var>val: ℒ × 𝕋 → 𝒱</var> be the value observable at a
+        location at an instant — piecewise-constant in its second
+        argument between events. Let <var>ℰ</var> be the set of events,
+        with <var>loc: ℰ → ℒ</var>, <var>at: ℰ → 𝕋</var>,
+        <var>pre: ℰ → 𝒱</var>, and <var>post: ℰ → 𝒱</var>. Two laws:
+      </p>
+      <ul>
+        <li><strong>An event is exactly a value change</strong>:
+          <var>∀e ∈ ℰ, pre(e) ≠ post(e)</var>, and <var>val(loc(e), t)</var>
+          equals <var>pre(e)</var> for every instant <var>t</var>
+          immediately preceding <var>at(e)</var> and <var>post(e)</var>
+          for every instant immediately following it.</li>
+        <li><strong>Continuity between consecutive events</strong>: for
+          two events <var>e, e'</var> at the same location with
+          <var>at(e) &lt; at(e')</var> and no third event of that
+          location strictly between them, <var>post(e) = pre(e')</var>.
+          </li>
+      </ul>
+      <p>
+        Let <var>𝒪</var> be the set of operations, with
+        <var>perf: 𝒪 → 𝒜</var> (which agent performs it) and
+        <var>reads, writes ⊆ 𝒪 × ℒ</var>. Three laws:
+      </p>
+      <ul>
+        <li><strong>An operation always writes something</strong>:
+          <var>∀o ∈ 𝒪, ∃l. (o,l) ∈ writes</var> — a pure generator has
+          <var>reads(o,·) = ∅</var> but never
+          <var>writes(o,·) = ∅</var>.</li>
+        <li><strong>Access consistency</strong>: an operation's reads and
+          writes must be backed by the performing agent's actual access:
+          <var>(o,l) ∈ reads ⟹ (perf(o), read, l) ∈ Access ∨
+          (perf(o), modify, l) ∈ Access</var>, and symmetrically for
+          <var>writes</var> against <var>write</var>/<var>modify</var>.
+          </li>
+        <li>Let <var>producesEvents: 𝒪 → 𝒫(ℰ)</var> map each operation
+          to the (possibly empty — a write that doesn't change the
+          value produces no event) set of events its write accesses
+          actually produce.</li>
+      </ul>
+    </section>
+
+    <section id="fm-causality">
+      <h3>Causal ordering</h3>
+      <p>
+        Let <var>≺ ⊆ ℰ × ℰ</var> be a strict partial order (irreflexive
+        and transitive) read as "happens before," and let
+        <var>triggers ⊆ ℰ × 𝒪</var> relate an event to an operation it
+        causes an agent connected to its location to perform.
+        <strong>Causal consistency</strong>:
+        <var>(e, o) ∈ triggers ∧ e' ∈ producesEvents(o) ⟹ e ≺ e'</var> —
+        an operation's own output events never precede the event that
+        triggered it.
+      </p>
+    </section>
+  </section>
+
   <section id="block-diagrams">
     <h2>Block Diagrams</h2>
     <aside class="note" title="Normative status">
@@ -300,6 +426,51 @@
         change (an agent or location coming into or going out of
         existence) is observed, with the responsible agent's access to
         it drawn as ordinary modify access.
+      </p>
+    </section>
+
+    <section id="bd-formal">
+      <h3>Denotational semantics</h3>
+      <p>
+        A block diagram is a tuple <var>(N, τ, E)</var>: a finite node
+        set <var>N</var>, a typing function
+        <var>τ: N → {agent, storage, channel}</var>, and an edge set
+        <var>E ⊆ N × Kind × N</var>. It <dfn>denotes</dfn> an instance of
+        the <a href="#formal-model">Formal Model</a> under an
+        interpretation <var>⟦·⟧: N → 𝒜 ∪ ℒ</var> respecting
+        <var>τ</var> (<var>τ(n)=agent ⟹ ⟦n⟧∈𝒜</var>,
+        <var>τ(n)=storage ⟹ ⟦n⟧∈𝒮</var>,
+        <var>τ(n)=channel ⟹ ⟦n⟧∈𝒞</var>) that is injective — distinct
+        nodes never denote the same component.
+      </p>
+      <p>A block diagram conforms (see <a href="#conformance">Conformance</a>) under such an interpretation
+        iff:</p>
+      <ol>
+        <li><strong>Bipartite</strong>: every edge in <var>E</var>
+          connects a node typed <var>agent</var> to a node typed
+          <var>storage</var> or <var>channel</var> — never two nodes of
+          the same side.</li>
+        <li><strong>Faithful to <var>Access</var></strong>: for every
+          edge <var>(n, k, n') ∈ E</var> with <var>τ(n)=agent</var>,
+          <var>(⟦n⟧, k, ⟦n'⟧) ∈ Access</var> (an edge drawn the other
+          way round, location first, denotes the same triple — the
+          agent, not the drawing order, is what <var>Access</var> is
+          indexed on).</li>
+        <li>The channel-arity and storage-arity laws from
+          <a href="#fm-access">Access</a> hold for every location in
+          <var>⟦N⟧</var>, restricted to the accesses actually shown.</li>
+      </ol>
+      <p>
+        A block diagram need not be complete — it may denote only part of
+        a larger system, in which case <var>⟦N⟧</var> and the induced
+        access edges are a subset of the full <var>𝒜</var>,
+        <var>ℒ</var>, and <var>Access</var>. Channel presentation is
+        purely syntactic: a directed pair of accesses
+        <var>{(a₁,write,c),(a₂,read,c)}</var>, its two-channel
+        request/response expansion, and its bold-glyph shorthand (see
+        <a href="#bd-channel-notation">Channel notation</a>) all denote
+        exactly the same <var>Access</var> triples — the notation varies,
+        the denotation does not.
       </p>
     </section>
   </section>
@@ -386,6 +557,65 @@
         base case (the point where it stops calling itself again).
       </p>
     </section>
+
+    <section id="pn-formal">
+      <h3>Denotational semantics</h3>
+      <p>
+        A Petri net is a tuple <var>(P, T, W, cap, M₀)</var>: disjoint
+        finite sets of places <var>P</var> and transitions <var>T</var>;
+        a weight function
+        <var>W: (P×T) ∪ (T×P) → ℕ</var> (an absent arc has weight 0); a
+        capacity function <var>cap: P → ℕ ∪ {∞}</var> (1 for an ordinary
+        place, per <a href="#pn-marking">Marking and capacity</a>); and
+        an initial marking <var>M₀: P → ℕ</var> with
+        <var>M₀(p) ≤ cap(p)</var>. A <dfn>marking</dfn> is any
+        <var>M: P → ℕ</var> respecting <var>cap</var>.
+      </p>
+      <p>
+        <strong>Firing rule</strong> — transition <var>t</var> is
+        <dfn>enabled</dfn> in marking <var>M</var> iff
+        <var>∀p ∈ P, M(p) ≥ W(p,t)</var>. Firing an enabled <var>t</var>
+        replaces <var>M</var> with <var>M'</var> where, for every
+        <var>p ∈ P</var>,
+        <var>M'(p) = M(p) − W(p,t) + W(t,p)</var>, provided
+        <var>M'(p) ≤ cap(p)</var> for every output place (a firing that
+        would overflow a finite-capacity place is not permitted). This is
+        the standard place/transition net firing rule; it is what makes
+        the four <a href="#pn-constructs">standard constructs</a> and
+        <a href="#pn-nop">NOP transitions</a> formally checkable rather
+        than just visually recognizable.
+      </p>
+      <p>
+        <strong>Denotation onto the Formal Model</strong>: each firing of
+        a transition <var>t</var> denotes one operation instance
+        <var>o ∈ 𝒪</var> whose <var>writes</var> are <var>t</var>'s
+        output places (those <var>p</var> with <var>W(t,p) &gt; 0</var>)
+        and whose <var>reads</var> are its input places (those
+        <var>p</var> with <var>W(p,t) &gt; 0</var>); it produces one
+        event in <var>producesEvents(o)</var> at each output place whose
+        token count actually changes as a result. The net's reachable
+        firing sequences induce the causal order <var>≺</var> on those
+        events: an event from an earlier firing precedes one from a later
+        firing whenever the later firing's enabling depended on the
+        earlier one's output. Under this reading:
+      </p>
+      <ul>
+        <li>A <a href="#pn-constructs">sequence</a> is a chain of
+          transitions each of whose sole input place is the sole output
+          place of the previous one.</li>
+        <li>A <a href="#pn-constructs">case</a> is a set of transitions
+          sharing an input place with disjoint enabling conditions, so
+          that a marking of that place enables at most one of them at a
+          time.</li>
+        <li>A <a href="#pn-constructs">loop</a> is a transition (or
+          chain) whose output place is, transitively, also its own input
+          place along some path.</li>
+        <li><a href="#pn-constructs">Concurrency</a> is two or more
+          transitions with disjoint input-place sets, both enabled by the
+          same marking, with no <var>≺</var> relation forced between
+          their firings.</li>
+      </ul>
+    </section>
   </section>
 
   <section id="er-diagrams">
@@ -447,6 +677,55 @@
         folded into a single entity set for use one level up — most
         useful for showing a level and its own meta-level together.
       </p>
+    </section>
+
+    <section id="er-formal">
+      <h3>Denotational semantics</h3>
+      <p>
+        An ER diagram is a tuple <var>(Ent, Rel, part)</var>: a finite set
+        <var>Ent</var> of entity-set symbols; a finite set <var>Rel</var>
+        of relation symbols, each <var>r ∈ Rel</var> with an arity
+        <var>n(r)</var> and an ordered tuple of participating entity-set
+        symbols <var>(e₁,...,e_{n(r)})</var>; and a partitioning relation
+        <var>part</var> recording which entity sets are declared subsets
+        of which (for <a href="#er-reification">orthogonal
+        partitioning</a>).
+      </p>
+      <p>
+        A denotation <var>⟦·⟧</var> maps each entity-set symbol
+        <var>e</var> to a subset <var>⟦e⟧ ⊆ 𝒱</var> and each relation
+        symbol <var>r</var> to a subset of the Cartesian product of its
+        participants,
+        <var>⟦r⟧ ⊆ ⟦e₁⟧ × ... × ⟦e_{n(r)}⟧</var> — exactly the informal
+        "a relation is a subset of the cross product of the participating
+        entity sets" made precise. Under this denotation:
+      </p>
+      <ul>
+        <li>A <strong>cardinality range</strong> <var>(min,max)</var> on
+          the arc between <var>r</var> and its <var>i</var>-th
+          participant <var>eᵢ</var> requires
+          <var>∀x ∈ ⟦eᵢ⟧, min ≤ |{t ∈ ⟦r⟧ : tᵢ = x}| ≤ max</var>.</li>
+        <li>A <strong>1:n relation</strong> between <var>e₁</var> and
+          <var>e₂</var> denotes a partial function
+          <var>⟦r⟧: ⟦e₁⟧ ⇀ ⟦e₂⟧</var> — i.e.
+          <var>∀x, |{y : (x,y) ∈ ⟦r⟧}| ≤ 1</var>; a
+          <strong>1:1 relation</strong> denotes an injective partial
+          function (the same condition additionally holding with the
+          roles of <var>e₁</var> and <var>e₂</var> swapped).</li>
+        <li><strong>Reification</strong> of <var>r</var> introduces a
+          fresh entity-set symbol <var>e_r</var> with a canonical
+          bijection <var>⟦e_r⟧ ≅ ⟦r⟧</var> — each element of
+          <var>e_r</var> denotes exactly one tuple of <var>r</var>, which
+          is what licenses <var>e_r</var> participating in further
+          relations as an ordinary entity set.</li>
+        <li><strong>Orthogonal partitioning</strong> of <var>e</var> into
+          <var>{X, Y}</var> requires
+          <var>⟦X⟧ ∪ ⟦Y⟧ = ⟦e⟧</var> and
+          <var>⟦X⟧ ∩ ⟦Y⟧ = ∅</var> — a genuine set partition — with no
+          constraint relating it to any other simultaneous partition of
+          the same <var>e</var>, which is exactly what makes the two axes
+          independent.</li>
+      </ul>
     </section>
   </section>
 
