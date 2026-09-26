@@ -85,6 +85,49 @@ module('Unit | Utility | fmc-model', function () {
     assert.deepEqual([...model.elements.get(child).parents], [b]);
   });
 
+  test('removeContainment clears a view display choice that pointed at that relationship', function (assert) {
+    const model = new FmcModel();
+    const a = model.addElement(ElementType.AGENT);
+    const child = model.addElement(ElementType.AGENT);
+    model.addContainment(a, child);
+    const viewId = model.createView('v');
+    model.views.get(viewId).nestedUnder.set(child, a);
+
+    model.removeContainment(a, child);
+
+    assert.false(model.views.get(viewId).nestedUnder.has(child));
+  });
+
+  test('removeContainment leaves a view display choice pointing at a different (still-real) parent alone', function (assert) {
+    const model = new FmcModel();
+    const a = model.addElement(ElementType.AGENT);
+    const b = model.addElement(ElementType.AGENT);
+    const child = model.addElement(ElementType.AGENT);
+    model.addContainment(a, child);
+    model.addContainment(b, child);
+    const viewId = model.createView('v');
+    model.views.get(viewId).nestedUnder.set(child, b);
+
+    model.removeContainment(a, child); // unrelated to the view's b-display choice
+
+    assert.strictEqual(model.views.get(viewId).nestedUnder.get(child), b);
+  });
+
+  test("removeElement clears that element as a view display choice, both as the element and as someone else's chosen parent", function (assert) {
+    const model = new FmcModel();
+    const parent = model.addElement(ElementType.AGENT);
+    const child = model.addElement(ElementType.AGENT);
+    model.addContainment(parent, child);
+    const viewId = model.createView('v');
+    const view = model.views.get(viewId);
+    view.nestedUnder.set(child, parent);
+
+    model.removeElement(parent);
+
+    assert.false(view.nestedUnder.has(child));
+    assert.false(view.nestedUnder.has(parent));
+  });
+
   test('removeElement detaches children and drops incident edges', function (assert) {
     const model = new FmcModel();
     const parent = model.addElement(ElementType.AGENT);
@@ -121,6 +164,25 @@ module('Unit | Utility | fmc-model', function () {
     assert.strictEqual(restored.accesses.length, 1);
     assert.strictEqual(restored.views.get(viewId).included.length, 2);
     assert.strictEqual(restored.views.get(viewId).boxes.get(agent).width, 120);
+  });
+
+  test("a view's nestedUnder display choices round-trip, including an explicit un-nest (null)", function (assert) {
+    const model = new FmcModel();
+    const container = model.addElement(ElementType.AGENT);
+    const nested = model.addElement(ElementType.AGENT);
+    const unnested = model.addElement(ElementType.AGENT);
+    model.addContainment(container, nested);
+    model.addContainment(container, unnested);
+    const viewId = model.createView('v');
+    const view = model.views.get(viewId);
+    view.nestedUnder.set(nested, container);
+    view.nestedUnder.set(unnested, null); // explicitly displayed un-nested
+
+    const restored = FmcModel.fromJSON(model.toJSON());
+    const restoredView = restored.views.get(viewId);
+
+    assert.strictEqual(restoredView.nestedUnder.get(nested), container);
+    assert.strictEqual(restoredView.nestedUnder.get(unnested), null);
   });
 
   test('channels get a stable id, and its custom place position round-trips', function (assert) {

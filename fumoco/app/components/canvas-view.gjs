@@ -15,27 +15,53 @@ function snapToGrid(value) {
   return Math.round(value / GRID) * GRID;
 }
 
-// How deeply `id` is nested, counting only containment through parents
-// that are also present in this view (an out-of-view parent doesn't
-// affect on-canvas nesting). Elements with no in-view parent are depth 0.
-export function nestingDepth(model, id, includedSet, cache) {
-  if (cache.has(id)) return cache.get(id);
+// Whether/under-which-parent `id` is *displayed* nested in `view` --
+// independent of Element.parents (the world-model containment fact).
+// An explicit `view.nestedUnder` entry always wins (a parentId to nest
+// under, or null for "explicitly shown un-nested here even though the
+// model still contains it somewhere"). With no explicit entry, default
+// to the first model parent that's also present in this view, or null.
+// This is the one place that distinction lives -- nestingDepth,
+// computeEffectiveBoxes, and collectDescendantNodes all go through it so
+// "does the model say X or does this view choose to show X" can't drift.
+export function displayParentOf(model, view, id, includedSet) {
+  if (view.nestedUnder.has(id)) return view.nestedUnder.get(id);
   const parents = (model.elements.get(id)?.parents ?? []).filter((p) =>
     includedSet.has(p),
   );
-  const depth = parents.length
-    ? 1 +
-      Math.max(
-        ...parents.map((p) => nestingDepth(model, p, includedSet, cache)),
-      )
-    : 0;
+  return parents[0] ?? null;
+}
+
+// id -> the list of ids displayed nested directly under it in this view
+// (per displayParentOf) -- the single pass every nesting computation below
+// is built on.
+export function buildDisplayChildIndex(model, view) {
+  const includedSet = new Set(view.included);
+  const index = new Map();
+  for (const id of view.included) {
+    const parent = displayParentOf(model, view, id, includedSet);
+    if (parent == null) continue;
+    if (!index.has(parent)) index.set(parent, []);
+    index.get(parent).push(id);
+  }
+  return index;
+}
+
+// How deeply `id` is displayed nested in this view (0 for top-level).
+export function nestingDepth(model, view, id, includedSet, cache) {
+  if (cache.has(id)) return cache.get(id);
+  const parent = displayParentOf(model, view, id, includedSet);
+  const depth =
+    parent == null
+      ? 0
+      : 1 + nestingDepth(model, view, parent, includedSet, cache);
   cache.set(id, depth);
   return depth;
 }
 
-// Containers with at least one child also present in this view get their
+// A container displaying at least one nested child in this view gets its
 // box auto-computed as a bounding box around those children (with
-// padding) instead of using their own stored box -- this is what actually
+// padding) instead of using its own stored box -- this is what actually
 // draws them "containing" their children, without needing real Konva
 // group-nesting or a change to children's (still plain absolute) x/y.
 // Computed deepest-first so a grandparent's fit already sees its parent's
@@ -50,14 +76,13 @@ export function computeEffectiveBoxes(model, view) {
   const depthCache = new Map();
   const byDepthDescending = [...view.included].sort(
     (a, b) =>
-      nestingDepth(model, b, includedSet, depthCache) -
-      nestingDepth(model, a, includedSet, depthCache),
+      nestingDepth(model, view, b, includedSet, depthCache) -
+      nestingDepth(model, view, a, includedSet, depthCache),
   );
+  const displayChildren = buildDisplayChildIndex(model, view);
   for (const id of byDepthDescending) {
-    const childBoxes = model
-      .childrenOf(id)
-      .filter((child) => includedSet.has(child.id))
-      .map((child) => effective.get(child.id))
+    const childBoxes = (displayChildren.get(id) ?? [])
+      .map((childId) => effective.get(childId))
       .filter(Boolean);
     if (!childBoxes.length) continue;
     const minX = Math.min(...childBoxes.map((b) => b.x));
@@ -227,14 +252,28 @@ export default class CanvasView extends Component {
     });
     this.guideLayer.add(this.marqueeRect);
 
+    // Wheel/trackpad scroll pans the canvas -- there's otherwise no way
+    // to reach content outside the initial viewport. Shift+wheel swaps
+    // the axis, matching the common "shift scrolls horizontally"
+    // convention for input devices (mice) that only report one axis.
+    this.stage.on('wheel', (event) => {
+      event.evt.preventDefault();
+      const { deltaX, deltaY, shiftKey } = event.evt;
+      const dx = shiftKey ? deltaY : deltaX;
+      const dy = shiftKey ? 0 : deltaY;
+      this.stage.x(this.stage.x() - dx);
+      this.stage.y(this.stage.y() - dy);
+      this.stage.batchDraw();
+    });
+
     this.stage.on('mousedown', (event) => {
       if (event.target !== this.stage) return;
-      this.marqueeStart = this.stage.getPointerPosition();
+      this.marqueeStart = this.stage.getRelativePointerPosition();
     });
 
     this.stage.on('mousemove', () => {
       if (!this.marqueeStart) return;
-      const pos = this.stage.getPointerPosition();
+      const pos = this.stage.getRelativePointerPosition();
       const x = Math.min(this.marqueeStart.x, pos.x);
       const y = Math.min(this.marqueeStart.y, pos.y);
       const width = Math.abs(pos.x - this.marqueeStart.x);
@@ -329,22 +368,21 @@ export default class CanvasView extends Component {
     const model = this.modelStore.model;
     const includedSet = new Set(view.included);
     const effectiveBoxes = computeEffectiveBoxes(model, view);
+    const displayChildren = buildDisplayChildIndex(model, view);
     const depthCache = new Map();
     const byDepthAscending = [...view.included].sort(
       (a, b) =>
-        nestingDepth(model, a, includedSet, depthCache) -
-        nestingDepth(model, b, includedSet, depthCache),
+        nestingDepth(model, view, a, includedSet, depthCache) -
+        nestingDepth(model, view, b, includedSet, depthCache),
     );
 
     for (const id of byDepthAscending) {
       const element = model.elements.get(id);
       const box = effectiveBoxes.get(id);
       if (!element || !box) continue;
-      const hasChildrenInView = model
-        .childrenOf(id)
-        .some((child) => includedSet.has(child.id));
+      const hasNestedChildren = (displayChildren.get(id) ?? []).length > 0;
       const node = this.buildShape(element, box, view, {
-        nested: hasChildrenInView,
+        nested: hasNestedChildren,
       });
       this.nodesById.set(id, node);
       this.shapeLayer.add(node);
@@ -804,35 +842,43 @@ export default class CanvasView extends Component {
     return group;
   }
 
-  // Every currently-visible descendant (children, grandchildren, ...) of
-  // `containerId`, with their Konva node and starting position -- used to
-  // drag a container's whole nested content together, since children are
-  // plain sibling nodes in absolute coordinates, not real Konva-group
-  // children of the container.
+  // Every descendant *displayed* nested (children, grandchildren, ..., per
+  // displayParentOf) under `containerId` in this view, with their Konva
+  // node and starting position -- used to drag a container's whole nested
+  // content together, since children are plain sibling nodes in absolute
+  // coordinates, not real Konva-group children of the container. Uses the
+  // view's display relationship, not raw model containment, so dragging a
+  // container never moves something the view currently shows un-nested
+  // even though the model still contains it there.
   collectDescendantNodes(containerId, view) {
-    const includedSet = new Set(view.included);
+    const model = this.modelStore.model;
+    const displayChildren = buildDisplayChildIndex(model, view);
     const result = [];
     const visit = (id) => {
-      for (const child of this.modelStore.model.childrenOf(id)) {
-        if (!includedSet.has(child.id)) continue;
-        const node = this.nodesById.get(child.id);
+      for (const childId of displayChildren.get(id) ?? []) {
+        const node = this.nodesById.get(childId);
         if (node)
-          result.push({ id: child.id, node, x0: node.x(), y0: node.y() });
-        visit(child.id);
+          result.push({ id: childId, node, x0: node.x(), y0: node.y() });
+        visit(childId);
       }
     };
     visit(containerId);
     return result;
   }
 
-  // After a leaf element's own drag commits its new box, check whether it
-  // was dragged out of a container it was nested in (its center no longer
-  // inside that container's current box -> remove that containment), or
-  // dragged into a new one (its center now inside some other element's
-  // box, and that element isn't already a parent -> nest it there, in the
-  // smallest such candidate if several overlap). Only for the dragged
-  // element itself, not its descendants -- a container being dragged uses
-  // collectDescendantNodes instead and doesn't change containment.
+  // After a leaf element's own drag commits its new box: if it's no longer
+  // inside the box of the container it was *displayed* nested under, that
+  // display choice is cleared for this view only (view.nestedUnder = null)
+  // -- the world-model containment (Element.parents) is deliberately left
+  // untouched; dragging something out of view is not the same as deciding
+  // it was never really contained. If its new center lands inside some
+  // *other* element's box (the smallest one, if several overlap), that
+  // establishes real containment in the model (addContainment) *and*
+  // chooses to display it nested there in this view (nestedUnder) --
+  // dragging in does both, per the user's explicit distinction; dragging
+  // out only ever changes the view. Only for the dragged element itself,
+  // not its descendants -- a container being dragged uses
+  // collectDescendantNodes instead and never changes containment.
   updateContainmentAfterDrag(elementId, view) {
     const model = this.modelStore.model;
     const element = model.elements.get(elementId);
@@ -841,19 +887,16 @@ export default class CanvasView extends Component {
     const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
     const includedSet = new Set(view.included);
     const effectiveBoxes = computeEffectiveBoxes(model, view);
-
-    for (const parentId of [...element.parents]) {
-      if (!includedSet.has(parentId)) continue;
-      const parentBox = effectiveBoxes.get(parentId);
-      if (!parentBox || !pointInBox(center, parentBox)) {
-        model.removeContainment(parentId, elementId);
-      }
-    }
+    const currentParent = displayParentOf(model, view, elementId, includedSet);
+    const currentParentBox =
+      currentParent == null ? null : effectiveBoxes.get(currentParent);
+    const stillInsideCurrentParent =
+      currentParentBox && pointInBox(center, currentParentBox);
 
     let bestCandidateId = null;
     let bestArea = Infinity;
     for (const id of view.included) {
-      if (id === elementId || element.parents.includes(id)) continue;
+      if (id === elementId || id === currentParent) continue;
       const candidateBox = effectiveBoxes.get(id);
       if (!candidateBox || !pointInBox(center, candidateBox)) continue;
       const area = candidateBox.width * candidateBox.height;
@@ -862,14 +905,18 @@ export default class CanvasView extends Component {
         bestCandidateId = id;
       }
     }
+
     if (bestCandidateId) {
       try {
         model.addContainment(bestCandidateId, elementId);
+        view.nestedUnder.set(elementId, bestCandidateId);
       } catch (error) {
         if (!(error instanceof FmcModelError)) throw error;
         // e.g. would create a cycle -- an incidental drag-over shouldn't
         // pop an alert for this, silently skip nesting instead.
       }
+    } else if (currentParent != null && !stillInsideCurrentParent) {
+      view.nestedUnder.set(elementId, null);
     }
   }
 

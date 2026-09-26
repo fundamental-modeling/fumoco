@@ -57,9 +57,14 @@ export default class PropertiesPanel extends Component {
     const element = this.selectedElement;
     if (!containerId || !element) return;
     try {
-      this.modelStore.mutate((model) =>
-        model.addContainment(containerId, element.id),
-      );
+      this.modelStore.mutate((model) => {
+        model.addContainment(containerId, element.id);
+        // Establishing containment here also chooses to display it
+        // nested in the active view, matching the canvas's drag-to-nest
+        // gesture -- both are "establish the relationship" actions, so
+        // both do the model *and* the view part of it.
+        this.modelStore.activeView?.nestedUnder.set(element.id, containerId);
+      });
     } catch (error) {
       if (!(error instanceof FmcModelError)) throw error;
       window.alert(error.message);

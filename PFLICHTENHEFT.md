@@ -1,10 +1,10 @@
 # Pflichtenheft — Fumoco
 
-The technical/functional specification: for each requirement in
-`LASTENHEFT.md`, how it's actually built. Update this alongside that file
-— a Lastenheft entry moving from `planned` to `done` should have its
-"how" recorded here, and an `open question` should have its resolved
-answer folded in here once decided.
+The technical/functional specification: for each user story in
+`LASTENHEFT.md`, how it's actually built. `implementation_plan.md` tracks
+build status per requirement; when it moves an item to `done`, that
+item's "how" belongs here, and a resolved `open question` gets its answer
+folded in here too.
 
 ## Architecture
 
@@ -100,31 +100,55 @@ reactivity bug there. Instead:
   confusing, but dragging is a real translation, not a resize). Its label
   moves to the top-left corner (small, gray) instead of centered.
 - Dragging a container (`buildShape`'s `nested` branch) moves every
-  currently-visible descendant along with it by the same delta:
-  `collectDescendantNodes` walks `childrenOf` recursively (children,
-  grandchildren, ...) collecting each one's live Konva node and starting
-  position; `dragmove` repositions all of them by the live delta for
-  immediate visual feedback, `dragend` commits each one's shifted
-  absolute box into `view.boxes`. The container's own box is never
-  written (it stays auto-fit from the new child positions on next
-  render). This only fires for descendants *currently in this view* --
-  an unrelated but coincidentally-onscreen box never moves.
-- Dragging a plain (non-container) element (`buildShape`'s non-nested
-  branch) runs `updateContainmentAfterDrag` after committing its new box:
-  for each of its current in-view parents whose (effective) box no longer
-  contains its new center, `removeContainment`; then, among all other
-  in-view elements whose box *does* contain its new center and that
-  aren't already a parent, `addContainment` into the smallest one (by
-  area, so nesting into an inner box wins over its outer container when
-  both overlap). `FmcModelError` (e.g. a would-be cycle) is caught and
-  silently ignored here — an incidental drag-over shouldn't pop an alert
-  the way an explicit connector action does.
+  currently *displayed*-nested descendant along with it by the same
+  delta: `collectDescendantNodes` walks `buildDisplayChildIndex`
+  recursively (children, grandchildren, ...) collecting each one's live
+  Konva node and starting position; `dragmove` repositions all of them by
+  the live delta for immediate visual feedback, `dragend` commits each
+  one's shifted absolute box into `view.boxes`. The container's own box
+  is never written (it stays auto-fit from the new child positions on
+  next render).
+
+### World-model containment vs. per-view display (`View.nestedUnder`)
+
+`Element.parents` is the world-model fact, shared by every view.
+Whether an element is *displayed* nested inside a parent is a separate,
+per-view choice: `View.nestedUnder` (`elementId -> parentId | null`,
+`TrackedMap`). No entry means "default to the first model parent also
+present in this view"; `displayParentOf(model, view, id, includedSet)` is
+the one place this resolution happens, and `nestingDepth`/
+`computeEffectiveBoxes`/`buildDisplayChildIndex` all go through it rather
+than reading `Element.parents` directly, so the model/view distinction
+can't drift out of sync between them.
+
+Dragging a plain (non-container) element (`buildShape`'s non-nested
+branch) runs `updateContainmentAfterDrag` after committing its new box:
+- If its new center lands inside some *other* element's box (the
+  smallest one, if several overlap, excluding its current display
+  parent) — `addContainment` (world model) *and* `view.nestedUnder.set`
+  to that parent (this view's display). Establishing containment always
+  does both, whether triggered by a drag or by the properties panel's
+  "add to container" dropdown (same two calls, same order).
+- Else, if it's no longer inside the box of the parent it was
+  *displayed* nested under — `view.nestedUnder.set(elementId, null)`
+  only. `Element.parents` (and every other view's display, and the tree)
+  is untouched. Dragging out is explicitly *not* the same action as the
+  properties panel's "remove from container" (×), which does call
+  `removeContainment` on the model.
+- `FmcModelError` from a rejected `addContainment` (e.g. a would-be
+  cycle) is caught and silently ignored — an incidental drag-over
+  shouldn't pop an alert the way an explicit connector action does.
+
+`FmcModel.removeContainment` and `removeElement` both sweep every view's
+`nestedUnder` for entries that referenced the now-gone relationship/
+element and delete them, so a view can never keep "displaying" a
+containment that no longer exists at the model level.
 
 **Known v1 limitation**: an element with two parents both present in the
-same view still renders once, and *both* parents' auto-fit boxes stretch
-to include that single location, rather than the element being drawn
-once per container. Fixing this needs the instance-based view schema
-below (each occurrence gets its own id and box).
+same view still renders once (at whichever one `nestedUnder`/the default
+resolves to), rather than once per container. Fixing this needs the
+instance-based view schema below (each occurrence gets its own id and
+box).
 
 ## Connectors (`connector-tool` service + `palette` + `canvas-view`)
 
@@ -150,6 +174,21 @@ below (each occurrence gets its own id and box).
   set, the edge routes through it as two independent legs (source→point,
   point→target), each still rectilinear via the same `orthogonalPath`
   fed a zero-size "point box."
+
+## Canvas viewport (pan)
+
+Wheel/trackpad scroll pans by translating `stage.x()`/`stage.y()`
+directly (shift+wheel swaps the axis, for single-axis input devices).
+No zoom yet, just panning. This meant `getPointerPosition()` (raw
+container-pixel coordinates, unaffected by the stage's own pan offset)
+was no longer safe to use for anything compared against shape positions
+(which live in the stage's *local*/world coordinate space) — the marquee
+selection's start/move handlers switched to
+`getRelativePointerPosition()`, which converts through the stage's
+current transform. Everything else (drag/resize/`dragBoundFunc`/snap
+guides) was already safe: Konva reports a dragged node's position
+relative to its immediate parent (the shape layer), not the stage, so
+panning the stage never affected it.
 
 ## Containment (`Element.parents`)
 

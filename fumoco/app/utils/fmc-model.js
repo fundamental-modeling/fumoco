@@ -68,6 +68,16 @@ export class View {
   // channel id -> { x, y }, overriding the auto-computed midpoint when the
   // user has dragged that channel's place circle to a custom spot.
   channelPlaces = new TrackedMap();
+  // Whether/under-which-parent an element is *displayed* nested in this
+  // view -- independent of Element.parents (the world-model fact).
+  // element id -> parentId (display nested under that parent, which must
+  // be one of its actual model parents) | null (explicitly displayed
+  // un-nested, even though the model still says it's contained somewhere).
+  // No entry at all means "use the default": nested under the first
+  // model parent that's also present in this view, if any. Dragging an
+  // element out of its container's box only ever writes `null` here --
+  // it never touches Element.parents (see canvas-view.gjs).
+  nestedUnder = new TrackedMap();
 
   constructor(id, name, diagramType = 'block') {
     this.id = id;
@@ -101,6 +111,12 @@ export class FmcModel {
       const index = view.included.indexOf(id);
       if (index !== -1) view.included.splice(index, 1);
       view.boxes.delete(id);
+      view.nestedUnder.delete(id);
+      // `id` may also have been *someone else's* display parent in this
+      // view -- that display choice is now meaningless.
+      for (const [childId, parentId] of view.nestedUnder) {
+        if (parentId === id) view.nestedUnder.delete(childId);
+      }
     }
     this._removeInPlace(
       this.accesses,
@@ -158,6 +174,16 @@ export class FmcModel {
     const child = this.elements.get(childId);
     const index = child?.parents.indexOf(parentId) ?? -1;
     if (index !== -1) child.parents.splice(index, 1);
+    // A view that was displaying childId nested under exactly this parent
+    // can no longer do so -- the relationship it was showing no longer
+    // exists. Falls back to this view's default (another remaining model
+    // parent, if any, else un-nested) rather than lying about a
+    // containment that's gone.
+    for (const view of this.views.values()) {
+      if (view.nestedUnder.get(childId) === parentId) {
+        view.nestedUnder.delete(childId);
+      }
+    }
   }
 
   // Is `candidateId` reachable by walking *any* combination of parent
@@ -266,6 +292,7 @@ export class FmcModel {
             included: [...view.included],
             boxes: Object.fromEntries(view.boxes),
             channelPlaces: Object.fromEntries(view.channelPlaces),
+            nestedUnder: Object.fromEntries(view.nestedUnder),
           },
         ]),
       ),
@@ -301,6 +328,10 @@ export class FmcModel {
         v.boxes.set(elementId, { ...box });
       for (const [channelId, place] of Object.entries(view.channelPlaces ?? {}))
         v.channelPlaces.set(channelId, { ...place });
+      for (const [elementId, parentId] of Object.entries(
+        view.nestedUnder ?? {},
+      ))
+        v.nestedUnder.set(elementId, parentId);
       model.views.set(id, v);
     }
     return model;
