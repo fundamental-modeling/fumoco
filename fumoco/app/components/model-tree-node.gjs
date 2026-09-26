@@ -93,26 +93,28 @@ export default class ModelTreeNode extends Component {
           {{on "blur" this.commitEditing}}
         />
       {{else}}
-        <button
-          type="button"
-          class="model-tree-node-label {{if this.isSelected 'is-selected'}}"
-          {{on "click" this.selectElement}}
-          {{on "dblclick" this.startEditing}}
-        >
-          <span class="model-tree-node-type">{{@element.type}}</span>
-          {{this.displayLabel}}
-        </button>
-        <button
-          type="button"
-          class="model-tree-node-rename-btn"
-          title="Rename"
-          {{on "click" this.startEditing}}
-        >&#9998;</button>
-        <button
-          type="button"
-          class="model-tree-node-delete"
-          {{on "click" this.deleteElement}}
-        >&times;</button>
+        <div class="model-tree-node-row">
+          <button
+            type="button"
+            class="model-tree-node-label {{if this.isSelected 'is-selected'}}"
+            {{on "click" this.selectElement}}
+            {{on "dblclick" this.startEditing}}
+          >
+            <span class="model-tree-node-type">{{@element.type}}</span>
+            {{this.displayLabel}}
+          </button>
+          <button
+            type="button"
+            class="model-tree-node-rename-btn"
+            title="Rename"
+            {{on "click" this.startEditing}}
+          >&#9998;</button>
+          <button
+            type="button"
+            class="model-tree-node-delete"
+            {{on "click" this.deleteElement}}
+          >&times;</button>
+        </div>
       {{/if}}
       {{#if this.children.length}}
         <ul>

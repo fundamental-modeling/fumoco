@@ -1,7 +1,7 @@
 # Pflichtenheft — Fumoco
 
 The technical/functional specification: for each user story in
-`LASTENHEFT.md`, how it's actually built. `implementation_plan.md` tracks
+`LASTENHEFT.md`, how it's actually built. `implementation_plan.org` tracks
 build status per requirement; when it moves an item to `done`, that
 item's "how" belongs here, and a resolved `open question` gets its answer
 folded in here too.

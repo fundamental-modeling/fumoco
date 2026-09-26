@@ -72,25 +72,27 @@ export default class ViewRow extends Component {
           {{on "blur" this.commitEditing}}
         />
       {{else}}
-        <button
-          type="button"
-          class="model-tree-node-label {{if this.isActive 'is-selected'}}"
-          {{on "click" this.select}}
-          {{on "dblclick" this.startEditing}}
-        >
-          {{@view.name}}
-        </button>
-        <button
-          type="button"
-          class="model-tree-node-rename-btn"
-          title="Rename"
-          {{on "click" this.startEditing}}
-        >&#9998;</button>
-        <button
-          type="button"
-          class="model-tree-node-delete"
-          {{on "click" this.deleteView}}
-        >&times;</button>
+        <div class="model-tree-node-row">
+          <button
+            type="button"
+            class="model-tree-node-label {{if this.isActive 'is-selected'}}"
+            {{on "click" this.select}}
+            {{on "dblclick" this.startEditing}}
+          >
+            {{@view.name}}
+          </button>
+          <button
+            type="button"
+            class="model-tree-node-rename-btn"
+            title="Rename"
+            {{on "click" this.startEditing}}
+          >&#9998;</button>
+          <button
+            type="button"
+            class="model-tree-node-delete"
+            {{on "click" this.deleteView}}
+          >&times;</button>
+        </div>
       {{/if}}
     </li>
   </template>

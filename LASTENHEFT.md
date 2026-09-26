@@ -2,7 +2,7 @@
 
 The requirements, as user stories, in the user's own terms — this file is
 the *what/why*, drawn directly from requests made in conversation. It
-carries no build status; that belongs in `implementation_plan.md`, which
+carries no build status; that belongs in `implementation_plan.org`, which
 tracks each of these through done/in-progress/planned/open-question.
 `PFLICHTENHEFT.md` is the *how* for whatever's been built.
 
@@ -32,6 +32,16 @@ implementation notes here — that's the other two documents' job.
   properties panel along the bottom for editing whatever's selected.
 - As a modeler, I want the model tree to list every element and every
   view, so I can navigate a model bigger than one screen.
+- As a modeler, I want each row's rename/delete buttons on the same line
+  as its title, at the right-hand edge — not wrapped onto their own line
+  wasting vertical space.
+- As a modeler, I want the canvas to render text in Barlow (with its
+  narrow variants configurable), matching the FMC diagrams I'm used to.
+- As a modeler, I want a diagram (view) to carry a title, a creation
+  date, a last-updated date, an author, and contributor fields.
+- As a modeler, I want a container's label to never render smaller than
+  its children's labels — this was a real complaint about the old Python
+  auto-layouter too, not a new one.
 
 ## Placing and editing elements
 
@@ -51,16 +61,25 @@ implementation notes here — that's the other two documents' job.
   without deleting it from the model/tree, and separately, a way to
   delete it from the model entirely.
 - As a modeler, I want a scrollable/pannable canvas viewport — a diagram
-  bigger than the visible area needs to actually be reachable.
-- As a modeler, I want a container box (one showing nested content) and a
-  plain box to feel like the same kind of thing when selected, not two
-  different UIs — a plain box currently gets all 8 resize handles, a
-  container gets none. (Polish item, not urgent.)
+  bigger than the visible area needs to actually be reachable, with
+  actual visible scrollbars, not just wheel/trackpad panning.
+- As a modeler, I want guide lines I can drag in from a ruler on the left
+  or top of the canvas, that other boxes then snap to.
+- As a modeler, I want box size to only ever change by selecting the box
+  and dragging one of its 8 resize handles — not by any other gesture.
 - As a modeler, I don't need rotation at all — boxes should stay
   axis-aligned. The rotation handle currently shown on a selected plain
   box doesn't actually do anything useful (rotation isn't persisted), so
   it should just be removed rather than made to work. (Polish item, not
   urgent.)
+- As a modeler, I want selecting a container (a box showing nested
+  content) to show the same 8 resize handles a plain box gets, so I can
+  resize it directly too.
+- As a modeler, when I drag a nested box out of its parent, I want it to
+  actually end up placed outside the parent's box, not just technically
+  un-nested while still overlapping it visually.
+- As a modeler, I want clicking the empty canvas background (not any
+  box) to show that view's own properties in the properties panel.
 
 ## Selecting and arranging multiple elements
 
@@ -94,6 +113,11 @@ implementation notes here — that's the other two documents' job.
   ordinary read/write/modify access edges.
 - As a modeler, I want to be able to delete a connector, not just an
   element.
+- As a modeler, I want to select an arrow and, in its properties, switch
+  its access kind between read/write/modify.
+- As a modeler, I want to manipulate an arrow's routing by adding and
+  moving waypoints, while it stays strictly horizontal/vertical
+  (rectangular) in nature — no free-angle segments.
 
 ## Nesting / containment
 
@@ -101,7 +125,8 @@ implementation notes here — that's the other two documents' job.
   a many-to-many relationship — not a strict tree, since the same element
   can genuinely belong inside more than one container at once.
 - As a modeler, I want a way to actually establish that nesting from the
-  UI (not just see it once it somehow exists).
+  UI (not just see it once it somehow exists) — primarily by dragging one
+  box into another, on the canvas.
 - As a modeler, I want a container to visually show its nested content on
   the canvas, not just in the tree.
 - As a modeler, I want to drag a container and have its nested content
@@ -144,3 +169,5 @@ implementation notes here — that's the other two documents' job.
 - As the person paying for this, I want a Lastenheft (this file, in user-
   story form) and a Pflichtenheft (the technical how) maintained
   alongside the actual work, not written up after the fact.
+- As the person paying for this, I want the implementation plan kept in
+  Org mode, using Org's own TODO-state keywords, not a Markdown checklist.

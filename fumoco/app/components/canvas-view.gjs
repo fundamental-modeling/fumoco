@@ -733,12 +733,17 @@ export default class CanvasView extends Component {
       group.add(this.buildStickFigure(box));
     }
 
+    // A container's label must never render smaller than a leaf's --
+    // parent labels shrinking below their children's was a real,
+    // repeatedly-flagged complaint about the old Python auto-layouter
+    // too. Same fontSize as a leaf, just top-left-positioned and gray so
+    // it still reads as a container label rather than centered content.
     const label = nested
       ? new Konva.Text({
           text: element.label ?? '',
           x: 8,
           y: 6,
-          fontSize: 12,
+          fontSize: 15,
           fill: '#666666',
         })
       : new Konva.Text({

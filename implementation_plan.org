@@ -1,0 +1,200 @@
+#+TITLE: Implementation Plan — Fumoco
+#+TODO: TODO(t) INPROGRESS(i) OPEN(o) | DONE(d)
+
+Milestone-by-milestone build status. Each entry mirrors a requirement in
+=LASTENHEFT.md= (the actual user stories, in the user's own terms).
+=OPEN= means a decision is needed before it can become =TODO=.
+=PFLICHTENHEFT.md= is the /how/ (technical approach, architecture
+decisions) for whatever's marked =DONE= here.
+
+Update this file whenever a requirement's status changes — it should
+always reflect the current backlog, not a historical log (git history is
+the log).
+
+* Milestone A — Block diagrams (standalone editor)
+
+** DONE Model tree listing all agents/human agents/storages and all views
+So a model bigger than one screen can still be navigated.
+
+** DONE Create agents, human agents, and storage elements from the tree
+
+** DONE Create and switch between multiple views ("viewpoints") over the same model
+
+** DONE Drag elements onto a view's canvas and reposition them freely (no auto-layout)
+
+** DONE Resize a box by dragging its corner/edge handles
+
+** DONE Boxes snap to a grid and align automatically against nearby boxes while dragging
+With visual guides.
+
+** DONE Select multiple boxes and see clearly which ones are selected
+Shift-click, cmd/ctrl-click, or drag a rectangle over them.
+
+** DONE Make selected boxes the same width/height/both, matching the last one selected
+
+** DONE Align a selection (left/center/right, top/middle/bottom) and distribute it evenly
+
+** DONE Rename an element or a view in place
+From the tree, or directly on the canvas, without a separate dialog
+taking over the screen.
+
+** DONE Draw access edges (read/write/modify) and channels between elements
+Directed/bidirectional/req-res, long or shorthand form; pick a tool,
+click source then target.
+
+** DONE Connector tool shows which elements are valid picks for the armed kind
+So a bipartite-rule mistake surfaces before it's made, not as a cryptic
+error after.
+
+** DONE Edges routed as horizontal/vertical lines with rounded corners
+Not diagonal straight lines.
+
+** DONE Edges automatically follow a box when it moves
+No manual "refresh" step.
+
+** DONE Freely reposition a channel's place (the small circle)
+Instead of it always sitting at the auto-computed midpoint.
+
+** DONE Remove an element from just the current view without deleting it from the model/tree
+Delete key does this; Backspace instead deletes the selection from the
+model entirely (same as the tree's own delete button) — two different,
+discoverable actions.
+
+** DONE App laid out like Archi
+Model tree on the left, a palette of element/connector tools on the
+right, a properties panel along the bottom for editing the selected
+item's label/flags.
+
+** DONE Save the model to a file and reopen it later; survive an accidental reload
+New/Open/Save/Save As in the tree's toolbar; localStorage autosave.
+
+** DONE Nest locations and actors as a many-to-many relationship, not a strict tree
+E.g. a shared resource nested under two different composites at once.
+
+** DONE A way to actually establish nesting from the UI
+Two ways: the properties panel lists an element's current containers
+(with a way to remove each) and a dropdown to add another; dragging a
+box so its center ends up inside another box's bounds nests it there (in
+the smallest overlapping candidate, if several), while dragging it back
+out un-nests it (view display only — see below). Both routes go through
+the same model validation (no self-containment, no cycles); an invalid
+drag-nest is silently skipped rather than erroring.
+
+** DONE A container visually shows its nested content on the canvas
+A container with children present in the same view is drawn as a box
+auto-fit around them, with its label moved to the top-left corner so it
+doesn't sit on the content.
+
+** DONE Drag a container and have its nested content move along with it
+
+** DONE Distinguish world-model containment from per-view display of nesting
+Containment (=Element.parents=) is a fact of the model, shared across
+every view. Whether an element is /displayed/ nested is a separate,
+per-view choice (=View.nestedUnder=) dependent on the model fact but not
+required to match it everywhere. Dragging a box into another establishes
+containment in *both* the model and this view's display; dragging it
+back out only changes this view's display — the model relationship (and
+its appearance in every other view, and in the tree) stays untouched.
+
+Known v1 limitation: an element nested in *two* containers that are both
+in the same view still renders as a single box at one position, and
+*both* containers auto-fit to include that one location, rather than the
+element being drawn once per container. Full "draw once per occurrence"
+needs the instance-based view schema (see the open item below).
+
+** TODO Export a view as PNG and as SVG
+
+** TODO Delete a connector, not just an element
+E.g. by selecting it on the canvas.
+
+** OPEN Channel places become ordinary location elements, not a separate concept
+"Channel" becomes a rendering style a location can have (small circle,
+optional arrowheads carrying direction) rather than a separate model
+concept; connects to its agents via ordinary read/write/modify access
+edges instead of a distinct Channel edge type. Removes
+=FmcModel.channels=/=addChannel=/=addReqRes= and the Channel-specific
+canvas code in favor of routing everything through =addAccess= plus the
+new rendering flag.
+
+** OPEN Draggable ruler guide lines that boxes snap to
+Dragged in from a ruler on the left or top edge of the canvas.
+
+** OPEN Visible scrollbars for the canvas viewport
+Wheel/trackpad panning is in; an actual scrollbar widget (position +
+extent, click-drag to scroll) is not.
+
+** OPEN Selecting a container shows the same 8 resize handles a plain box gets
+Resolves the earlier open design question in favor of "yes, make it
+resizable" — needs a rule for how a manual resize interacts with the
+auto-fit recompute (e.g. a manually-set size is respected as long as it's
+still large enough to contain current children; falls back to auto-fit
+otherwise).
+
+** OPEN Dragging a nested box out of its parent should place it visibly outside the parent's box
+Not just technically un-nested (nestedUnder = null) while still
+overlapping the parent's rendered rectangle. Likely needs the "still
+inside" check to move from center-point-in-box to a box/box overlap
+threshold.
+
+** OPEN Clicking the empty canvas background shows the view's own properties
+May already work (properties panel falls back to the active view when
+nothing is selected) — needs verifying against the exact "background
+click" gesture, not just "selection is empty."
+
+** OPEN Model tree row: rename/delete buttons on the same line as the title, right-aligned
+Currently wraps to its own line because the title button is
+=width: 100%=.
+
+** OPEN Select an arrow; properties panel lets its access kind be changed
+Read/write/modify (and possibly a combined read-write).
+
+** OPEN Manipulate an arrow's routing via addable/movable waypoints
+Stays strictly horizontal/vertical (rectangular); no free-angle segments.
+
+** OPEN Canvas text renders in Barlow, with narrow-variant width configurable
+
+** OPEN A diagram (view) carries title, created-at, updated-at, author, and contributor fields
+
+** TODO Box size only ever changes via the 8 resize handles, never any other gesture
+Should already hold given the current interaction model; recorded as an
+explicit requirement to guard against a future regression, same spirit
+as the rotation-handle removal below.
+
+** DONE A container's label never renders smaller than its children's labels
+Was actually backwards (container label was 12px vs. a leaf's 15px) until
+fixed — same fontSize as a leaf now, just top-left-positioned and gray so
+it still reads as a container label. A real complaint about the old
+Python auto-layouter too, not a new one.
+
+** TODO Remove the non-functional rotation handle from the Transformer
+Rotation isn't persisted (=buildShape='s =transformend= only reads
+scale, not rotation) and isn't wanted at all — axis-aligned only.
+Disable outright (=rotateEnabled: false=) rather than implementing
+working rotation.
+
+* Milestone A.5 — Formal FMC specification
+
+** TODO Formal, W3C-ReSpec-based specification of FMC's block diagram notation
+Terminology, bipartite rules, channel notation — grounded in what
+Milestone A actually implements.
+
+** TODO Petri net and ER/value-range diagram spec sections drafted normatively first
+Before Milestones B/C implement them, so there's something to conform
+to.
+
+* Milestone B — Petri nets
+
+** TODO Create places, transitions, and arcs, laid out manually like block diagrams
+
+** TODO Editor enforces the place/transition bipartite rule
+The same way it enforces agent/storage today.
+
+* Milestone C — ER / value-range diagrams
+
+** TODO Create entity sets and (possibly n-ary) relations
+With arcs carrying role/cardinality labels.
+
+* Milestone D — VS Code extension
+
+** TODO Open a Fumoco model file directly in VS Code
+Same editing experience as the standalone app.
