@@ -124,10 +124,10 @@ reactivity bug there. Instead:
   resized-then-dragged container doesn't snap back to its pre-drag
   position on the next render; a container with no manual box (still
   purely auto-fit) has nothing there to shift.
-- A container's fill is `#f2f2f2` instead of the plain-white `#ffffff`
-  every leaf box gets -- a muted backdrop reads as a grouping frame
-  without competing with the elements it contains (Visualization
-  Guidelines: use color sparingly, prefer muted tones for grouping).
+- A container's fill stays plain white, same as any other box -- a muted
+  default fill tied purely to "is this a container" was tried and
+  reverted; a box's fill only changes when the user explicitly sets it
+  (not built yet), not automatically based on its role.
 - Every node strokes at `NODE_STROKE_WIDTH` (3, or `NODE_STROKE_WIDTH_SELECTED`
   4 when selected) while every edge stays at `strokeWidth: 2`, so a node's
   outline reads visibly heavier than an edge's (Visualization Guidelines'
@@ -272,6 +272,30 @@ per-view artifacts). Clicking one selects it and pulls both endpoints
 into the active view if either isn't already shown there — same "make it
 visible" convenience `ModelTreeNode.selectElement` already does for a
 lone element.
+
+## Model validation (`FmcModel.validate`, `model-tree.gjs`)
+
+Checks the well-formedness conditions that only make sense on a
+*finished* diagram -- currently just the two Access-arity laws from
+`spec/index.html` (a channel needs ≥2 accessing agents, a storage needs
+≥1) -- run on demand rather than enforced eagerly. This is deliberately
+different from the bipartite and acyclic-containment rules, which reject
+the mutation outright (`FmcModelError`, surfaced as an `alert`) since
+those really can't be temporarily true mid-edit without corrupting the
+graph; arity is a completeness property an in-progress diagram is
+allowed to violate (an unconnected storage or a half-wired channel is a
+normal intermediate state, not a bug).
+
+`FmcModel.validate()` returns `{ elementId, message }[]` by scanning
+every `location` element's distinct accessing-agent count against
+whichever arity law applies (`element.channel` set or not). The model
+tree's "Validate model" toolbar button (`model-tree.gjs`) runs it into a
+`@tracked validationIssues` (`null` = never run, so the panel stays
+hidden; `[]` = run and clean, so it explicitly says so — a plain
+`{{#if this.validationIssues}}` can't tell those two states apart since
+Ember templates treat an empty array as falsy too, hence the separate
+`hasValidated` getter) and renders the results in a small dismissible
+panel, each issue clickable to `selection.select` the offending element.
 
 ## Canvas viewport (pan)
 

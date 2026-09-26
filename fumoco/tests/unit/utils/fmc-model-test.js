@@ -285,6 +285,50 @@ module('Unit | Utility | fmc-model', function () {
     });
   });
 
+  module('validate (well-formedness of a finished diagram)', function () {
+    test('flags a channel with fewer than 2 accessing agents', function (assert) {
+      const model = new FmcModel();
+      const agent = model.addElement(ElementType.AGENT);
+      const channel = model.addElement(ElementType.LOCATION, {
+        label: 'C',
+        channel: { shorthand: false },
+      });
+      model.addAccess(agent, 'write', channel);
+
+      const issues = model.validate();
+
+      assert.strictEqual(issues.length, 1);
+      assert.strictEqual(issues[0].elementId, channel);
+      assert.true(issues[0].message.includes('Channel "C"'));
+    });
+
+    test('flags a storage with no accessing agent', function (assert) {
+      const model = new FmcModel();
+      const storage = model.addElement(ElementType.LOCATION, { label: 'S' });
+
+      const issues = model.validate();
+
+      assert.strictEqual(issues.length, 1);
+      assert.strictEqual(issues[0].elementId, storage);
+      assert.true(issues[0].message.includes('Storage "S"'));
+    });
+
+    test('does not flag a fully-connected channel or storage', function (assert) {
+      const model = new FmcModel();
+      const a = model.addElement(ElementType.AGENT);
+      const b = model.addElement(ElementType.AGENT);
+      const channel = model.addElement(ElementType.LOCATION, {
+        channel: { shorthand: false },
+      });
+      const storage = model.addElement(ElementType.LOCATION);
+      model.addAccess(a, 'write', channel);
+      model.addAccess(b, 'read', channel);
+      model.addAccess(a, 'modify', storage);
+
+      assert.deepEqual(model.validate(), []);
+    });
+  });
+
   module('legacy JSON migration (pre-rename autosaves/files)', function () {
     test('an old "storage" element and AccessEdge.storage load as a location', function (assert) {
       const restored = FmcModel.fromJSON({

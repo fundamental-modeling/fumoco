@@ -989,12 +989,7 @@ export default class CanvasView extends Component {
     const rect = new Konva.Rect({
       width: box.width,
       height: box.height,
-      // A container drawn nested (auto-fit around its displayed children)
-      // gets a muted fill instead of plain white -- a structuring/
-      // grouping box should read as a backdrop, not compete visually
-      // with the elements it groups (FMC Visualization Guidelines' "use
-      // colors sparingly, prefer muted tones for grouping frames").
-      fill: nested ? '#f2f2f2' : '#ffffff',
+      fill: '#ffffff',
       stroke: '#000000',
       strokeWidth: NODE_STROKE_WIDTH,
       cornerRadius,

@@ -334,6 +334,38 @@ export class FmcModel {
     this.accesses.splice(index, 1, { ...this.accesses[index], kind });
   }
 
+  // Checks well-formedness conditions that only make sense on a
+  // *finished* diagram (see spec/index.html's Access-arity laws) rather
+  // than as a live editing invariant -- a storage/channel is allowed to
+  // sit unconnected while you're still wiring the rest of the diagram up,
+  // same as an element is allowed to exist before it's placed in any
+  // view. This is what a "Validate model" action runs on demand instead
+  // of enforcing eagerly like the bipartite/acyclic-containment rules.
+  validate() {
+    const issues = [];
+    for (const [id, element] of this.elements) {
+      if (element.type !== ElementType.LOCATION) continue;
+      const agentCount = new Set(
+        this.accesses
+          .filter((access) => access.location === id)
+          .map((access) => access.agent),
+      ).size;
+      const label = element.label ?? '(unnamed)';
+      if (element.channel && agentCount < 2) {
+        issues.push({
+          elementId: id,
+          message: `Channel "${label}" has ${agentCount} accessing agent(s); a channel needs at least 2.`,
+        });
+      } else if (!element.channel && agentCount < 1) {
+        issues.push({
+          elementId: id,
+          message: `Storage "${label}" has no accessing agent; a storage needs at least 1.`,
+        });
+      }
+    }
+    return issues;
+  }
+
   // Creates the channel's place (a Location Element with `channel` render
   // metadata) and connects it to both agents via ordinary access edges --
   // directed: source writes, target reads (draws as arrow-circle-arrow);

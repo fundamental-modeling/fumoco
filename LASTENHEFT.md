@@ -175,12 +175,22 @@ implementation notes here — that's the other two documents' job.
 - As a modeler, I want a way to represent "N similar boxes" as one
   exemplar plus an ellipsis/enumeration marker, instead of being forced
   to draw every instance when the exact count doesn't matter.
-- As a modeler, I want grouping/structuring boxes (a frame around related
-  elements) to default to a muted, low-saturation fill, since color
-  should stay sparing and not compete with the elements it's grouping.
+- As a modeler, I want a grouping/structuring box's fill to stay plain
+  white by default, the same as any other box, and only turn muted/
+  colored when I explicitly set that myself — not automatically just
+  because it happens to be a container.
 - As a modeler, I want a soft nudge (not a hard limit) when a diagram
   grows past a size that would no longer fit a standard page/screen, so I
   notice before a diagram has become unreadably large rather than after.
+
+## Model validation
+
+- As a modeler, I want a "validate model" action that checks conditions
+  the editor can't (and shouldn't) enforce live while I'm still editing —
+  e.g. a channel needing at least two accessing agents, a storage needing
+  at least one — and lists what it finds, rather than either silently
+  allowing an incomplete diagram forever or blocking me mid-edit for
+  something that's only wrong if I leave it that way.
 
 ## Beyond block diagrams
 

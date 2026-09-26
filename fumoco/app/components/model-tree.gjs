@@ -1,7 +1,9 @@
 import Component from '@glimmer/component';
+import { tracked } from '@glimmer/tracking';
 import { action } from '@ember/object';
 import { service } from '@ember/service';
 import { on } from '@ember/modifier';
+import { fn } from '@ember/helper';
 import ModelTreeNode from 'fumoco/components/model-tree-node';
 import ViewRow from 'fumoco/components/view-row';
 import ArrowRow from 'fumoco/components/arrow-row';
@@ -11,9 +13,14 @@ import FolderOpen from '@lucide/icons/icons/folder-open';
 import Save from '@lucide/icons/icons/save';
 import SavePlus from '@lucide/icons/icons/save-plus';
 import SquarePlus from '@lucide/icons/icons/square-plus';
+import CircleCheckBig from '@lucide/icons/icons/circle-check-big';
 
 export default class ModelTree extends Component {
   @service modelStore;
+  @service selection;
+
+  // null = not run yet (no panel shown); [] = run, nothing to report.
+  @tracked validationIssues = null;
 
   get rootElements() {
     // An element with no containers is shown here at the root; one that's
@@ -31,6 +38,13 @@ export default class ModelTree extends Component {
 
   get accesses() {
     return [...this.modelStore.model.accesses];
+  }
+
+  // Distinguishes "never run" (no panel) from "run, found nothing" (panel
+  // saying so) -- plain `{{#if this.validationIssues}}` can't tell those
+  // apart since Ember templates treat an empty array as falsy too.
+  get hasValidated() {
+    return this.validationIssues !== null;
   }
 
   @action
@@ -70,6 +84,24 @@ export default class ModelTree extends Component {
     await this.modelStore.saveAs();
   }
 
+  // Runs the well-formedness checks that only make sense on a finished
+  // diagram (see FmcModel.validate's comment) on demand, rather than
+  // enforcing them live like the bipartite/acyclic-containment rules.
+  @action
+  validate() {
+    this.validationIssues = this.modelStore.model.validate();
+  }
+
+  @action
+  dismissValidation() {
+    this.validationIssues = null;
+  }
+
+  @action
+  selectIssue(elementId) {
+    this.selection.select(elementId);
+  }
+
   <template>
     <div class="model-tree">
       <div class="model-tree-section">
@@ -86,7 +118,40 @@ export default class ModelTree extends Component {
           <button type="button" title="Save As…" {{on "click" this.saveAs}}>
             <Icon @icon={{SavePlus}} />
           </button>
+          <button
+            type="button"
+            title="Validate model"
+            {{on "click" this.validate}}
+          >
+            <Icon @icon={{CircleCheckBig}} />
+          </button>
         </div>
+        {{#if this.hasValidated}}
+          <div class="model-tree-validation">
+            <div class="model-tree-validation-header">
+              <span>{{this.validationIssues.length}} issue(s)</span>
+              <button
+                type="button"
+                title="Dismiss"
+                {{on "click" this.dismissValidation}}
+              >&times;</button>
+            </div>
+            {{#if this.validationIssues.length}}
+              <ul>
+                {{#each this.validationIssues as |issue|}}
+                  <li>
+                    <button
+                      type="button"
+                      {{on "click" (fn this.selectIssue issue.elementId)}}
+                    >{{issue.message}}</button>
+                  </li>
+                {{/each}}
+              </ul>
+            {{else}}
+              <p>No issues found.</p>
+            {{/if}}
+          </div>
+        {{/if}}
       </div>
 
       <div class="model-tree-section">
