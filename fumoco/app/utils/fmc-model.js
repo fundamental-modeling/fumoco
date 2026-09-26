@@ -69,6 +69,97 @@ function makeId() {
   return crypto.randomUUID();
 }
 
+// Upgrades a pre-rename export (ElementType "storage", AccessEdge.storage,
+// a singular Element.parent, FmcModel.channels, View.channelPlaces) to the
+// current schema, so an old autosave/file still loads correctly instead of
+// silently dropping every access edge and channel (their fields just
+// wouldn't exist under the new names). A no-op on an already-current
+// export -- detected per-field, not by a version flag, since none of these
+// old exports carried one.
+function migrateLegacyJSON(json) {
+  const elements = { ...(json.elements ?? {}) };
+  for (const [id, element] of Object.entries(elements)) {
+    const migrated = { ...element };
+    if (migrated.type === 'storage') migrated.type = ElementType.LOCATION;
+    if (!migrated.parents && 'parent' in migrated) {
+      migrated.parents = migrated.parent != null ? [migrated.parent] : [];
+    }
+    elements[id] = migrated;
+  }
+
+  const accesses = (json.accesses ?? []).map((access) => {
+    if (!('storage' in access)) return access;
+    const { storage, ...rest } = access;
+    return { ...rest, location: storage };
+  });
+
+  // Each legacy Channel becomes an ordinary Location element wired up via
+  // ordinary access edges -- the same shape addChannel/addReqRes produce.
+  const legacyPlaceSources = new Map(); // placeId -> { source, target }
+  for (const channel of json.channels ?? []) {
+    const placeId = channel.id;
+    elements[placeId] = {
+      type: ElementType.LOCATION,
+      label: channel.place?.label ?? null,
+      parents: [],
+      dashed: false,
+      channel: { shorthand: !!channel.place?.shorthand },
+    };
+    legacyPlaceSources.set(placeId, {
+      source: channel.source,
+      target: channel.target,
+    });
+    if (channel.directed) {
+      accesses.push(
+        { agent: channel.source, kind: 'write', location: placeId },
+        { agent: channel.target, kind: 'read', location: placeId },
+      );
+    } else {
+      accesses.push(
+        { agent: channel.source, kind: 'modify', location: placeId },
+        { agent: channel.target, kind: 'modify', location: placeId },
+      );
+    }
+  }
+
+  const views = { ...(json.views ?? {}) };
+  for (const [viewId, view] of Object.entries(views)) {
+    const included = [...(view.included ?? [])];
+    const boxes = { ...(view.boxes ?? {}) };
+    const channelPlaces = view.channelPlaces ?? {};
+    for (const [placeId, { source, target }] of legacyPlaceSources) {
+      const sourceBox = boxes[source];
+      const targetBox = boxes[target];
+      if (!sourceBox || !targetBox) continue; // channel not shown in this view
+      const override = channelPlaces[placeId];
+      const size = 50;
+      const box = override
+        ? { x: override.x, y: override.y, width: size, height: size }
+        : {
+            x:
+              (sourceBox.x +
+                sourceBox.width / 2 +
+                (targetBox.x + targetBox.width / 2)) /
+                2 -
+              size / 2,
+            y:
+              (sourceBox.y +
+                sourceBox.height / 2 +
+                (targetBox.y + targetBox.height / 2)) /
+                2 -
+              size / 2,
+            width: size,
+            height: size,
+          };
+      included.push(placeId);
+      boxes[placeId] = box;
+    }
+    views[viewId] = { ...view, included, boxes, channelPlaces: undefined };
+  }
+
+  return { ...json, elements, accesses, views, channels: undefined };
+}
+
 export class View {
   id;
   @tracked name;
@@ -329,7 +420,8 @@ export class FmcModel {
     };
   }
 
-  static fromJSON(json) {
+  static fromJSON(rawJson) {
+    const json = migrateLegacyJSON(rawJson);
     const model = new FmcModel();
     for (const [id, element] of Object.entries(json.elements ?? {})) {
       model.elements.set(

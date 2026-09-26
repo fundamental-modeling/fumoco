@@ -163,8 +163,17 @@ body {
   margin-bottom: 4px;
 }
 
-.model-tree-toolbar button {
-  font-size: 12px;
+.model-tree-toolbar button,
+.alignment-toolbar button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+}
+
+.icon {
+  width: 16px;
+  height: 16px;
 }
 
 .model-tree-list {

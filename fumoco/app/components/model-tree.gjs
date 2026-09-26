@@ -4,6 +4,12 @@ import { service } from '@ember/service';
 import { on } from '@ember/modifier';
 import ModelTreeNode from 'fumoco/components/model-tree-node';
 import ViewRow from 'fumoco/components/view-row';
+import Icon from 'fumoco/components/icon';
+import FilePlus from '@lucide/icons/icons/file-plus';
+import FolderOpen from '@lucide/icons/icons/folder-open';
+import Save from '@lucide/icons/icons/save';
+import SavePlus from '@lucide/icons/icons/save-plus';
+import SquarePlus from '@lucide/icons/icons/square-plus';
 
 export default class ModelTree extends Component {
   @service modelStore;
@@ -63,10 +69,18 @@ export default class ModelTree extends Component {
     <div class="model-tree">
       <div class="model-tree-section">
         <div class="model-tree-toolbar">
-          <button type="button" {{on "click" this.newModel}}>New</button>
-          <button type="button" {{on "click" this.open}}>Open&hellip;</button>
-          <button type="button" {{on "click" this.save}}>Save</button>
-          <button type="button" {{on "click" this.saveAs}}>Save As&hellip;</button>
+          <button type="button" title="New" {{on "click" this.newModel}}>
+            <Icon @icon={{FilePlus}} />
+          </button>
+          <button type="button" title="Open…" {{on "click" this.open}}>
+            <Icon @icon={{FolderOpen}} />
+          </button>
+          <button type="button" title="Save" {{on "click" this.save}}>
+            <Icon @icon={{Save}} />
+          </button>
+          <button type="button" title="Save As…" {{on "click" this.saveAs}}>
+            <Icon @icon={{SavePlus}} />
+          </button>
         </div>
       </div>
 
@@ -81,7 +95,9 @@ export default class ModelTree extends Component {
 
       <div class="model-tree-section">
         <h3>Views</h3>
-        <button type="button" {{on "click" this.addView}}>+ View</button>
+        <button type="button" title="Add view" {{on "click" this.addView}}>
+          <Icon @icon={{SquarePlus}} />
+        </button>
         <ul class="model-tree-list">
           {{#each this.views as |modelView|}}
             <ViewRow @view={{modelView}} @onDelete={{this.deleteView}} />

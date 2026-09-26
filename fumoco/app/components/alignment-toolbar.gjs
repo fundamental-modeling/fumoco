@@ -2,6 +2,18 @@ import Component from '@glimmer/component';
 import { action } from '@ember/object';
 import { service } from '@ember/service';
 import { on } from '@ember/modifier';
+import Icon from 'fumoco/components/icon';
+import StretchHorizontal from '@lucide/icons/icons/stretch-horizontal';
+import StretchVertical from '@lucide/icons/icons/stretch-vertical';
+import SquareEqual from '@lucide/icons/icons/square-equal';
+import AlignHorizontalJustifyStart from '@lucide/icons/icons/align-horizontal-justify-start';
+import AlignHorizontalJustifyCenter from '@lucide/icons/icons/align-horizontal-justify-center';
+import AlignHorizontalJustifyEnd from '@lucide/icons/icons/align-horizontal-justify-end';
+import AlignVerticalJustifyStart from '@lucide/icons/icons/align-vertical-justify-start';
+import AlignVerticalJustifyCenter from '@lucide/icons/icons/align-vertical-justify-center';
+import AlignVerticalJustifyEnd from '@lucide/icons/icons/align-vertical-justify-end';
+import AlignHorizontalDistributeCenter from '@lucide/icons/icons/align-horizontal-distribute-center';
+import AlignVerticalDistributeCenter from '@lucide/icons/icons/align-vertical-distribute-center';
 
 export default class AlignmentToolbar extends Component {
   @service modelStore;
@@ -148,63 +160,57 @@ export default class AlignmentToolbar extends Component {
         type="button"
         title="Same width"
         {{on "click" this.sameWidth}}
-      >Same W</button>
+      ><Icon @icon={{StretchHorizontal}} /></button>
       <button
         type="button"
         title="Same height"
         {{on "click" this.sameHeight}}
-      >Same H</button>
+      ><Icon @icon={{StretchVertical}} /></button>
       <button
         type="button"
         title="Same width and height"
         {{on "click" this.sameBoth}}
-      >Same W+H</button>
+      ><Icon @icon={{SquareEqual}} /></button>
       <span class="alignment-toolbar-sep"></span>
       <button
         type="button"
         title="Align left"
         {{on "click" this.alignLeft}}
-      >&#8676;</button>
+      ><Icon @icon={{AlignHorizontalJustifyStart}} /></button>
       <button
         type="button"
         title="Align center"
         {{on "click" this.alignCenterH}}
-      >&#8596;</button>
+      ><Icon @icon={{AlignHorizontalJustifyCenter}} /></button>
       <button
         type="button"
         title="Align right"
         {{on "click" this.alignRight}}
-      >&#8677;</button>
-      <button
-        type="button"
-        title="Align top"
-        {{on "click" this.alignTop}}
-      >&#8670;</button>
+      ><Icon @icon={{AlignHorizontalJustifyEnd}} /></button>
+      <button type="button" title="Align top" {{on "click" this.alignTop}}><Icon
+          @icon={{AlignVerticalJustifyStart}}
+        /></button>
       <button
         type="button"
         title="Align middle"
         {{on "click" this.alignMiddleV}}
-      >&#8597;</button>
+      ><Icon @icon={{AlignVerticalJustifyCenter}} /></button>
       <button
         type="button"
         title="Align bottom"
         {{on "click" this.alignBottom}}
-      >&#8671;</button>
+      ><Icon @icon={{AlignVerticalJustifyEnd}} /></button>
       <span class="alignment-toolbar-sep"></span>
       <button
         type="button"
         title="Distribute horizontally"
         {{on "click" this.distributeHorizontally}}
-      >
-        &#8596; Distribute
-      </button>
+      ><Icon @icon={{AlignHorizontalDistributeCenter}} /></button>
       <button
         type="button"
         title="Distribute vertically"
         {{on "click" this.distributeVertically}}
-      >
-        &#8597; Distribute
-      </button>
+      ><Icon @icon={{AlignVerticalDistributeCenter}} /></button>
     </div>
   </template>
 }

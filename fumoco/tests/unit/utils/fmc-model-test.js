@@ -185,6 +185,92 @@ module('Unit | Utility | fmc-model', function () {
     assert.strictEqual(restoredView.nestedUnder.get(unnested), null);
   });
 
+  module('legacy JSON migration (pre-rename autosaves/files)', function () {
+    test('an old "storage" element and AccessEdge.storage load as a location', function (assert) {
+      const restored = FmcModel.fromJSON({
+        elements: {
+          a: { type: 'agent', label: 'A', parent: null, dashed: false },
+          s: { type: 'storage', label: 'S', parent: null, dashed: false },
+        },
+        accesses: [{ agent: 'a', kind: 'read', storage: 's' }],
+      });
+
+      assert.strictEqual(restored.elements.get('s').type, ElementType.LOCATION);
+      assert.strictEqual(restored.accesses[0].location, 's');
+      assert.false('storage' in restored.accesses[0]);
+    });
+
+    test('a singular legacy Element.parent becomes a one-item parents array', function (assert) {
+      const restored = FmcModel.fromJSON({
+        elements: {
+          p: { type: 'agent', label: 'P', parent: null, dashed: false },
+          c: { type: 'agent', label: 'C', parent: 'p', dashed: false },
+        },
+        accesses: [],
+      });
+
+      assert.deepEqual([...restored.elements.get('c').parents], ['p']);
+    });
+
+    test('a legacy Channel becomes a location element with access edges, shown in views that had it positioned', function (assert) {
+      const restored = FmcModel.fromJSON({
+        elements: {
+          a: { type: 'agent', label: 'A', parent: null, dashed: false },
+          b: { type: 'agent', label: 'B', parent: null, dashed: false },
+        },
+        accesses: [],
+        channels: [
+          {
+            id: 'ch1',
+            source: 'a',
+            target: 'b',
+            directed: true,
+            place: { label: null, shorthand: false },
+          },
+        ],
+        views: {
+          v: {
+            name: 'v',
+            diagramType: 'block',
+            included: ['a', 'b'],
+            boxes: {
+              a: { x: 0, y: 0, width: 120, height: 60 },
+              b: { x: 300, y: 0, width: 120, height: 60 },
+            },
+            channelPlaces: { ch1: { x: 150, y: 20 } },
+          },
+        },
+      });
+
+      const place = restored.elements.get('ch1');
+      assert.strictEqual(place.type, ElementType.LOCATION);
+      assert.deepEqual(place.channel, { shorthand: false });
+      assert.deepEqual(
+        restored.accesses.map((edge) => [edge.agent, edge.kind, edge.location]),
+        [
+          ['a', 'write', 'ch1'],
+          ['b', 'read', 'ch1'],
+        ],
+      );
+      const view = restored.views.get('v');
+      assert.true(view.included.includes('ch1'));
+      assert.strictEqual(view.boxes.get('ch1').x, 150);
+      assert.strictEqual(view.boxes.get('ch1').y, 20);
+    });
+
+    test('a current-schema export round-trips unchanged (migration is a no-op)', function (assert) {
+      const model = new FmcModel();
+      const agent = model.addElement(ElementType.AGENT, { label: 'A' });
+      const location = model.addElement(ElementType.LOCATION, { label: 'L' });
+      model.addAccess(agent, 'read', location);
+
+      const restored = FmcModel.fromJSON(model.toJSON());
+
+      assert.strictEqual(restored.elements.get(location).type, 'location');
+      assert.strictEqual(restored.accesses[0].location, location);
+    });
+  });
+
   module('channels as locations', function () {
     test('addChannel(directed) creates a location with write/read access, not a separate edge type', function (assert) {
       const model = new FmcModel();
