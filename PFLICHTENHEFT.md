@@ -59,11 +59,23 @@ Bipartite validation (`_require`) and containment cycle-checking
 (`_isAncestor`) are ports of `attic/src/fmc/model.py`'s equivalents.
 Ids are `crypto.randomUUID()` (native, no dependency).
 
-## Connectors (`connector-tool` service + `connector-toolbar` + `canvas-view`)
+## Layout (`editor.gjs` + `app/styles/app.css`)
+
+Archi-style: a CSS grid (`.editor`, 3 columns × 2 rows) rather than nested
+flexbox, since the properties panel spans only the center+canvas column
+(not under the tree or palette): `model-tree` occupies column 1 across
+both rows, `palette` column 3 across both rows, `editor-canvas-area`
+column 2 row 1, `properties-panel` column 2 row 2. Element creation
+(agent/human agent/storage) and the connector-arming buttons moved from
+the tree/a dedicated toolbar into `palette.gjs`; `properties-panel.gjs`
+shows the last-selected element's type/label/dashed-flag (or the active
+view's name if nothing is selected), editable in place.
+
+## Connectors (`connector-tool` service + `palette` + `canvas-view`)
 
 - `connectorRule(kind)` (in `connector-tool.js`) is the single source of
   truth for each connector kind's required source/target element types
-  and its step-by-step hint text — both the toolbar's hint and the
+  and its step-by-step hint text — both the palette's hint and the
   canvas's eligibility-dimming read from it, so they can't drift apart.
 - Picking a kind arms it; the first canvas click on an eligible element
   sets it as the pending source (dimming non-eligible elements via

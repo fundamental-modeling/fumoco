@@ -206,16 +206,26 @@ export default class CanvasView extends Component {
     };
     window.addEventListener('resize', resize);
 
-    // Enter-to-rename doesn't depend on double-click/double-tap timing at
-    // all -- useful since Konva suppresses click/dblclick on a draggable
-    // node once it detects even a sub-pixel drag between the two taps,
-    // which a trackpad's "double tap to click" triggers easily.
     const keydown = (event) => {
-      if (event.key !== 'Enter') return;
       if (document.activeElement?.tagName === 'INPUT') return;
-      const id = this.selection.selectedIds.at(-1);
-      if (!id || this.selection.selectedIds.length !== 1) return;
-      this.promptRename(id);
+      // Enter-to-rename doesn't depend on double-click/double-tap timing
+      // at all -- useful since Konva suppresses click/dblclick on a
+      // draggable node once it detects even a sub-pixel drag between the
+      // two taps, which a trackpad's "double tap to click" triggers
+      // easily.
+      if (event.key === 'Enter') {
+        const id = this.selection.selectedIds.at(-1);
+        if (!id || this.selection.selectedIds.length !== 1) return;
+        this.promptRename(id);
+        return;
+      }
+      // Delete/Backspace removes the selection from *this view only* --
+      // the elements stay in the model (and the tree), just not shown
+      // here. Deleting an element from the whole model is a separate
+      // action (the tree's own delete button).
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        this.removeSelectionFromView();
+      }
     };
     window.addEventListener('keydown', keydown);
 
@@ -463,6 +473,20 @@ export default class CanvasView extends Component {
     this.modelStore.mutate(() => {
       element.label = next.trim() || null;
     });
+  }
+
+  removeSelectionFromView() {
+    const view = this.modelStore.activeView;
+    const ids = [...this.selection.selectedIds];
+    if (!view || !ids.length) return;
+    this.modelStore.mutate(() => {
+      for (const id of ids) {
+        const index = view.included.indexOf(id);
+        if (index !== -1) view.included.splice(index, 1);
+        view.boxes.delete(id);
+      }
+    });
+    this.selection.clear();
   }
 
   handleConnectorClick(id) {

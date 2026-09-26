@@ -4,7 +4,6 @@ import { service } from '@ember/service';
 import { on } from '@ember/modifier';
 import ModelTreeNode from 'fumoco/components/model-tree-node';
 import ViewRow from 'fumoco/components/view-row';
-import { ElementType } from 'fumoco/utils/fmc-model';
 
 export default class ModelTree extends Component {
   @service modelStore;
@@ -17,27 +16,6 @@ export default class ModelTree extends Component {
 
   get views() {
     return [...this.modelStore.model.views.values()];
-  }
-
-  @action
-  addAgent() {
-    this.modelStore.mutate((model) =>
-      model.addElement(ElementType.AGENT, { label: 'New agent' }),
-    );
-  }
-
-  @action
-  addHumanAgent() {
-    this.modelStore.mutate((model) =>
-      model.addElement(ElementType.HUMAN_AGENT, { label: 'New human agent' }),
-    );
-  }
-
-  @action
-  addStorage() {
-    this.modelStore.mutate((model) =>
-      model.addElement(ElementType.STORAGE, { label: 'New storage' }),
-    );
   }
 
   @action
@@ -90,11 +68,6 @@ export default class ModelTree extends Component {
 
       <div class="model-tree-section">
         <h3>Elements</h3>
-        <div class="model-tree-toolbar">
-          <button type="button" {{on "click" this.addAgent}}>+ Agent</button>
-          <button type="button" {{on "click" this.addHumanAgent}}>+ Human agent</button>
-          <button type="button" {{on "click" this.addStorage}}>+ Storage</button>
-        </div>
         <ul class="model-tree-list">
           {{#each this.rootElements as |element|}}
             <ModelTreeNode @element={{element}} />

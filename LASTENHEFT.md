@@ -44,10 +44,19 @@ backlog, not a historical log (git history is the log).
   read access), so I don't have to guess or get a cryptic error.
 - [done] As a modeler, I want edges to be routed as horizontal/vertical
   lines with rounded corners, not diagonal straight lines.
-- [in progress] As a modeler, I want edges to automatically follow a box
-  when I move it, without a manual "refresh" step.
-- [planned] As a modeler, I want to save my model to a file and reopen it
-  later, and have work-in-progress survive an accidental reload.
+- [done] As a modeler, I want edges to automatically follow a box when I
+  move it, without a manual "refresh" step.
+- [done] As a modeler, I want to freely reposition a channel's place
+  (the circle) instead of it always sitting at the auto-computed midpoint.
+- [done] As a modeler, I want to remove an element from just the current
+  view (Delete/Backspace), without deleting it from the model/tree.
+- [done] As a modeler, I want the app laid out like Archi: model tree on
+  the left, a palette of element/connector tools on the right, and a
+  properties panel along the bottom for editing the selected item's
+  label/flags.
+- [done] As a modeler, I want to save my model to a file and reopen it
+  later, and have work-in-progress survive an accidental reload
+  (New/Open/Save/Save As in the tree's toolbar; localStorage autosave).
 - [planned] As a modeler, I want to export a view as PNG and as SVG.
 - [planned] As a modeler, I want to delete an edge (not just an element),
   e.g. by selecting it on the canvas.
