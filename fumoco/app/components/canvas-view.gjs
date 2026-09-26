@@ -9,9 +9,69 @@ const GRID = 10;
 const SNAP_TOLERANCE = 6;
 const MIN_SIZE = 20;
 const MARQUEE_THRESHOLD = 3; // px of movement before a stage mousedown counts as a drag, not a click
+const NESTING_PADDING = 30;
 
 function snapToGrid(value) {
   return Math.round(value / GRID) * GRID;
+}
+
+// How deeply `id` is nested, counting only containment through parents
+// that are also present in this view (an out-of-view parent doesn't
+// affect on-canvas nesting). Elements with no in-view parent are depth 0.
+export function nestingDepth(model, id, includedSet, cache) {
+  if (cache.has(id)) return cache.get(id);
+  const parents = (model.elements.get(id)?.parents ?? []).filter((p) =>
+    includedSet.has(p),
+  );
+  const depth = parents.length
+    ? 1 +
+      Math.max(
+        ...parents.map((p) => nestingDepth(model, p, includedSet, cache)),
+      )
+    : 0;
+  cache.set(id, depth);
+  return depth;
+}
+
+// Containers with at least one child also present in this view get their
+// box auto-computed as a bounding box around those children (with
+// padding) instead of using their own stored box -- this is what actually
+// draws them "containing" their children, without needing real Konva
+// group-nesting or a change to children's (still plain absolute) x/y.
+// Computed deepest-first so a grandparent's fit already sees its parent's
+// (already-fit) box.
+export function computeEffectiveBoxes(model, view) {
+  const includedSet = new Set(view.included);
+  const effective = new Map();
+  for (const id of view.included) {
+    const box = view.boxes.get(id);
+    if (box) effective.set(id, box);
+  }
+  const depthCache = new Map();
+  const byDepthDescending = [...view.included].sort(
+    (a, b) =>
+      nestingDepth(model, b, includedSet, depthCache) -
+      nestingDepth(model, a, includedSet, depthCache),
+  );
+  for (const id of byDepthDescending) {
+    const childBoxes = model
+      .childrenOf(id)
+      .filter((child) => includedSet.has(child.id))
+      .map((child) => effective.get(child.id))
+      .filter(Boolean);
+    if (!childBoxes.length) continue;
+    const minX = Math.min(...childBoxes.map((b) => b.x));
+    const minY = Math.min(...childBoxes.map((b) => b.y));
+    const maxX = Math.max(...childBoxes.map((b) => b.x + b.width));
+    const maxY = Math.max(...childBoxes.map((b) => b.y + b.height));
+    effective.set(id, {
+      x: minX - NESTING_PADDING,
+      y: minY - NESTING_PADDING,
+      width: maxX - minX + 2 * NESTING_PADDING,
+      height: maxY - minY + 2 * NESTING_PADDING,
+    });
+  }
+  return effective;
 }
 
 function rectsIntersect(a, b) {
@@ -257,15 +317,30 @@ export default class CanvasView extends Component {
       return;
     }
 
-    for (const id of view.included) {
-      const element = this.modelStore.model.elements.get(id);
-      const box = view.boxes.get(id);
+    const model = this.modelStore.model;
+    const includedSet = new Set(view.included);
+    const effectiveBoxes = computeEffectiveBoxes(model, view);
+    const depthCache = new Map();
+    const byDepthAscending = [...view.included].sort(
+      (a, b) =>
+        nestingDepth(model, a, includedSet, depthCache) -
+        nestingDepth(model, b, includedSet, depthCache),
+    );
+
+    for (const id of byDepthAscending) {
+      const element = model.elements.get(id);
+      const box = effectiveBoxes.get(id);
       if (!element || !box) continue;
-      const node = this.buildShape(element, box, view);
+      const hasChildrenInView = model
+        .childrenOf(id)
+        .some((child) => includedSet.has(child.id));
+      const node = this.buildShape(element, box, view, {
+        nested: hasChildrenInView,
+      });
       this.nodesById.set(id, node);
       this.shapeLayer.add(node);
     }
-    this.buildEdges(view);
+    this.buildEdges(view, effectiveBoxes);
     this.transformer.moveToTop();
     this.attachTransformer();
     this.refreshNodeStyling();
@@ -276,26 +351,27 @@ export default class CanvasView extends Component {
     if (!this.shapeLayer) return;
     const view = this.modelStore.activeView;
     this.shapeLayer.find('.fumoco-edge').forEach((node) => node.destroy());
-    if (view) this.buildEdges(view);
+    if (view)
+      this.buildEdges(view, computeEffectiveBoxes(this.modelStore.model, view));
     this.transformer.moveToTop();
     this.shapeLayer.batchDraw();
   }
 
-  buildEdges(view) {
+  buildEdges(view, effectiveBoxes) {
     const included = new Set(view.included);
     for (const access of this.modelStore.model.accesses) {
       if (!included.has(access.agent) || !included.has(access.storage))
         continue;
-      const agentBox = view.boxes.get(access.agent);
-      const storageBox = view.boxes.get(access.storage);
+      const agentBox = effectiveBoxes.get(access.agent);
+      const storageBox = effectiveBoxes.get(access.storage);
       if (!agentBox || !storageBox) continue;
       this.drawAccessEdge(access, agentBox, storageBox);
     }
     for (const channel of this.modelStore.model.channels) {
       if (!included.has(channel.source) || !included.has(channel.target))
         continue;
-      const sourceBox = view.boxes.get(channel.source);
-      const targetBox = view.boxes.get(channel.target);
+      const sourceBox = effectiveBoxes.get(channel.source);
+      const targetBox = effectiveBoxes.get(channel.target);
       if (!sourceBox || !targetBox) continue;
       this.drawChannel(channel, sourceBox, targetBox, view);
     }
@@ -468,7 +544,9 @@ export default class CanvasView extends Component {
     if (!this.transformer) return;
     const ids = this.selection.selectedIds;
     const nodes =
-      ids.length === 1 ? [this.nodesById.get(ids[0])].filter(Boolean) : [];
+      ids.length === 1
+        ? [this.nodesById.get(ids[0])].filter((node) => node?.draggable())
+        : [];
     this.transformer.nodes(nodes);
     this.transformer.getLayer()?.batchDraw();
   }
@@ -567,11 +645,18 @@ export default class CanvasView extends Component {
     }
   }
 
-  buildShape(element, box, view) {
+  // `nested`: this element has at least one child also present in the
+  // view, so `box` is an auto-computed bounding box around those children
+  // (see computeEffectiveBoxes) rather than its own stored position --
+  // it's drawn as a container, not draggable/resizable directly (moving
+  // it is done by moving its children; auto-fit would just fight a
+  // manual resize), and its label moves to the top-left corner so it
+  // doesn't sit on top of the nested content.
+  buildShape(element, box, view, { nested = false } = {}) {
     const group = new Konva.Group({
       x: box.x,
       y: box.y,
-      draggable: true,
+      draggable: !nested,
       name: 'fumoco-shape',
       id: element.id,
       dragBoundFunc: (pos) => ({ x: snapToGrid(pos.x), y: snapToGrid(pos.y) }),
@@ -593,15 +678,23 @@ export default class CanvasView extends Component {
       group.add(this.buildStickFigure(box));
     }
 
-    const label = new Konva.Text({
-      text: element.label ?? '',
-      width: box.width,
-      height: box.height,
-      align: 'center',
-      verticalAlign: 'middle',
-      fontSize: 15,
-      padding: 8,
-    });
+    const label = nested
+      ? new Konva.Text({
+          text: element.label ?? '',
+          x: 8,
+          y: 6,
+          fontSize: 12,
+          fill: '#666666',
+        })
+      : new Konva.Text({
+          text: element.label ?? '',
+          width: box.width,
+          height: box.height,
+          align: 'center',
+          verticalAlign: 'middle',
+          fontSize: 15,
+          padding: 8,
+        });
     group.add(label);
 
     group.on('click', (event) => {

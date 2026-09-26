@@ -71,6 +71,42 @@ the tree/a dedicated toolbar into `palette.gjs`; `properties-panel.gjs`
 shows the last-selected element's type/label/dashed-flag (or the active
 view's name if nothing is selected), editable in place.
 
+## Visual nesting (`canvas-view.gjs`: `computeEffectiveBoxes`, `nestingDepth`)
+
+Deliberately *not* real Konva group-nesting (child coordinates relative
+to a parent group) -- that would touch drag/resize/connector/edge-routing
+code throughout the file all at once, right after fixing a subtle
+reactivity bug there. Instead:
+
+- `nestingDepth(model, id, includedSet, cache)`: how many in-view
+  ancestors `id` has (0 for a top-level element), counting only
+  containment through parents that are themselves in the view. Exported
+  and unit-tested directly (`tests/unit/components/canvas-view-test.js`)
+  since it's pure and the recursion is worth pinning down.
+- `computeEffectiveBoxes(model, view)`: for every included id, its
+  rendered box is either its own stored `view.boxes` entry, or — if it
+  has at least one child also in the view — a bounding box around those
+  children's *effective* boxes plus `NESTING_PADDING` (30px) on every
+  side. Computed deepest-first (via `nestingDepth`, descending) so a
+  grandparent's fit sees its already-fit parent. Also exported/tested.
+- `syncShapes` builds shapes in *ascending* depth order (outermost first)
+  so containers draw behind their content, and passes the same
+  `effectiveBoxes` map into `buildEdges` so edge endpoints agree with
+  what's actually on screen (not stale `view.boxes` positions).
+- A container currently showing its auto-fit box is not draggable/
+  resizable (`buildShape`'s `nested` option sets `draggable: false` and
+  is excluded from `attachTransformer`) — moving it is done by moving its
+  children instead, since fighting a live auto-fit recompute with manual
+  resize would be confusing. Its label moves to the top-left corner
+  (small, gray) instead of centered, so it reads as a container label
+  rather than competing with the nested content.
+
+**Known v1 limitation**: an element with two parents both present in the
+same view still renders once, and *both* parents' auto-fit boxes stretch
+to include that single location, rather than the element being drawn
+once per container. Fixing this needs the instance-based view schema
+below (each occurrence gets its own id and box).
+
 ## Connectors (`connector-tool` service + `palette` + `canvas-view`)
 
 - `connectorRule(kind)` (in `connector-tool.js`) is the single source of

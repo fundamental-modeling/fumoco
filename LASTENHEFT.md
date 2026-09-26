@@ -68,11 +68,16 @@ backlog, not a historical log (git history is the log).
   another from the UI -- the properties panel now lists an element's
   current containers (with a way to remove each) and a dropdown to add
   another. (A canvas drag-to-nest gesture is still open, see below.)
-- [planned] As a modeler, when an element is nested in more than one
-  container and both containers are in the same view, I want it drawn
-  once per container (visually duplicated) -- this is the same underlying
-  mechanism as "element appears multiple times per view" below, and
-  resolves that open question: yes, draw per occurrence.
+- [done] As a modeler, I want a container to visually show its nested
+  content on the canvas -- a container with children present in the same
+  view is drawn as a box auto-fit around them (not manually positioned/
+  resized while in that state; drag/resize its children instead), with
+  its label moved to the top-left corner so it doesn't sit on the content.
+  Known v1 limitation: an element nested in *two* containers that are
+  both in the same view still renders as a single box at one position,
+  and *both* containers auto-fit to include that one location (rather
+  than the element being drawn once per container) -- full "draw once
+  per occurrence" still needs the instance-based view schema below.
 - [planned] As a modeler, I want a channel's place (the small circle) to
   actually be a location/storage element in its own right -- "channel"
   becomes a rendering style a location can have (small circle, optional
