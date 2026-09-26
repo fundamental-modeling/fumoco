@@ -6,6 +6,7 @@ import { fn } from '@ember/helper';
 import eq from 'fumoco/helpers/eq';
 import { ElementType } from 'fumoco/utils/fmc-model';
 import { ConnectorKind, connectorRule } from 'fumoco/services/connector-tool';
+import { nextFreeBoxPosition } from 'fumoco/utils/box-layout';
 
 const CONNECTOR_BUTTONS = [
   { kind: ConnectorKind.READ, label: 'Read' },
@@ -16,14 +17,6 @@ const CONNECTOR_BUTTONS = [
   { kind: ConnectorKind.REQRES_LONG, label: 'Req/Res' },
   { kind: ConnectorKind.REQRES_SHORTHAND, label: 'Req/Res (short)' },
 ];
-
-// A new element is placed directly into the active view at a small
-// cascading offset -- same convention as clicking an unplaced element in
-// the model tree -- rather than requiring a separate "click canvas to
-// place" step.
-function nextOffset(view) {
-  return 40 + 20 * (view.boxes.size % 10);
-}
 
 export default class Palette extends Component {
   @service modelStore;
@@ -45,9 +38,9 @@ export default class Palette extends Component {
     this.modelStore.mutate((model) => {
       const id = model.addElement(type, { label });
       if (view) {
-        const offset = nextOffset(view);
+        const { x, y } = nextFreeBoxPosition(view);
         view.included.push(id);
-        view.boxes.set(id, { x: offset, y: offset, width: 120, height: 60 });
+        view.boxes.set(id, { x, y, width: 120, height: 60 });
       }
     });
   }

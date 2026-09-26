@@ -52,6 +52,37 @@ export function buildDisplayChildIndex(model, view) {
   return index;
 }
 
+// The order shapes are added to the Konva layer in -- which is also
+// their z-order, since a later-added node draws on top. The only
+// ordering constraint FMC nesting actually implies is "a container draws
+// behind its own displayed children"; two elements with no nesting
+// relationship to each other have no required relative order beyond
+// "whichever was added to the view more recently ends up on top" (which
+// falls out for free from a DFS over `view.included`, since a newly
+// added element is pushed to its end). This replaces an earlier "every
+// depth-0 element, then every depth-1 element, then every depth-2
+// element, ..." global sort, which had a real bug: it drew *every*
+// deeply-nested descendant of some container above *every* unrelated
+// top-level element, including a brand new element that had nothing to
+// do with that container -- a freshly-added box could render underneath
+// existing nested content it was never nested in.
+export function buildDrawOrder(model, view) {
+  const includedSet = new Set(view.included);
+  const displayChildren = buildDisplayChildIndex(model, view);
+  const order = [];
+  const visited = new Set();
+  const visit = (id) => {
+    if (visited.has(id)) return;
+    visited.add(id);
+    order.push(id);
+    for (const childId of displayChildren.get(id) ?? []) visit(childId);
+  };
+  for (const id of view.included) {
+    if (displayParentOf(model, view, id, includedSet) == null) visit(id);
+  }
+  return order;
+}
+
 // How deeply `id` is displayed nested in this view (0 for top-level).
 export function nestingDepth(model, view, id, includedSet, cache) {
   if (cache.has(id)) return cache.get(id);
@@ -450,17 +481,11 @@ export default class CanvasView extends Component {
     }
 
     const model = this.modelStore.model;
-    const includedSet = new Set(view.included);
     const effectiveBoxes = computeEffectiveBoxes(model, view);
     const displayChildren = buildDisplayChildIndex(model, view);
-    const depthCache = new Map();
-    const byDepthAscending = [...view.included].sort(
-      (a, b) =>
-        nestingDepth(model, view, a, includedSet, depthCache) -
-        nestingDepth(model, view, b, includedSet, depthCache),
-    );
+    const drawOrder = buildDrawOrder(model, view);
 
-    for (const id of byDepthAscending) {
+    for (const id of drawOrder) {
       const element = model.elements.get(id);
       const box = effectiveBoxes.get(id);
       if (!element || !box) continue;

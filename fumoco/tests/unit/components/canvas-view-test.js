@@ -1,5 +1,6 @@
 import { module, test } from 'qunit';
 import {
+  buildDrawOrder,
   computeEffectiveBoxes,
   displayParentOf,
   nestingDepth,
@@ -210,5 +211,47 @@ module('Unit | Component | canvas-view (nesting geometry)', function () {
       width: 200,
       height: 180,
     });
+  });
+
+  test('buildDrawOrder puts a newly-added, unrelated element after every existing subtree (on top), not interleaved by nesting depth', function (assert) {
+    const model = new FmcModel();
+    const container = model.addElement(ElementType.AGENT);
+    const grandchild = model.addElement(ElementType.AGENT);
+    const child = model.addElement(ElementType.AGENT);
+    model.addContainment(container, child);
+    model.addContainment(child, grandchild);
+    const newcomer = model.addElement(ElementType.AGENT);
+
+    const viewId = model.createView('v');
+    const view = model.views.get(viewId);
+    // container's whole subtree (depth 0, 1, 2) is already in the view;
+    // newcomer (depth 0, unrelated) is added last, same as a fresh
+    // palette-added element would be.
+    view.included.push(container, child, grandchild, newcomer);
+
+    const order = buildDrawOrder(model, view);
+
+    // The old "group by global depth" behavior would have sorted this as
+    // [container, newcomer, child, grandchild] -- newcomer ending up
+    // *below* an unrelated container's nested content. DFS instead keeps
+    // each subtree together and newcomer strictly last (topmost).
+    assert.deepEqual(order, [container, child, grandchild, newcomer]);
+  });
+
+  test('buildDrawOrder keeps a container immediately before its own displayed children', function (assert) {
+    const model = new FmcModel();
+    const a = model.addElement(ElementType.AGENT);
+    const b = model.addElement(ElementType.AGENT);
+    const childOfA = model.addElement(ElementType.AGENT);
+    model.addContainment(a, childOfA);
+
+    const viewId = model.createView('v');
+    const view = model.views.get(viewId);
+    view.included.push(a, b, childOfA);
+
+    const order = buildDrawOrder(model, view);
+
+    assert.true(order.indexOf(a) < order.indexOf(childOfA));
+    assert.deepEqual(order, [a, childOfA, b]);
   });
 });

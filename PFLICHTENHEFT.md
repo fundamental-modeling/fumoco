@@ -297,6 +297,42 @@ Ember templates treat an empty array as falsy too, hence the separate
 `hasValidated` getter) and renders the results in a small dismissible
 panel, each issue clickable to `selection.select` the offending element.
 
+## Draw order / z-index (`canvas-view.gjs`: `buildDrawOrder`)
+
+`syncShapes` used to add shapes to the Konva layer in "every depth-0
+element, then every depth-1 element, then every depth-2 element, ..."
+order (a global sort by `nestingDepth`). That had a real bug: since a
+later-added Konva node draws on top, it meant *every* deeply-nested
+descendant of some container drew above *every* unrelated top-level
+element -- including a brand new, entirely unrelated box just added from
+the palette, which could render underneath existing nested content it
+had no relationship to at all.
+
+`buildDrawOrder(model, view)` replaces that global sort with a DFS over
+`view.included`: visit each top-level element (no displayed parent) in
+`view.included` order, and immediately recurse into its own displayed
+children before moving to the next top-level element. This keeps the one
+ordering constraint FMC nesting actually requires (a container draws
+behind its own children) while giving two *unrelated* elements exactly
+the z-order their relative position in `view.included` implies -- and
+since every "add this element to the view" call site (`palette.gjs`,
+`model-tree-node.gjs`, `arrow-row.gjs`) pushes to the *end* of
+`view.included`, a freshly-added element's whole (single-node) subtree
+is always visited dead last, i.e. always on top.
+
+## Box placement (`utils/box-layout.js`: `nextFreeBoxPosition`)
+
+Every "place this newly-added-or-selected element into the active view"
+call site used to duplicate the same `40 + 20 * (view.boxes.size % 10)`
+cascading-offset formula -- which, being a `% 10`, silently starts
+reusing (and therefore overlapping) earlier positions once an 11th
+element is placed. `nextFreeBoxPosition(view, width, height)` centralizes
+this: it walks the same outward diagonal cascade but keeps stepping past
+any offset that would overlap a box already in `view.boxes`, rather than
+wrapping back to the start on a fixed schedule. Bounded at 200 attempts,
+falling back to just past the last one tried, so a pathological diagram
+can't hang the UI.
+
 ## Canvas viewport (pan)
 
 Wheel/trackpad scroll pans by translating `stage.x()`/`stage.y()`

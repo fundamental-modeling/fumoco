@@ -2,6 +2,7 @@ import Component from '@glimmer/component';
 import { action } from '@ember/object';
 import { service } from '@ember/service';
 import { on } from '@ember/modifier';
+import { nextFreeBoxPosition } from 'fumoco/utils/box-layout';
 
 // An access edge is a world-model entity like any element, but it has no
 // element-style rename/nesting of its own -- just endpoints and a kind, so
@@ -39,9 +40,9 @@ export default class ArrowRow extends Component {
     this.modelStore.mutate(() => {
       for (const id of [agent, location]) {
         if (view.included.includes(id)) continue;
-        const offset = 40 + 20 * (view.boxes.size % 10);
+        const { x, y } = nextFreeBoxPosition(view);
         view.included.push(id);
-        view.boxes.set(id, { x: offset, y: offset, width: 120, height: 60 });
+        view.boxes.set(id, { x, y, width: 120, height: 60 });
       }
     });
   }

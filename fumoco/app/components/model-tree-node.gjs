@@ -4,6 +4,7 @@ import { action } from '@ember/object';
 import { service } from '@ember/service';
 import { on } from '@ember/modifier';
 import { modifier } from 'ember-modifier';
+import { nextFreeBoxPosition } from 'fumoco/utils/box-layout';
 
 const focusOnInsert = modifier((element) => element.focus());
 
@@ -33,9 +34,9 @@ export default class ModelTreeNode extends Component {
     const id = this.args.element.id;
     if (view && !view.included.includes(id)) {
       this.modelStore.mutate(() => {
-        const offset = 40 + 20 * (view.boxes.size % 10);
+        const { x, y } = nextFreeBoxPosition(view);
         view.included.push(id);
-        view.boxes.set(id, { x: offset, y: offset, width: 120, height: 60 });
+        view.boxes.set(id, { x, y, width: 120, height: 60 });
       });
     }
   }

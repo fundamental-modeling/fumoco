@@ -200,6 +200,22 @@ scale, not rotation) and isn't wanted at all — axis-aligned only.
 Disable outright (=rotateEnabled: false=) rather than implementing
 working rotation.
 
+** DONE A freshly-added or newly-shown element always draws on top
+=buildDrawOrder= (in =canvas-view.gjs=) replaced the old "every depth-0
+element, then every depth-1 element, ..." global sort with a DFS over
+=view.included= (parent immediately before its own displayed children,
+otherwise view-registration order) — a new element pushed to the end of
+=view.included= now always ends up drawn last, i.e. on top, instead of
+possibly rendering underneath an unrelated container's nested content.
+
+** DONE New/re-shown elements don't land on top of an existing box
+=utils/box-layout.js='s =nextFreeBoxPosition= replaces the old
+=40 + 20 * (view.boxes.size % 10)= formula duplicated across
+=palette.gjs=/=model-tree-node.gjs=/=arrow-row.gjs= — that formula wraps
+(and therefore silently overlaps) every 10 elements; the new one keeps
+stepping outward until it finds a spot that doesn't overlap any box
+already in the view.
+
 ** OPEN Edges converging on the same box merge into a shared trunk ("edge trees")
 Derived from screening the Visualization Guidelines (2026-09-27, see
 =spec/SOURCES.md=). Needs a routing-graph pass, not just per-edge
