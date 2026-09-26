@@ -93,13 +93,32 @@ reactivity bug there. Instead:
   so containers draw behind their content, and passes the same
   `effectiveBoxes` map into `buildEdges` so edge endpoints agree with
   what's actually on screen (not stale `view.boxes` positions).
-- A container currently showing its auto-fit box is not draggable/
-  resizable (`buildShape`'s `nested` option sets `draggable: false` and
-  is excluded from `attachTransformer`) — moving it is done by moving its
-  children instead, since fighting a live auto-fit recompute with manual
-  resize would be confusing. Its label moves to the top-left corner
-  (small, gray) instead of centered, so it reads as a container label
-  rather than competing with the nested content.
+- A container's auto-fit box is still draggable, but not resizable
+  (`buildShape`'s `nested` option sets a `fumocoNested` Konva attribute,
+  checked in `attachTransformer` to exclude it from resize handles --
+  fighting a live auto-fit recompute with a manual resize would be
+  confusing, but dragging is a real translation, not a resize). Its label
+  moves to the top-left corner (small, gray) instead of centered.
+- Dragging a container (`buildShape`'s `nested` branch) moves every
+  currently-visible descendant along with it by the same delta:
+  `collectDescendantNodes` walks `childrenOf` recursively (children,
+  grandchildren, ...) collecting each one's live Konva node and starting
+  position; `dragmove` repositions all of them by the live delta for
+  immediate visual feedback, `dragend` commits each one's shifted
+  absolute box into `view.boxes`. The container's own box is never
+  written (it stays auto-fit from the new child positions on next
+  render). This only fires for descendants *currently in this view* --
+  an unrelated but coincidentally-onscreen box never moves.
+- Dragging a plain (non-container) element (`buildShape`'s non-nested
+  branch) runs `updateContainmentAfterDrag` after committing its new box:
+  for each of its current in-view parents whose (effective) box no longer
+  contains its new center, `removeContainment`; then, among all other
+  in-view elements whose box *does* contain its new center and that
+  aren't already a parent, `addContainment` into the smallest one (by
+  area, so nesting into an inner box wins over its outer container when
+  both overlap). `FmcModelError` (e.g. a would-be cycle) is caught and
+  silently ignored here — an incidental drag-over shouldn't pop an alert
+  the way an explicit connector action does.
 
 **Known v1 limitation**: an element with two parents both present in the
 same view still renders once, and *both* parents' auto-fit boxes stretch

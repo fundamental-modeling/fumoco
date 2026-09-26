@@ -65,14 +65,20 @@ backlog, not a historical log (git history is the log).
   Model-level support is done; there's no UI yet to actually create a
   containment relationship (see below).
 - [done] As a modeler, I want a way to actually nest one element inside
-  another from the UI -- the properties panel now lists an element's
-  current containers (with a way to remove each) and a dropdown to add
-  another. (A canvas drag-to-nest gesture is still open, see below.)
+  another from the UI. Two ways now: the properties panel lists an
+  element's current containers (with a way to remove each) and a dropdown
+  to add another; and dragging a box so its center ends up inside another
+  box's bounds nests it there (in the smallest overlapping candidate, if
+  several), while dragging it back out of its container's bounds
+  un-nests it. Both go through the same model validation (no self-
+  containment, no cycles), so an invalid drag-nest is silently skipped
+  rather than erroring.
 - [done] As a modeler, I want a container to visually show its nested
   content on the canvas -- a container with children present in the same
-  view is drawn as a box auto-fit around them (not manually positioned/
-  resized while in that state; drag/resize its children instead), with
-  its label moved to the top-left corner so it doesn't sit on the content.
+  view is drawn as a box auto-fit around them, with its label moved to
+  the top-left corner so it doesn't sit on the content.
+- [done] As a modeler, I want to drag a container and have its nested
+  content move along with it, not be left behind.
   Known v1 limitation: an element nested in *two* containers that are
   both in the same view still renders as a single box at one position,
   and *both* containers auto-fit to include that one location (rather

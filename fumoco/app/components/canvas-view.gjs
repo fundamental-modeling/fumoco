@@ -83,6 +83,15 @@ function rectsIntersect(a, b) {
   );
 }
 
+function pointInBox(point, box) {
+  return (
+    point.x >= box.x &&
+    point.x <= box.x + box.width &&
+    point.y >= box.y &&
+    point.y <= box.y + box.height
+  );
+}
+
 // A simple rectilinear (horizontal/vertical only) path between two boxes'
 // boundaries: a straight segment when they already share an axis,
 // otherwise a single right-angle bend. No obstacle avoidance -- see
@@ -545,7 +554,9 @@ export default class CanvasView extends Component {
     const ids = this.selection.selectedIds;
     const nodes =
       ids.length === 1
-        ? [this.nodesById.get(ids[0])].filter((node) => node?.draggable())
+        ? [this.nodesById.get(ids[0])].filter(
+            (node) => node && !node.getAttr('fumocoNested'),
+          )
         : [];
     this.transformer.nodes(nodes);
     this.transformer.getLayer()?.batchDraw();
@@ -647,20 +658,26 @@ export default class CanvasView extends Component {
 
   // `nested`: this element has at least one child also present in the
   // view, so `box` is an auto-computed bounding box around those children
-  // (see computeEffectiveBoxes) rather than its own stored position --
-  // it's drawn as a container, not draggable/resizable directly (moving
-  // it is done by moving its children; auto-fit would just fight a
-  // manual resize), and its label moves to the top-left corner so it
-  // doesn't sit on top of the nested content.
+  // (see computeEffectiveBoxes) rather than its own stored position -- it's
+  // drawn as a container, and its label moves to the top-left corner so it
+  // doesn't sit on top of the nested content. Dragging it is still
+  // supported, but moves every currently-visible descendant along with it
+  // by the same delta (see the dragmove/dragend handlers below) rather
+  // than committing a box of its own, which stays auto-fit; resizing it
+  // directly is not supported (fighting a live auto-fit recompute with a
+  // manual resize would be confusing), so it's excluded from the
+  // Transformer via the `fumocoNested` attribute checked in
+  // attachTransformer.
   buildShape(element, box, view, { nested = false } = {}) {
     const group = new Konva.Group({
       x: box.x,
       y: box.y,
-      draggable: !nested,
+      draggable: true,
       name: 'fumoco-shape',
       id: element.id,
       dragBoundFunc: (pos) => ({ x: snapToGrid(pos.x), y: snapToGrid(pos.y) }),
     });
+    group.setAttr('fumocoNested', nested);
 
     const isStorage = element.type === 'storage';
     const rect = new Konva.Rect({
@@ -718,35 +735,142 @@ export default class CanvasView extends Component {
       this.promptRename(element.id);
     });
 
-    group.on('dragmove', () => this.showSnapGuides(group, view));
-    group.on('dragend', () => {
-      this.guideLayer.destroyChildren();
-      this.guideLayer.batchDraw();
-      this.modelStore.mutate(() => {
-        view.boxes.set(element.id, { ...box, x: group.x(), y: group.y() });
+    if (nested) {
+      let dragStart = null;
+      let descendants = [];
+      group.on('dragstart', () => {
+        dragStart = { x: group.x(), y: group.y() };
+        descendants = this.collectDescendantNodes(element.id, view);
       });
-      // Don't wait on/depend on the tracked-collection update rebuilding
-      // the whole shape layer -- refresh edges directly, right here, so
-      // they always follow the box that just moved. This also avoids
-      // tearing down and recreating the dragged node (and detaching the
-      // Transformer from it) on every single drag.
-      this.refreshEdges();
-    });
+      group.on('dragmove', () => {
+        const dx = group.x() - dragStart.x;
+        const dy = group.y() - dragStart.y;
+        for (const descendant of descendants) {
+          descendant.node.position({
+            x: descendant.x0 + dx,
+            y: descendant.y0 + dy,
+          });
+        }
+        this.shapeLayer.batchDraw();
+      });
+      group.on('dragend', () => {
+        const dx = group.x() - dragStart.x;
+        const dy = group.y() - dragStart.y;
+        this.modelStore.mutate(() => {
+          for (const descendant of descendants) {
+            const descendantBox = view.boxes.get(descendant.id);
+            if (descendantBox) {
+              view.boxes.set(descendant.id, {
+                ...descendantBox,
+                x: descendantBox.x + dx,
+                y: descendantBox.y + dy,
+              });
+            }
+          }
+        });
+        this.refreshEdges();
+      });
+    } else {
+      group.on('dragmove', () => this.showSnapGuides(group, view));
+      group.on('dragend', () => {
+        this.guideLayer.destroyChildren();
+        this.guideLayer.batchDraw();
+        this.modelStore.mutate(() => {
+          view.boxes.set(element.id, { ...box, x: group.x(), y: group.y() });
+          this.updateContainmentAfterDrag(element.id, view);
+        });
+        // Don't wait on/depend on the tracked-collection update rebuilding
+        // the whole shape layer -- refresh edges directly, right here, so
+        // they always follow the box that just moved. This also avoids
+        // tearing down and recreating the dragged node (and detaching the
+        // Transformer from it) on every single drag.
+        this.refreshEdges();
+      });
 
-    group.on('transformend', () => {
-      const newBox = {
-        x: group.x(),
-        y: group.y(),
-        width: Math.max(MIN_SIZE, rect.width() * group.scaleX()),
-        height: Math.max(MIN_SIZE, rect.height() * group.scaleY()),
-      };
-      group.scaleX(1);
-      group.scaleY(1);
-      this.modelStore.mutate(() => view.boxes.set(element.id, newBox));
-      this.refreshEdges();
-    });
+      group.on('transformend', () => {
+        const newBox = {
+          x: group.x(),
+          y: group.y(),
+          width: Math.max(MIN_SIZE, rect.width() * group.scaleX()),
+          height: Math.max(MIN_SIZE, rect.height() * group.scaleY()),
+        };
+        group.scaleX(1);
+        group.scaleY(1);
+        this.modelStore.mutate(() => view.boxes.set(element.id, newBox));
+        this.refreshEdges();
+      });
+    }
 
     return group;
+  }
+
+  // Every currently-visible descendant (children, grandchildren, ...) of
+  // `containerId`, with their Konva node and starting position -- used to
+  // drag a container's whole nested content together, since children are
+  // plain sibling nodes in absolute coordinates, not real Konva-group
+  // children of the container.
+  collectDescendantNodes(containerId, view) {
+    const includedSet = new Set(view.included);
+    const result = [];
+    const visit = (id) => {
+      for (const child of this.modelStore.model.childrenOf(id)) {
+        if (!includedSet.has(child.id)) continue;
+        const node = this.nodesById.get(child.id);
+        if (node)
+          result.push({ id: child.id, node, x0: node.x(), y0: node.y() });
+        visit(child.id);
+      }
+    };
+    visit(containerId);
+    return result;
+  }
+
+  // After a leaf element's own drag commits its new box, check whether it
+  // was dragged out of a container it was nested in (its center no longer
+  // inside that container's current box -> remove that containment), or
+  // dragged into a new one (its center now inside some other element's
+  // box, and that element isn't already a parent -> nest it there, in the
+  // smallest such candidate if several overlap). Only for the dragged
+  // element itself, not its descendants -- a container being dragged uses
+  // collectDescendantNodes instead and doesn't change containment.
+  updateContainmentAfterDrag(elementId, view) {
+    const model = this.modelStore.model;
+    const element = model.elements.get(elementId);
+    const box = view.boxes.get(elementId);
+    if (!element || !box) return;
+    const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    const includedSet = new Set(view.included);
+    const effectiveBoxes = computeEffectiveBoxes(model, view);
+
+    for (const parentId of [...element.parents]) {
+      if (!includedSet.has(parentId)) continue;
+      const parentBox = effectiveBoxes.get(parentId);
+      if (!parentBox || !pointInBox(center, parentBox)) {
+        model.removeContainment(parentId, elementId);
+      }
+    }
+
+    let bestCandidateId = null;
+    let bestArea = Infinity;
+    for (const id of view.included) {
+      if (id === elementId || element.parents.includes(id)) continue;
+      const candidateBox = effectiveBoxes.get(id);
+      if (!candidateBox || !pointInBox(center, candidateBox)) continue;
+      const area = candidateBox.width * candidateBox.height;
+      if (area < bestArea) {
+        bestArea = area;
+        bestCandidateId = id;
+      }
+    }
+    if (bestCandidateId) {
+      try {
+        model.addContainment(bestCandidateId, elementId);
+      } catch (error) {
+        if (!(error instanceof FmcModelError)) throw error;
+        // e.g. would create a cycle -- an incidental drag-over shouldn't
+        // pop an alert for this, silently skip nesting instead.
+      }
+    }
   }
 
   buildStickFigure(box) {
