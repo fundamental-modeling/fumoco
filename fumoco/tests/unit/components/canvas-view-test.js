@@ -187,4 +187,28 @@ module('Unit | Component | canvas-view (nesting geometry)', function () {
       height: 50,
     });
   });
+
+  test('computeEffectiveBoxes respects a manually-resized container box that still fits its children', function (assert) {
+    const model = new FmcModel();
+    const container = model.addElement(ElementType.AGENT);
+    const child = model.addElement(ElementType.AGENT);
+    model.addContainment(container, child);
+
+    const viewId = model.createView('v');
+    const view = model.views.get(viewId);
+    view.included.push(container, child);
+    view.boxes.set(child, { x: 100, y: 100, width: 50, height: 40 });
+    // Auto-fit would be (70,70)-(180,170); this manual box is bigger on
+    // every side, so it should win over the auto-fit computation.
+    view.boxes.set(container, { x: 40, y: 40, width: 200, height: 180 });
+
+    const effective = computeEffectiveBoxes(model, view);
+
+    assert.deepEqual(effective.get(container), {
+      x: 40,
+      y: 40,
+      width: 200,
+      height: 180,
+    });
+  });
 });

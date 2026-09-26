@@ -60,10 +60,14 @@ export function nestingDepth(model, view, id, includedSet, cache) {
 
 // A container displaying at least one nested child in this view gets its
 // box auto-computed as a bounding box around those children (with
-// padding) instead of using its own stored box -- this is what actually
-// draws them "containing" their children, without needing real Konva
-// group-nesting or a change to children's (still plain absolute) x/y.
-// Computed deepest-first so a grandparent's fit already sees its parent's
+// padding), UNLESS it has its own stored box (set via the same 8 resize
+// handles a plain box gets -- see canvas-view's buildShape/transformend)
+// that's still big enough to contain that auto-fit bbox, in which case the
+// manual size wins. Shrinking/moving children until the manual box no
+// longer fits them silently falls back to auto-fit again, same as an
+// invalid drag-nest being silently skipped elsewhere in this file --
+// no error, just stops trusting a box that no longer makes sense. Computed
+// deepest-first so a grandparent's fit already sees its parent's
 // (already-fit) box.
 export function computeEffectiveBoxes(model, view) {
   const includedSet = new Set(view.included);
@@ -88,14 +92,28 @@ export function computeEffectiveBoxes(model, view) {
     const minY = Math.min(...childBoxes.map((b) => b.y));
     const maxX = Math.max(...childBoxes.map((b) => b.x + b.width));
     const maxY = Math.max(...childBoxes.map((b) => b.y + b.height));
-    effective.set(id, {
+    const autoFit = {
       x: minX - NESTING_PADDING,
       y: minY - NESTING_PADDING,
       width: maxX - minX + 2 * NESTING_PADDING,
       height: maxY - minY + 2 * NESTING_PADDING,
-    });
+    };
+    const stored = view.boxes.get(id);
+    effective.set(
+      id,
+      stored && boxContains(stored, autoFit) ? stored : autoFit,
+    );
   }
   return effective;
+}
+
+function boxContains(outer, inner) {
+  return (
+    outer.x <= inner.x &&
+    outer.y <= inner.y &&
+    outer.x + outer.width >= inner.x + inner.width &&
+    outer.y + outer.height >= inner.y + inner.height
+  );
 }
 
 function rectsIntersect(a, b) {
@@ -540,12 +558,12 @@ export default class CanvasView extends Component {
   attachTransformer() {
     if (!this.transformer) return;
     const ids = this.selection.selectedIds;
+    // A container gets the same 8 handles as a plain box (see buildShape's
+    // nested transformend handler) -- resizing it just sets an explicit
+    // view.boxes entry that computeEffectiveBoxes then prefers over
+    // auto-fit as long as it's still big enough for the current children.
     const nodes =
-      ids.length === 1
-        ? [this.nodesById.get(ids[0])].filter(
-            (node) => node && !node.getAttr('fumocoNested'),
-          )
-        : [];
+      ids.length === 1 ? [this.nodesById.get(ids[0])].filter(Boolean) : [];
     this.transformer.nodes(nodes);
     this.transformer.getLayer()?.batchDraw();
   }
@@ -686,7 +704,7 @@ export default class CanvasView extends Component {
             targetBox.height / 2) /
           2
         : 200;
-    const size = 50;
+    const size = 28;
     placeIds.forEach((placeId, index) => {
       view.included.push(placeId);
       view.boxes.set(placeId, {
@@ -704,16 +722,14 @@ export default class CanvasView extends Component {
 
   // `nested`: this element has at least one child also present in the
   // view, so `box` is an auto-computed bounding box around those children
-  // (see computeEffectiveBoxes) rather than its own stored position -- it's
-  // drawn as a container, and its label moves to the top-left corner so it
-  // doesn't sit on top of the nested content. Dragging it is still
-  // supported, but moves every currently-visible descendant along with it
-  // by the same delta (see the dragmove/dragend handlers below) rather
-  // than committing a box of its own, which stays auto-fit; resizing it
-  // directly is not supported (fighting a live auto-fit recompute with a
-  // manual resize would be confusing), so it's excluded from the
-  // Transformer via the `fumocoNested` attribute checked in
-  // attachTransformer.
+  // (see computeEffectiveBoxes) unless a manual resize (below) is still big
+  // enough to contain them, in which case that wins instead -- either way
+  // it's drawn as a container, with its label moved to the top-left corner
+  // so it doesn't sit on top of the nested content. Dragging it moves every
+  // currently-visible descendant along with it by the same delta (see the
+  // dragmove/dragend handlers below), same as always; a manual resize (via
+  // the same 8 handles a plain box gets -- see the shared `transformend`
+  // handler) is a separate, independent action from that move.
   buildShape(element, box, view, { nested = false } = {}) {
     const group = new Konva.Group({
       x: box.x,
@@ -723,8 +739,6 @@ export default class CanvasView extends Component {
       id: element.id,
       dragBoundFunc: (pos) => ({ x: snapToGrid(pos.x), y: snapToGrid(pos.y) }),
     });
-    group.setAttr('fumocoNested', nested);
-
     const isLocation = element.type === 'location';
     const isChannel = !!element.channel;
     // A channel's place is an ordinary Location element rendered as a
@@ -838,6 +852,18 @@ export default class CanvasView extends Component {
               });
             }
           }
+          // A container's own stored box only exists at all once it's been
+          // manually resized (see the shared transformend handler below) --
+          // when it does, it needs to move with its children too, or the
+          // next render would snap it back to its pre-drag position.
+          const ownBox = view.boxes.get(element.id);
+          if (ownBox) {
+            view.boxes.set(element.id, {
+              ...ownBox,
+              x: ownBox.x + dx,
+              y: ownBox.y + dy,
+            });
+          }
         });
         this.refreshEdges();
       });
@@ -854,20 +880,23 @@ export default class CanvasView extends Component {
         // Transformer from it) on every single drag.
         this.refreshEdges();
       });
-
-      group.on('transformend', () => {
-        const newBox = {
-          x: group.x(),
-          y: group.y(),
-          width: Math.max(MIN_SIZE, rect.width() * group.scaleX()),
-          height: Math.max(MIN_SIZE, rect.height() * group.scaleY()),
-        };
-        group.scaleX(1);
-        group.scaleY(1);
-        this.modelStore.mutate(() => view.boxes.set(element.id, newBox));
-        this.refreshEdges();
-      });
     }
+
+    // Shared by both leaf and container nodes: whichever box the 8 resize
+    // handles are dragging (the leaf's own, or a container's manual
+    // override -- see computeEffectiveBoxes) is committed the same way.
+    group.on('transformend', () => {
+      const newBox = {
+        x: group.x(),
+        y: group.y(),
+        width: Math.max(MIN_SIZE, rect.width() * group.scaleX()),
+        height: Math.max(MIN_SIZE, rect.height() * group.scaleY()),
+      };
+      group.scaleX(1);
+      group.scaleY(1);
+      this.modelStore.mutate(() => view.boxes.set(element.id, newBox));
+      this.refreshEdges();
+    });
 
     return group;
   }

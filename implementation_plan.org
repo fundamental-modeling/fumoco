@@ -57,7 +57,10 @@ Not diagonal straight lines.
 No manual "refresh" step.
 
 ** DONE Freely reposition a channel's place (the small circle)
-Instead of it always sitting at the auto-computed midpoint.
+Instead of it always sitting at the auto-computed midpoint. Its default
+size on creation was also shrunk (50px -> 28px square) after it read as
+too large next to a typical 120x60 agent/location box; an existing
+place can be resized like anything else via the 8 resize handles.
 
 ** DONE Remove an element from just the current view without deleting it from the model/tree
 Delete key does this; Backspace instead deletes the selection from the
@@ -132,12 +135,12 @@ Dragged in from a ruler on the left or top edge of the canvas.
 Wheel/trackpad panning is in; an actual scrollbar widget (position +
 extent, click-drag to scroll) is not.
 
-** OPEN Selecting a container shows the same 8 resize handles a plain box gets
-Resolves the earlier open design question in favor of "yes, make it
-resizable" — needs a rule for how a manual resize interacts with the
-auto-fit recompute (e.g. a manually-set size is respected as long as it's
-still large enough to contain current children; falls back to auto-fit
-otherwise).
+** DONE Selecting a container shows the same 8 resize handles a plain box gets
+Resolved the earlier open design question in favor of "yes, make it
+resizable": a manual resize is respected as long as it's still big enough
+to contain the container's current children (per =computeEffectiveBoxes='
+new =boxContains= check); shrinking/moving children past that falls back
+to auto-fit again, silently, same as an invalid drag-nest.
 
 ** OPEN Dragging a nested box out of its parent should place it visibly outside the parent's box
 Not just technically un-nested (nestedUnder = null) while still

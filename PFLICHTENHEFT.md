@@ -94,17 +94,23 @@ reactivity bug there. Instead:
   rendered box is either its own stored `view.boxes` entry, or — if it
   has at least one child also in the view — a bounding box around those
   children's *effective* boxes plus `NESTING_PADDING` (30px) on every
-  side. Computed deepest-first (via `nestingDepth`, descending) so a
-  grandparent's fit sees its already-fit parent. Also exported/tested.
+  side (the "auto-fit" box), *unless* its own stored `view.boxes` entry
+  (set by a manual resize -- see below) still fully contains that auto-fit
+  box (`boxContains`), in which case the manual box wins instead. Computed
+  deepest-first (via `nestingDepth`, descending) so a grandparent's fit
+  sees its already-fit parent. Also exported/tested.
 - `syncShapes` builds shapes in *ascending* depth order (outermost first)
   so containers draw behind their content, and passes the same
   `effectiveBoxes` map into `buildEdges` so edge endpoints agree with
   what's actually on screen (not stale `view.boxes` positions).
-- A container's auto-fit box is still draggable, but not resizable
-  (`buildShape`'s `nested` option sets a `fumocoNested` Konva attribute,
-  checked in `attachTransformer` to exclude it from resize handles --
-  fighting a live auto-fit recompute with a manual resize would be
-  confusing, but dragging is a real translation, not a resize). Its label
+- A container gets the same 8 resize handles a plain box does (no more
+  `fumocoNested`-based exclusion in `attachTransformer`): a shared
+  `transformend` handler (leaf and container alike) commits
+  `{x, y, width, height}` straight into `view.boxes`, which
+  `computeEffectiveBoxes` then either honors (if still big enough for the
+  current children) or silently falls back away from (same "invalid
+  action is just ignored" precedent as an invalid drag-nest) -- no error,
+  no separate "detach from auto-fit" mode to manage. Its label still
   moves to the top-left corner (small, gray) instead of centered.
 - Dragging a container (`buildShape`'s `nested` branch) moves every
   currently *displayed*-nested descendant along with it by the same
@@ -112,9 +118,12 @@ reactivity bug there. Instead:
   recursively (children, grandchildren, ...) collecting each one's live
   Konva node and starting position; `dragmove` repositions all of them by
   the live delta for immediate visual feedback, `dragend` commits each
-  one's shifted absolute box into `view.boxes`. The container's own box
-  is never written (it stays auto-fit from the new child positions on
-  next render).
+  one's shifted absolute box into `view.boxes`. If the container itself
+  has a manual-resize box in `view.boxes` (see above), that entry is
+  shifted by the same delta too, right alongside its children, so a
+  resized-then-dragged container doesn't snap back to its pre-drag
+  position on the next render; a container with no manual box (still
+  purely auto-fit) has nothing there to shift.
 
 ### World-model containment vs. per-view display (`View.nestedUnder`)
 
@@ -255,6 +264,12 @@ arrow-circle-arrow vs. line-circle-line and whether to suppress
 arrowheads for `shorthand`. `FmcModel.channels`/the old `drawChannel`
 method/`View.channelPlaces` are all gone — this was a real reduction in
 the number of concepts, not just a relabeling.
+
+`placeChannelElementsInView` (in `canvas-view.gjs`) gives a newly-created
+place a default 28x28 box at the midpoint between source and target
+(down from an initial 50x50, which read as too large next to a typical
+120x60 agent/location box); it's an ordinary `view.boxes` entry
+afterward, resizable via the same 8 handles as anything else.
 
 ## Removed: automatic box-to-box smart guides
 
