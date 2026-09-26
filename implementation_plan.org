@@ -200,15 +200,50 @@ scale, not rotation) and isn't wanted at all — axis-aligned only.
 Disable outright (=rotateEnabled: false=) rather than implementing
 working rotation.
 
+** OPEN Edges converging on the same box merge into a shared trunk ("edge trees")
+Derived from screening the Visualization Guidelines (2026-09-27, see
+=spec/SOURCES.md=). Needs a routing-graph pass, not just per-edge
+=orthogonalPath= — bundle same-target edges' final leg into one shared
+segment before splitting off to each source/target.
+
+** OPEN New boxes of the same element type default to a consistent size
+Currently every new box is 120x60 regardless of type; fine as a shared
+default, but nothing currently nudges an oversized/undersized box back
+toward its type's norm.
+
+** OPEN Node line weight reads heavier than edge line weight
+Both currently stroke at =strokeWidth: 2=; the guideline calls for nodes
+roughly twice an edge's weight.
+
+** OPEN One-click "standard block diagram arrangement" starting layout
+System-of-interest centered, environment/users placed around it — an
+initial-layout helper, not an ongoing constraint.
+
+** OPEN Reusable Petri-net layout patterns (sequence, case, loop, concurrency)
+Drop-in stencils for the four standard constructs, once Milestone B's
+Petri net element types exist.
+
+** OPEN "N similar boxes" enumeration marker (one exemplar + ellipsis)
+An alternative to drawing every instance when the exact count doesn't
+matter.
+
+** OPEN Grouping/structuring boxes default to a muted, low-saturation fill
+Currently every box is plain white fill regardless of role.
+
+** OPEN Soft diagram-size nudge past a standard page/screen size
+Advisory, not a hard limit — surface it, don't block on it.
+
 * Milestone A.5 — Formal FMC specification
 
-** TODO Formal, W3C-ReSpec-based specification of FMC's block diagram notation
+** INPROGRESS Formal, W3C-ReSpec-based specification of FMC's block diagram notation
 Terminology, bipartite rules, channel notation — grounded in what
-Milestone A actually implements.
+Milestone A actually implements. Source material screened and
+shortlisted in =spec/SOURCES.md=; =spec/index.html= drafted from it.
 
-** TODO Petri net and ER/value-range diagram spec sections drafted normatively first
+** INPROGRESS Petri net and ER/value-range diagram spec sections drafted normatively first
 Before Milestones B/C implement them, so there's something to conform
-to.
+to. Drafted alongside the block diagram section in the same
+=spec/index.html= pass.
 
 * Milestone B — Petri nets
 

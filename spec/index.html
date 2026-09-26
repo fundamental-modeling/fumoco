@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Fundamental Modeling Concepts — Notation Specification</title>
+  <script src="https://www.w3.org/Tools/respec/respec-w3c" class="remove" defer></script>
+  <script class="remove">
+    var respecConfig = {
+      specStatus: "unofficial",
+      shortName: "fmc-notation",
+      editors: [
+        { name: "Holger Peters" },
+      ],
+      xref: false,
+      localBiblio: {
+        "FMC-NOTATION-REFERENCE": {
+          title: "FMC Notation Reference (Appendix version)",
+          href: "https://www.fmc-modeling.org/notation_reference",
+          authors: ["Rémy Apfelbacher", "Anne Rozinat"],
+          publisher: "FMC Research Staff",
+          date: "December 2003",
+        },
+        "FMC-METAMODEL": {
+          title: "FMC Metamodel",
+          href: "https://www.fmc-modeling.org/metamodel",
+          publisher: "FMC Research Staff",
+        },
+        "FMC-VIZGUIDELINES": {
+          title: "FMC Visualization Guidelines",
+          href: "https://www.fmc-modeling.org/visualization_guidelines",
+          publisher: "FMC Research Staff",
+        },
+      },
+    };
+  </script>
+  <style>
+    table { border-collapse: collapse; margin: 1em 0; }
+    table, th, td { border: 1px solid #999; }
+    th, td { padding: 4px 8px; text-align: left; vertical-align: top; }
+    .shape-angular { font-weight: bold; }
+    .shape-rounded { font-style: italic; }
+    dt { font-weight: bold; margin-top: 0.6em; }
+  </style>
+</head>
+<body>
+  <section id="abstract">
+    <p>
+      This document specifies the notation of the Fundamental Modeling
+      Concepts (FMC) as implemented by Fumoco, a browser-based visual
+      editor. It defines FMC's core terminology, the three FMC diagram
+      types (block diagrams, Petri nets, and entity-relationship
+      diagrams) as bipartite graphs over that terminology, and the rules
+      that make a diagram of each type well-formed. The block diagram
+      section is normative and matches Fumoco's shipped editor; the
+      Petri net and entity-relationship sections are drafted normatively
+      in advance of their editors being built, so later implementation
+      work has something concrete to conform to rather than improvising
+      semantics while also writing code. An informative appendix
+      summarizes layout guidance that shaped several of Fumoco's editor
+      features.
+    </p>
+  </section>
+
+  <section id="sotd">
+    <p>
+      This is not a W3C specification and is not on the W3C standards
+      track. It is Fumoco's own working specification of FMC notation,
+      written in a W3C-ReSpec-style document because that format gives a
+      free table of contents, section numbering, and a references
+      section for a document that otherwise has no such tooling of its
+      own. It is derived from, and should be read alongside, the FMC
+      Consortium's own reference material at
+      <a href="https://www.fmc-modeling.org/">fmc-modeling.org</a> — in
+      particular the Notation Reference, the Metamodel page, and the
+      Visualization Guidelines (see the References section, and
+      <code>spec/SOURCES.md</code> in this repository for the full list
+      of source material screened while writing this document). Where
+      this document and the FMC Consortium's own material disagree, the
+      Consortium's material is authoritative for what FMC *is*; this
+      document only aims to be authoritative for what Fumoco's editor
+      *implements and enforces*.
+    </p>
+  </section>
+
+  <section id="introduction">
+    <h2>Introduction</h2>
+    <p>
+      FMC describes a software-intensive system along three largely
+      independent aspects, each with its own diagram type:
+    </p>
+    <dl>
+      <dt>Compositional structure</dt>
+      <dd>which components a system consists of and how they're
+        connected — drawn as a <a href="#block-diagrams">block
+        diagram</a>.</dd>
+      <dt>Dynamic structure</dt>
+      <dd>what actually happens over time — the operations components
+        perform and how those operations depend on one another — drawn
+        as a <a href="#petri-nets">Petri net</a>.</dd>
+      <dt>Value range structure</dt>
+      <dd>what information is observable at a given point in the system,
+        and how pieces of information relate to each other — drawn as an
+        <a href="#er-diagrams">entity-relationship diagram</a>.</dd>
+    </dl>
+    <p>
+      All three diagram types share one property: each is a
+      <dfn>bipartite graph</dfn> — its nodes split into exactly two
+      disjoint kinds, and every edge connects a node of one kind to a
+      node of the other kind, never two nodes of the same kind. Which two
+      kinds, and what an edge between them means, differs per diagram
+      type; <a href="#terminology">Terminology and Conformance</a> below
+      fixes the vocabulary shared across all three before each diagram
+      type's own section states its specific bipartite rule.
+    </p>
+  </section>
+
+  <section id="terminology">
+    <h2>Terminology and Conformance</h2>
+    <p>
+      This section fixes the core FMC vocabulary that the rest of this
+      document, and Fumoco's data model, builds on.
+    </p>
+
+    <section id="term-components">
+      <h3>System components</h3>
+      <p>
+        A system consists of <dfn>components</dfn>, split into two kinds:
+      </p>
+      <dl>
+        <dt><dfn>Agent</dfn></dt>
+        <dd>An active component. An agent performs operations and, in
+          doing so, is the only kind of component that can access a
+          location. A <dfn>human agent</dfn> is an agent that represents
+          a person rather than a technical component; it behaves
+          identically to any other agent and is distinguished only for
+          readability.</dd>
+        <dt><dfn>Location</dfn></dt>
+        <dd>A passive component — a place where information can be
+          observed. A location is either a <dfn>storage</dfn> or a
+          <dfn>channel</dfn>:
+          <ul>
+            <li>A storage holds information that persists until an agent
+              changes it again. At least one agent accesses a given
+              storage.</li>
+            <li>A channel carries information that is transient — it
+              exists only for as long as a transmission is in progress.
+              A channel connects at least two agents, since its purpose
+              is communication between them (a storage accessed by more
+              than one agent can also serve this purpose, but a channel
+              is specifically for it).</li>
+          </ul>
+          Both kinds of location can represent either a purely conceptual
+          element of a high-level model, or a concrete technical
+          component (an OS-level task queue, a network connection, a
+          disk).
+        </dd>
+      </dl>
+      <p>
+        Agents are conventionally drawn with angular (rectangular)
+        outlines and locations with rounded outlines, regardless of
+        which specific diagram type they appear in — this angular/rounded
+        distinction is what a diagram reader uses to tell the two
+        bipartite node kinds apart at a glance, and Fumoco preserves it
+        (a channel is drawn as a small near-circular location; an
+        ordinary storage as a rounded-corner rectangle).
+      </p>
+    </section>
+
+    <section id="term-access">
+      <h3>Access</h3>
+      <p>
+        An agent connects to a location via an <dfn>access</dfn> edge of
+        one of three kinds:
+      </p>
+      <dl>
+        <dt><dfn>Read access</dfn></dt>
+        <dd>The agent observes the location's current value without
+          changing it.</dd>
+        <dt><dfn>Write access</dfn></dt>
+        <dd>The agent replaces the location's value.</dd>
+        <dt><dfn>Modify access</dfn></dt>
+        <dd>A read followed by a write to the same location as one unit —
+          the agent needs the current value to compute the new one (an
+          increment is the canonical example).</dd>
+      </dl>
+      <p>
+        By convention, read/write access to a storage is drawn as two
+        separate directed edges (one per direction actually used);
+        read/write access to a channel is drawn as a single undirected
+        edge instead, since a channel's smaller size makes two full
+        edges visually heavier than the distinction is worth. Modify
+        access is its own single edge kind regardless of which location
+        it targets.
+      </p>
+    </section>
+
+    <section id="term-containment">
+      <h3>Containment and structure variance</h3>
+      <p>
+        Any component (agent or location) may be drawn nested inside
+        another component to show a whole-part relationship; nesting is
+        purely a display convention layered on top of the bipartite
+        access structure, not a third node or edge kind of its own.
+        Fumoco treats containment as many-to-many (a component can be
+        nested inside more than one container) rather than assuming a
+        strict tree, and separately tracks whether a given containment
+        relationship is actually <em>displayed</em> nested in a
+        particular view — see Fumoco's own
+        <code>PFLICHTENHEFT.md</code> for that distinction, which is an
+        editor design decision rather than part of FMC notation itself.
+      </p>
+      <p>
+        <dfn>Structure variance</dfn> is the notational convention for
+        showing that the system's own structure — which components
+        exist — can change at runtime: a dashed outline on a location
+        marks it as the place where such a structural change is
+        observed, with the agent responsible for the change drawn with
+        access to it exactly like any other read/write/modify access.
+      </p>
+    </section>
+
+    <section id="term-values">
+      <h3>Values</h3>
+      <p>
+        A <dfn>value</dfn> is the information observable at a location at
+        a given moment. A value is <dfn>unstructured</dfn> (atomic — a
+        bit, a number) or <dfn>structured</dfn> (composed of two or more
+        other values — a record, a stack, an entire database's
+        contents). Both a storage's held content and a message currently
+        in transit on a channel are values in this sense. Values are the
+        subject matter of an <a href="#er-diagrams">entity-relationship
+        diagram</a>.
+      </p>
+    </section>
+
+    <section id="term-events">
+      <h3>Operations, events, and causal ordering</h3>
+      <p>
+        An <dfn>operation</dfn> is the smallest activity an agent
+        performs; it consists of at least one write access (a pure
+        generator writes without reading first) and zero or more read
+        accesses. When a write access actually changes a location's
+        value, that change is an <dfn>event</dfn>, occurring at exactly
+        one point in time and carrying a pre-value and a post-value (the
+        value immediately before and after). An event may in turn cause
+        an agent connected to that location to perform an operation of
+        its own. Events are only ever partially ordered — causal
+        dependency, not a single global clock. This dynamic-structure
+        vocabulary is what a <a href="#petri-nets">Petri net</a>
+        depicts: a place corresponds to where an event/value-change can
+        be observed, a transition to an operation.
+      </p>
+    </section>
+  </section>
+
+  <section id="block-diagrams">
+    <h2>Block Diagrams</h2>
+    <p class="issue" data-number="1">Normative. Matches Fumoco's
+      Milestone A editor.</p>
+
+    <p>
+      A block diagram depicts a system's compositional structure. Its
+      bipartite node kinds are <a>agent</a> (angular; includes human
+      agent) and <a>location</a> (rounded; a storage or a channel). Every
+      edge is an <a href="#term-access">access</a> edge connecting an
+      agent to a location — never agent to agent, never location to
+      location.
+    </p>
+
+    <section id="bd-channel-notation">
+      <h3>Channel notation</h3>
+      <p>
+        A channel is a location like any other for bipartite-rule
+        purposes, but its own read/write access edges carry additional
+        meaning about direction:
+      </p>
+      <ul>
+        <li><strong>Unidirectional (directed) channel</strong>: one
+          agent has write access, another has read access to the same
+          channel — information flows only from writer to reader. Drawn
+          as an arrow into the channel from the writer and an arrow out
+          of it to the reader.</li>
+        <li><strong>Bidirectional channel</strong>: both agents have
+          modify access to the channel — information can flow either
+          way. Drawn as a plain undirected line through the channel, no
+          arrowheads, since neither agent is fixed as sender or
+          receiver.</li>
+        <li><strong>Request/response channel</strong>: one agent
+          requests something from another, which then responds — modeled
+          as two unidirectional channels (or, in Fumoco's model, two
+          access edges on one shared channel location) in opposite
+          directions. Because this pattern is extremely common, a
+          <dfn>shorthand</dfn> notation exists: a single bold, direction-
+          carrying glyph label (Fumoco uses "R▶") in place of separate
+          request/response arrowheads and separate REQ/RES labels.</li>
+      </ul>
+    </section>
+
+    <section id="bd-structure-variance">
+      <h3>Structure variance in a block diagram</h3>
+      <p>
+        Per <a href="#term-containment">Containment and structure
+        variance</a>: a dashed-outline location marks where a structural
+        change (an agent or location coming into or going out of
+        existence) is observed, with the responsible agent's access to
+        it drawn as ordinary modify access.
+      </p>
+    </section>
+  </section>
+
+  <section id="petri-nets">
+    <h2>Petri Nets</h2>
+    <p class="issue" data-number="2">Normative-in-advance. No Fumoco
+      editor support yet (Milestone B) — this section is what that
+      editor must conform to once built.</p>
+
+    <p>
+      An FMC Petri net depicts a system's dynamic structure as a
+      transition/place net. Its bipartite node kinds are
+      <dfn>transition</dfn> (angular; an operation, event, or activity)
+      and <dfn>place</dfn> (rounded; a control state or condition). Every
+      edge is a directed <dfn>arc</dfn> connecting a place to a
+      transition or a transition to a place — never place to place,
+      never transition to transition.
+    </p>
+
+    <section id="pn-marking">
+      <h3>Marking and capacity</h3>
+      <p>
+        A place may be <dfn>marked</dfn> — holding one or more
+        <dfn>tokens</dfn>. Ordinary places hold at most one token at a
+        time. A <dfn>multi-token place</dfn> is drawn enlarged with an
+        explicit capacity annotation (n &gt; 1); a place with unlimited
+        capacity is drawn as a double circle instead. An arc carries a
+        <dfn>weight</dfn> (default 1 when unlabeled) specifying how many
+        tokens it consumes or produces when its transition fires.
+      </p>
+    </section>
+
+    <section id="pn-nop">
+      <h3>NOP transitions and swimlanes</h3>
+      <p>
+        A <dfn>NOP</dfn> ("no operation") transition performs no action;
+        it exists purely to preserve bipartiteness when a construct would
+        otherwise need two adjacent places or two adjacent transitions.
+        A <dfn>swimlane</dfn> divider groups transitions by which agent
+        performs them (the same agent/location vocabulary as a block
+        diagram, projected onto the dynamic-structure view); a
+        transition crossing a swimlane boundary represents communication
+        between the two agents on either side.
+      </p>
+    </section>
+
+    <section id="pn-constructs">
+      <h3>Standard constructs</h3>
+      <p>
+        Four control-flow shapes recur often enough to have standard,
+        recognizable layouts (see also
+        <a href="#viz-petri">Petri Net</a> in the visualization
+        appendix):
+      </p>
+      <dl>
+        <dt><dfn>Sequence</dfn></dt>
+        <dd>Transitions fire one after another in a fixed order, with no
+          alternative ordering possible.</dd>
+        <dt><dfn>Case</dfn></dt>
+        <dd>Exactly one of several transitions fires, chosen by a
+          condition attached to each candidate arc (an unconditioned
+          fallback arc is conventionally read as "otherwise").</dd>
+        <dt><dfn>Loop</dfn></dt>
+        <dd>A transition may fire repeatedly for as long as a condition
+          holds.</dd>
+        <dt><dfn>Concurrency</dfn></dt>
+        <dd>Two or more transitions have no ordering constraint between
+          them at all and may fire independently.</dd>
+      </dl>
+    </section>
+
+    <section id="pn-recursion">
+      <h3>Recursion elements</h3>
+      <p>
+        A recursive Petri net uses a dedicated <dfn>stack place</dfn> (a
+        capacity-1 or infinite-capacity place holding stack tokens that
+        record a return position) and a <dfn>return place</dfn> — an
+        input place shared by at least two transitions that also read
+        from a stack place, resolving the always-present conflict at a
+        return place by consuming the most recently pushed stack token
+        first. Every recursive diagram has exactly one recursion entry
+        point and exactly one transition representing the recursion's
+        base case (the point where it stops calling itself again).
+      </p>
+    </section>
+  </section>
+
+  <section id="er-diagrams">
+    <h2>Entity-Relationship Diagrams</h2>
+    <p class="issue" data-number="3">Normative-in-advance. No Fumoco
+      editor support yet (Milestone C) — this section is what that
+      editor must conform to once built.</p>
+
+    <p>
+      An FMC entity-relationship (ER) diagram depicts a system's value
+      range structure. Its bipartite node kinds are <dfn>relation</dfn>
+      (angular) and <dfn>entity set</dfn> (rounded, a classified
+      collection of entities). Every edge is an <dfn>arc</dfn> connecting
+      an entity set to a relation — never entity set to entity set, never
+      relation to relation. A relation is itself a node (not merely a
+      labeled edge) specifically so that it can be n-ary, connecting more
+      than two entity sets at once, and so that it can itself be the
+      subject of further structure (see <a href="#er-reification">
+      Reification</a> below).
+    </p>
+
+    <section id="er-cardinality">
+      <h3>Cardinality and roles</h3>
+      <p>
+        An arc between an entity set and a relation may carry a
+        <dfn>cardinality range</dfn> (min, max) stating how many times
+        each entity from that set participates in the relation, and a
+        <dfn>role</dfn> label clarifying the nature of that
+        participation. A binary relation's common cardinality shapes each
+        have a conventional shorthand: an <em>n:m</em> relation
+        (unrestricted on both sides), a <em>1:n</em> relation (a
+        function from one side to the other, drawn with an arrow inside
+        the relation symbol instead of spelled-out cardinality ranges),
+        and a <em>1:1</em> relation (a bijection, drawn the same way with
+        arrows on both sides). Any cardinality that deviates from what
+        the shorthand implies must still be stated explicitly.
+      </p>
+      <p>
+        A relation's identifier is aligned either with one of its entity
+        sets (read as "&lt;that entity set&gt; &lt;relation&gt; &lt;other
+        entity set&gt;", conventionally a verb) or centered on the
+        relation symbol itself (no implied reading direction,
+        conventionally a noun).
+      </p>
+    </section>
+
+    <section id="er-reification">
+      <h3>Reification and orthogonal partitioning</h3>
+      <p>
+        <dfn>Reification</dfn> turns the elements of a relation into the
+        elements of a new entity set, which can then participate in
+        further relations of its own — the mechanism by which an ER
+        diagram lets a relationship itself become a first-class subject.
+        <dfn>Orthogonal partitioning</dfn> is splitting one entity set
+        into subsets along two (or more) independent classification axes
+        at once, each axis drawn as its own partitioning rather than
+        forcing a single hierarchy. A <dfn>structure entity</dfn> lets an
+        entire sub-structure (a set of entity sets and relations) be
+        folded into a single entity set for use one level up — most
+        useful for showing a level and its own meta-level together.
+      </p>
+    </section>
+  </section>
+
+  <section id="viz-appendix" class="informative">
+    <h2>Appendix: Visualization Guidance</h2>
+    <p>
+      This appendix is informative, not normative — it doesn't define
+      what a diagram of a given type *means*, only what tends to make
+      one easier for a human to read. It summarizes the guidance that
+      motivated several already-shipped Fumoco editor features
+      (orthogonal edge routing with rounded corners, grid snap, resize
+      handles) as well as several not-yet-built ones tracked as
+      <code>OPEN</code> items in <code>implementation_plan.org</code>
+      (see that file and <code>LASTENHEFT.md</code>'s "Visualization
+      guidance" section for the concrete, actionable list). It groups
+      the general guidance below into two intentions that sometimes
+      pull in opposite directions — a diagram can't always be optimized
+      for both at once, and treating these as advice to weigh rather
+      than hard rules is itself part of the guidance.
+    </p>
+
+    <section id="viz-perception">
+      <h3>Visual perception</h3>
+      <p>
+        Guidance aimed at reducing visual clutter and effort: minimize
+        edge crossings; prefer horizontal/vertical edges over diagonal
+        ones; round edge corners so the eye can follow a bend more
+        naturally; merge edges heading to the same node into a shared
+        trunk near that node; keep edges from running too close to
+        unrelated nodes or to each other; keep node-to-node distances
+        neither so short that a connection reads as trivial nor so long
+        that the reader loses track of it; give nodes of the same kind a
+        consistent size and shape rather than sizing them off how much
+        label text happens to fit; use a placeholder-plus-ellipsis
+        convention to represent a set of similar nodes without drawing
+        every one; keep alignment and spacing consistent across the
+        diagram (harmonization); make a node's line weight visibly
+        different from an edge's so the two are never ambiguous; keep
+        labels horizontal, in a consistent font, short, and unambiguous
+        about which element they belong to; use color sparingly, and
+        prefer muted tones for grouping frames so the grouped content
+        stays the visual focus; and keep the overall diagram at a size
+        appropriate to both its intended audience and a standard sheet
+        of paper or screen.
+      </p>
+    </section>
+
+    <section id="viz-semantics">
+      <h3>Stressing semantics</h3>
+      <p>
+        Guidance aimed at using layout itself to communicate meaning
+        beyond the raw notation: place more important nodes centrally and
+        give them comparatively more visual weight; place related nodes
+        near each other, and nodes that belong to the same enclosing
+        frame are read as related even at a distance; use nesting to
+        stress a containment (or containment-like) relationship, since it
+        both communicates the relationship and reduces the edge count
+        needed to state it explicitly; keep a consistent flow direction
+        (top-to-bottom or left-to-right) when a diagram has a natural
+        sequence; give structurally similar groups of nodes visually
+        similar, symmetric layouts so their structural correspondence is
+        obvious at a glance; and preserve a diagram's layout across
+        related diagrams shown at different levels of detail, so a reader
+        moving between levels doesn't have to re-orient from scratch.
+      </p>
+    </section>
+
+    <section id="viz-block-diagram">
+      <h3>Block diagram specific</h3>
+      <p>
+        A channel's read/write access draws as a single undirected edge
+        (see <a href="#bd-channel-notation">Channel notation</a>) rather
+        than two directed ones, precisely because a channel is drawn
+        small enough that two full edges would look heavier than the
+        distinction is worth. Grouping nodes purely to reduce edge count
+        (rather than to show a real containment relationship) should be
+        drawn with a lighter line weight than an ordinary agent/location,
+        so the two purposes of a frame stay visually distinguishable.
+        When no other flow is implied, place the most important
+        component centrally, following the standard arrangement below
+        rather than an arbitrary one.
+      </p>
+    </section>
+
+    <section id="viz-petri">
+      <h3>Petri Net</h3>
+      <p>
+        The four <a href="#pn-constructs">standard constructs</a> each
+        have a canonical, recognizable layout: a sequence typically omits
+        the place between consecutive transitions to save space; a case
+        uses an edge tree both to attach conditions cleanly and to
+        re-merge the branches symmetrically after the decision; a loop's
+        entry/exit NOP transitions are drawn smaller and unlabeled since
+        they carry no meaning of their own; concurrency is drawn with the
+        splitting/joining transitions sized to visually span every
+        transition they spread across. A standard flow direction (top-to-
+        bottom or left-to-right) should hold consistently across a
+        diagram, with input places above/left and output places below/
+        right of a transition along that axis — loop constructs, whose
+        input and output place are the same place, are the natural
+        exception. When a Petri net's normal control-flow path would
+        otherwise be visually buried under error-handling branches, the
+        normal path should be kept visually prominent (e.g. a separated,
+        emphasized main line) with error handling set to the side, or
+        folded into a nested sub-diagram rather than inlined at the same
+        level.
+      </p>
+    </section>
+
+    <section id="viz-er">
+      <h3>Entity-Relationship Diagram specific</h3>
+      <p>
+        A relation node's shape stays rectangular; an entity set's shape
+        may vary (including non-rectangular outlines) the same way a
+        block diagram's location shapes may. An n-ary relation is
+        typically drawn larger than a binary one, both to signal the
+        difference and to give its several arcs room to align cleanly.
+        Label a relation with a verb when its identifier is aligned to
+        one entity set (implying a reading direction) and with a noun
+        when centered (implying none) — see
+        <a href="#er-cardinality">Cardinality and roles</a>.
+      </p>
+    </section>
+
+    <section id="viz-standard-layouts">
+      <h3>Named standard layouts</h3>
+      <dl>
+        <dt>Block diagram: standard arrangement</dt>
+        <dd>The system of interest occupies the visual center and most
+          of the diagram's area; its environment (users above,
+          other external components placed by their role — input,
+          output, and so on) surrounds it rather than crowding in from
+          one arbitrary side.</dd>
+        <dt>Block diagram: client-server pattern</dt>
+        <dd>Clients arranged above, server (and any database) below,
+          in a scheme of "several connect to few" from top to bottom —
+          the same scheme scales from a simple two-tier layout to an
+          n-tier one.</dd>
+        <dt>Petri net: saving space in a long net</dt>
+        <dd>A folding pattern for a net that would otherwise run very
+          long in its dominant flow direction, still read top-to-bottom
+          and left-to-right within each fold.</dd>
+      </dl>
+    </section>
+  </section>
+
+  <section id="conformance">
+    <h2>Conformance</h2>
+    <p>
+      A diagram <dfn>conforms</dfn> to this specification for a given
+      diagram type if it obeys that type's bipartite rule (every edge
+      connects the two designated node kinds and no others) and every
+      construct it uses matches that construct's definition in the
+      corresponding section above. The <a href="#viz-appendix">
+      Visualization Guidance</a> appendix is explicitly non-normative:
+      a diagram that ignores some or all of it is still a conforming FMC
+      diagram, just a harder-to-read one.
+    </p>
+  </section>
+</body>
+</html>

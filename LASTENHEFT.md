@@ -152,6 +152,36 @@ implementation notes here — that's the other two documents' job.
   edge's rendering near one particular occurrence without deleting the
   edge from the model.
 
+## Visualization guidance (derived from screening the FMC Visualization Guidelines and Metamodel pages, 2026-09-27)
+
+- As a modeler, I want edges converging on the same box to merge into a
+  shared trunk near that box ("edge trees") instead of drawing every leg
+  separately all the way to the box, so a box with many connections stays
+  legible.
+- As a modeler, I want new boxes of the same element type to default to a
+  consistent size, so two boxes don't end up looking more or less
+  important than each other purely because one has a longer label.
+- As a modeler, I want a node's line weight to read as visibly heavier
+  than an edge's, so boxes and connectors stay easy to tell apart even in
+  a dense diagram.
+- As a modeler, I want a one-click way to apply FMC's standard block-
+  diagram arrangement (system of interest centered, its environment/
+  users placed around it) to a fresh diagram, instead of starting from a
+  blank canvas every time.
+- As a modeler, I want reusable layout patterns for the standard Petri-net
+  constructs (strict sequence, case, loop, concurrency) I can drop onto
+  the canvas, since these have well-known standard shapes worth not
+  redrawing by hand each time.
+- As a modeler, I want a way to represent "N similar boxes" as one
+  exemplar plus an ellipsis/enumeration marker, instead of being forced
+  to draw every instance when the exact count doesn't matter.
+- As a modeler, I want grouping/structuring boxes (a frame around related
+  elements) to default to a muted, low-saturation fill, since color
+  should stay sparing and not compete with the elements it's grouping.
+- As a modeler, I want a soft nudge (not a hard limit) when a diagram
+  grows past a size that would no longer fit a standard page/screen, so I
+  notice before a diagram has become unreadably large rather than after.
+
 ## Beyond block diagrams
 
 - As a modeler, I want a formal, W3C-ReSpec-based specification of FMC's
