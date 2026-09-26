@@ -52,6 +52,15 @@ implementation notes here — that's the other two documents' job.
   delete it from the model entirely.
 - As a modeler, I want a scrollable/pannable canvas viewport — a diagram
   bigger than the visible area needs to actually be reachable.
+- As a modeler, I want a container box (one showing nested content) and a
+  plain box to feel like the same kind of thing when selected, not two
+  different UIs — a plain box currently gets all 8 resize handles, a
+  container gets none. (Polish item, not urgent.)
+- As a modeler, I don't need rotation at all — boxes should stay
+  axis-aligned. The rotation handle currently shown on a selected plain
+  box doesn't actually do anything useful (rotation isn't persisted), so
+  it should just be removed rather than made to work. (Polish item, not
+  urgent.)
 
 ## Selecting and arranging multiple elements
 
