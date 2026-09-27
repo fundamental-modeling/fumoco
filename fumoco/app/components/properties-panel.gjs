@@ -83,6 +83,10 @@ export default class PropertiesPanel extends Component {
     return this.selectedElement?.type === 'place';
   }
 
+  get showsStartOption() {
+    return this.selectedElement?.type === 'place';
+  }
+
   @action
   updateLabel(event) {
     const element = this.selectedElement;
@@ -108,6 +112,15 @@ export default class PropertiesPanel extends Component {
     const tokens = Math.max(0, parseInt(event.target.value, 10) || 0);
     this.modelStore.mutate(() => {
       element.tokens = tokens;
+    });
+  }
+
+  @action
+  toggleStart(event) {
+    const element = this.selectedElement;
+    if (!element) return;
+    this.modelStore.mutate(() => {
+      element.isStart = event.target.checked;
     });
   }
 
@@ -205,6 +218,16 @@ export default class PropertiesPanel extends Component {
               value={{this.selectedElement.tokens}}
               {{on "input" this.updateTokens}}
             />
+          </label>
+        {{/if}}
+        {{#if this.showsStartOption}}
+          <label class="properties-panel-field properties-panel-checkbox">
+            <input
+              type="checkbox"
+              checked={{this.selectedElement.isStart}}
+              {{on "change" this.toggleStart}}
+            />
+            Start place
           </label>
         {{/if}}
         <div class="properties-panel-field">

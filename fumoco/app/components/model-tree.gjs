@@ -165,24 +165,6 @@ export default class ModelTree extends Component {
       </div>
 
       <div class="model-tree-section">
-        <h3>Elements</h3>
-        <ul class="model-tree-list">
-          {{#each this.rootElements as |element|}}
-            <ModelTreeNode @element={{element}} />
-          {{/each}}
-        </ul>
-      </div>
-
-      <div class="model-tree-section">
-        <h3>Arrows</h3>
-        <ul class="model-tree-list">
-          {{#each this.accesses as |access|}}
-            <ArrowRow @access={{access}} />
-          {{/each}}
-        </ul>
-      </div>
-
-      <div class="model-tree-section">
         <h3>Views</h3>
         <select
           aria-label="New view's diagram type"
@@ -198,6 +180,24 @@ export default class ModelTree extends Component {
         <ul class="model-tree-list">
           {{#each this.views as |modelView|}}
             <ViewRow @view={{modelView}} @onDelete={{this.deleteView}} />
+          {{/each}}
+        </ul>
+      </div>
+
+      <div class="model-tree-section">
+        <h3>Elements</h3>
+        <ul class="model-tree-list">
+          {{#each this.rootElements as |element|}}
+            <ModelTreeNode @element={{element}} />
+          {{/each}}
+        </ul>
+      </div>
+
+      <div class="model-tree-section">
+        <h3>Arrows</h3>
+        <ul class="model-tree-list">
+          {{#each this.accesses as |access|}}
+            <ArrowRow @access={{access}} />
           {{/each}}
         </ul>
       </div>

@@ -431,6 +431,76 @@ module('Unit | Utility | fmc-model', function () {
       assert.strictEqual(restored.arcs[0].target, transition);
       assert.strictEqual(restored.arcs[0].weight, 5);
     });
+
+    test('addArc rejects an inheritance arc between anything but two entity sets', function (assert) {
+      const model = new FmcModel();
+      const entitySet = model.addElement(ElementType.ENTITY_SET);
+      const relation = model.addElement(ElementType.RELATION);
+
+      assert.throws(
+        () => model.addArc(entitySet, relation, 1, { kind: 'inheritance' }),
+        FmcModelError,
+      );
+    });
+
+    test('addArc creates an inheritance arc between two entity sets', function (assert) {
+      const model = new FmcModel();
+      const child = model.addElement(ElementType.ENTITY_SET);
+      const parent = model.addElement(ElementType.ENTITY_SET);
+
+      const arc = model.addArc(child, parent, 1, { kind: 'inheritance' });
+
+      assert.strictEqual(arc.source, child);
+      assert.strictEqual(arc.target, parent);
+      assert.strictEqual(arc.kind, 'inheritance');
+    });
+
+    test('updateArcCardinality changes just that arc, leaving its id and endpoints alone', function (assert) {
+      const model = new FmcModel();
+      const entitySet = model.addElement(ElementType.ENTITY_SET);
+      const relation = model.addElement(ElementType.RELATION);
+      const arc = model.addArc(entitySet, relation);
+
+      model.updateArcCardinality(arc.id, 'one');
+
+      assert.strictEqual(model.arcs.length, 1);
+      assert.strictEqual(model.arcs[0].id, arc.id);
+      assert.strictEqual(model.arcs[0].cardinality, 'one');
+      assert.strictEqual(model.arcs[0].source, entitySet);
+      assert.strictEqual(model.arcs[0].target, relation);
+    });
+
+    test('reifyRelation nests the relation inside a fresh entity set', function (assert) {
+      const model = new FmcModel();
+      const relation = model.addElement(ElementType.RELATION);
+
+      const entitySetId = model.reifyRelation(relation, { label: 'Booking' });
+
+      const entitySet = model.elements.get(entitySetId);
+      assert.strictEqual(entitySet.type, ElementType.ENTITY_SET);
+      assert.strictEqual(entitySet.label, 'Booking');
+      assert.deepEqual(
+        [...model.elements.get(relation).parents],
+        [entitySetId],
+      );
+    });
+
+    test('reifyRelation rejects anything but a relation', function (assert) {
+      const model = new FmcModel();
+      const entitySet = model.addElement(ElementType.ENTITY_SET);
+
+      assert.throws(() => model.reifyRelation(entitySet), FmcModelError);
+    });
+
+    test('a place element defaults isStart to false, settable via addElement, and round-trips', function (assert) {
+      const model = new FmcModel();
+      const place = model.addElement(ElementType.PLACE, { isStart: true });
+
+      assert.true(model.elements.get(place).isStart);
+
+      const restored = FmcModel.fromJSON(model.toJSON());
+      assert.true(restored.elements.get(place).isStart);
+    });
   });
 
   module('legacy JSON migration (pre-rename autosaves/files)', function () {

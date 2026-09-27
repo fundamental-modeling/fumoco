@@ -433,25 +433,43 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
   `buildArcs` from the source element's type:
   - A **Petri arc** (place<->transition) uses `verticalArcPath`, not
     `orthogonalPath`: FMC's standard Petri net flow is top-to-bottom, so
-    it always exits the source's bottom-center and enters the target's
-    top-center, regardless of their actual relative position. This also
-    fixes a real bug for free -- two opposite-direction arcs between the
-    same pair used to route identically (just traversed in reverse), so
-    they'd draw as one perfectly overlapping line with an arrowhead at
-    each end, reading as a single bidirectional edge, which a Petri arc
-    must never be; fixed ports make forward and reverse arcs take
-    visibly different paths instead. When the target's top is at or
-    below the source's exit point, a single horizontal leg at their
-    midpoint connects the two (already guaranteed clear of both boxes,
-    since it sits below the source's bottom and above the target's top by
-    construction). When the target is *above* the source's exit point
-    (a reverse arc), that single-bend approach would cut straight through
-    whichever box's vertical span the midpoint fell into -- instead the
-    path routes around: down past the source, over to a lane clear of
-    both boxes' horizontal extents (`min(sourceBox.x, targetBox.x) -
-    margin`, always outside both), up past the target, then over and
-    down into it. Both cases still leave south and arrive north
-    perpendicular to that edge, never at an angle.
+    in the common case it exits the source's bottom-center and enters the
+    target's top-center perpendicular to that edge, regardless of their
+    exact relative x-position. This also fixes a real bug for free -- two
+    opposite-direction arcs between the same pair used to route
+    identically (just traversed in reverse), so they'd draw as one
+    perfectly overlapping line with an arrowhead at each end, reading as
+    a single bidirectional edge, which a Petri arc must never be; fixed
+    ports make forward and reverse arcs take visibly different paths
+    instead. When the target's top is at or below the source's bottom, a
+    single horizontal leg at their midpoint connects the two (already
+    guaranteed clear of both boxes, since it sits below the source's
+    bottom and above the target's top by construction).
+
+    When the target *isn't* below the source -- a particular case,
+    typically a loop-back arc to a box beside rather than above/below
+    (the common shape of a self-loop's return arc) -- that single-bend
+    approach would cut straight through whichever box's vertical span the
+    midpoint fell into. Instead the whole detour routes *above* both
+    boxes, so both ends leave/arrive diagonally (north-west/north-east,
+    whichever corner faces the other box) via a short 45° stub right at
+    the shape's own boundary (`ARC_DIAGONAL_STUB`, 28px -- comfortably
+    longer than `EDGE_CORNER_RADIUS` so canvas `arcTo` has room to render
+    the same corner radius here as everywhere else, since `arcTo` shrinks
+    the radius it draws when the adjacent segment is too short to fit
+    it), then bends onto ordinary horizontal/vertical routing for the
+    transit between them -- only that stub is a free-angle segment, never
+    the whole path. Both ends face the *same* direction (top/north) since
+    they share one transit lane above both boxes; entering via a target's
+    *bottom* corner instead (an earlier version's attempt at "arriving
+    diagonally from the south") was a real bug, since the lane already
+    sits above the target and entering from below would force the line to
+    travel past the target's entire height and loop underneath it, rather
+    than simply coming straight down out of the lane it was already in.
+    For a place (drawn as a circle via `buildShape`'s `cornerRadius`
+    trick), the diagonal stub's anchor is the actual point on the circle
+    at that 45° angle (`diagonalBoundaryPoint`), not the invisible
+    bounding box's corner, which sits outside the circle.
   - An **ER arc** (entity_set<->relation) keeps using `orthogonalPath` --
     an ER diagram has no fixed reading direction (see `spec/index.html`'s
     ER section), so the shortest-route logic that access edges already
@@ -469,14 +487,47 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
 - `model-tree.gjs`'s "+ View" gained an adjoining `<select>` for the new
   view's diagram type (block/petri/er), read by `addView` and passed to
   `FmcModel.createView`.
+- `Element.isStart` (place-only, default `false`) marks a Petri net's
+  starting place, toggled via the properties panel. `buildShape` draws a
+  short, unconnected stub arrow (a filled triangle plus a short line, no
+  `Konva` node beyond the group itself) pointing into the place's left
+  side when set -- the standard automaton/Petri-net "entry point" marker,
+  independent of `tokens` (a place can hold a nonzero marking without
+  being where the net's flow is considered to begin).
+- ER cardinality: an entity_set<->relation arc's `cardinality` field
+  (`null` or `'one'`, toggled via the arc's right-click menu,
+  `FmcModel.updateArcCardinality`) draws a small filled triangle a short
+  distance *inside* the relation's own box (computed by extending inward
+  along the arc's own final segment direction, `ARC_ROUTE_MARGIN`-scale
+  inset) -- FMC's "arrow inside the relation symbol" convention for a
+  1:n/1:1 relation, distinct from the main edge's own end arrowhead.
+  `buildArcs` figures out which end is the relation (`relationEnd`) from
+  the elements' types so `drawArc` knows which side to draw it on.
+- ER inheritance ("is-a"): `FmcModel.addArc(source, target, weight, {
+  kind: 'inheritance' })` connects two entity sets directly -- the one
+  exception to the general bipartite-pair check, since generalization
+  isn't part of FMC's own compositional/dynamic/value-range structure,
+  but the standard ER/UML convention. `drawArc` gives it a hollow (white-
+  filled, outlined) triangle at the supertype end instead of the ordinary
+  filled one, and skips the weight label (not meaningful here).
+- ER reification: `FmcModel.reifyRelation(relationId, { label })` creates
+  a fresh entity set and nests the relation inside it via the existing
+  generic containment mechanism (`addContainment` already allows any type
+  mix) -- per `spec/index.html`'s Reification section, "the elements of a
+  relation become the elements of a new entity set, which can then
+  participate in further relations of its own." Reachable from a
+  relation's right-click menu ("Reify into entity set"); `canvas-view.gjs`'s
+  `reifyRelation` action also adds the new entity set to the active view
+  (sized to contain the relation) and sets `view.nestedUnder` so it's
+  displayed nested there immediately, not just related in the model.
 
 **Known gaps, tracked as future work, not bugs**: no NOP transitions, no
 swimlanes, no recursion elements, no standard-construct stencils
-(sequence/case/loop/concurrency) for Petri nets; no cardinality ranges,
-role labels, reification, or orthogonal partitioning for ER diagrams; no
-export; no validation extension (`FmcModel.validate` still only checks
-block-diagram Access-arity laws). All explicitly out of scope for this
-pass.
+(sequence/case/loop/concurrency) for Petri nets; no role labels or n-ary
+relations beyond what a generic arc already allows, no orthogonal
+partitioning, for ER diagrams; no export; no validation extension
+(`FmcModel.validate` still only checks block-diagram Access-arity laws).
+All explicitly out of scope for this pass.
 
 ## Canvas viewport (pan)
 

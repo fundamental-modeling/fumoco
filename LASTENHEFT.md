@@ -42,6 +42,9 @@ implementation notes here — that's the other two documents' job.
 - As a modeler, I want a container's label to never render smaller than
   its children's labels — this was a real complaint about the old Python
   auto-layouter too, not a new one.
+- As a modeler, I want the model tree's Views section listed above
+  Elements, since switching views is the thing I do most often and I
+  shouldn't have to scroll past the element list to get to it.
 
 ## Placing and editing elements
 
@@ -221,6 +224,22 @@ implementation notes here — that's the other two documents' job.
   bipartite rule enforced the same way agent/storage is today.
 - As a modeler, I want to create ER entity sets and (possibly n-ary)
   relations, with arcs carrying role/cardinality labels.
+- As a modeler, I want an ER "is-a" relationship drawn with the standard
+  hollow triangle at the supertype end, connecting two entity sets
+  directly.
+- As a modeler, I want small arrows on a relation for its 1:n, n:1, and
+  1:1 cardinality, matching FMC's arrow-inside-the-relation convention.
+- As a modeler, I want to reify a relation into an entity set by nesting
+  the relation inside it, so the reified entity set can then participate
+  in further relations of its own.
+- As a modeler, Petri net arcs must never look bidirectional; the
+  standard flow is top-to-bottom (leaving south, arriving north), except
+  for loop-back arcs to a place/transition that's beside rather than
+  above/below, which should leave/arrive diagonally instead of looping
+  all the way around — and a diagonal arc should actually leave from a
+  place's circle, not the corner of its invisible bounding box.
+- As a modeler, I want to mark a place as the net's starting place, shown
+  with the standard short unconnected arrow pointing into it.
 - As a modeler, I want to open a Fumoco model file directly in VS Code
   and get the same editing experience as the standalone app.
 

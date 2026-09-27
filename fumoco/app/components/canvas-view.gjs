@@ -13,6 +13,7 @@ import {
   isRoundedElementType,
 } from 'fumoco/utils/fmc-model';
 import { ConnectorKind, connectorRule } from 'fumoco/services/connector-tool';
+import { nextFreeBoxPosition } from 'fumoco/utils/box-layout';
 
 const GRID = 10;
 const MIN_SIZE = 20;
@@ -260,43 +261,113 @@ function orthogonalPath(a, b) {
 // coinciding. ER arcs keep using orthogonalPath -- an ER diagram has no
 // such fixed reading direction (see spec/index.html's ER section).
 const ARC_ROUTE_MARGIN = 20;
+// Comfortably longer than EDGE_CORNER_RADIUS so drawRoundedPolyline's
+// arcTo-based rounding has room to render the *same* radius at a
+// diagonal-to-orthogonal bend as it already does at every plain
+// orthogonal-to-orthogonal one -- arcTo silently shrinks the radius it
+// actually draws when the adjacent segment is too short to fit it, so a
+// stub barely longer than the radius itself would round visibly less
+// than the rest of the path.
+const ARC_DIAGONAL_STUB = 28;
 
-export function verticalArcPath(sourceBox, targetBox) {
-  const exit = {
-    x: sourceBox.x + sourceBox.width / 2,
-    y: sourceBox.y + sourceBox.height,
+// A point on a box's boundary at 45 degrees into one of its corner
+// quadrants (signX/signY each -1 or 1). For a circular/near-circular
+// shape (a Petri place, drawn via buildShape's cornerRadius trick) this
+// is the actual point ON the circle -- not the bounding box's corner,
+// which sits outside the circle -- so a diagonal arc genuinely leaves
+// from the place's own edge rather than from empty space beyond it. For
+// a rectangular shape (a transition) the two are the same point, so the
+// same formula still gives the box's corner correctly.
+function diagonalBoundaryPoint(box, isCircular, signX, signY) {
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  if (!isCircular) {
+    return {
+      x: cx + (signX * box.width) / 2,
+      y: cy + (signY * box.height) / 2,
+    };
+  }
+  const k = Math.SQRT1_2; // cos(45°) === sin(45°)
+  return {
+    x: cx + signX * (box.width / 2) * k,
+    y: cy + signY * (box.height / 2) * k,
   };
-  const enter = { x: targetBox.x + targetBox.width / 2, y: targetBox.y };
+}
 
-  // The common case: the target's top is at or below the source's exit
-  // point (the usual top-to-bottom flow, or two boxes side by side at
-  // the same level). A single horizontal leg at the midpoint is already
+export function verticalArcPath(
+  sourceBox,
+  targetBox,
+  { sourceCircular = false, targetCircular = false } = {},
+) {
+  const sourceBottom = sourceBox.y + sourceBox.height;
+  const sourceCenterX = sourceBox.x + sourceBox.width / 2;
+  const targetCenterX = targetBox.x + targetBox.width / 2;
+
+  // The common case, and the one that should apply almost always: the
+  // target's top is at or below the source's bottom (the usual top-to-
+  // bottom flow). A single horizontal leg at the midpoint is already
   // guaranteed clear of both boxes, since it's below the source's own
   // bottom edge and above the target's own top edge by construction.
-  if (enter.y >= exit.y) {
+  if (targetBox.y >= sourceBottom) {
+    const exit = { x: sourceCenterX, y: sourceBottom };
+    const enter = { x: targetCenterX, y: targetBox.y };
     if (exit.x === enter.x) return [exit, enter];
     const midY = (exit.y + enter.y) / 2;
     return [exit, { x: exit.x, y: midY }, { x: enter.x, y: midY }, enter];
   }
 
-  // The target sits *above* the source's exit point (a reverse arc, or
-  // any arc running against the flow direction) -- a straight midpoint
-  // bend would cut through whichever box's vertical span it lands in,
-  // since "below source" and "above target" no longer overlap. Route
-  // around instead: down away from the source, across to a lane clear of
-  // both boxes' horizontal extents, up past the target, then across and
-  // down into it -- still leaving south and arriving north, just via a
-  // path that never crosses either box's interior.
-  const belowSource = exit.y + ARC_ROUTE_MARGIN;
-  const aboveTarget = enter.y - ARC_ROUTE_MARGIN;
-  const laneX = Math.min(sourceBox.x, targetBox.x) - ARC_ROUTE_MARGIN;
+  // The target isn't below the source -- a particular case, typically a
+  // loop-back arc where the other node sits roughly level with (or to
+  // the side of) this one, not above or below it. Forcing a due-south
+  // exit here would have to loop all the way around, so instead the
+  // whole detour routes *above* both boxes -- which means both ends must
+  // face that same lane: the arc leaves diagonally (north-west/north-
+  // east) from the source's own top and *also* arrives diagonally
+  // (again north-west/north-east, not south) into the target's top, each
+  // via a short stub segment right at the shape's own boundary before
+  // bending onto the ordinary horizontal/vertical routing for the transit
+  // between them -- only this stub is a free-angle segment, never the
+  // whole path. (An earlier version entered via the target's *bottom*
+  // corner to "arrive diagonally from the south" -- but since the transit
+  // lane sits above the target, that forced the line to travel past the
+  // target's entire height and loop underneath it just to reach that
+  // bottom corner, instead of simply coming straight down out of the
+  // lane it was already in.)
+  const exitSignX = targetCenterX >= sourceCenterX ? 1 : -1;
+  const exitAnchor = diagonalBoundaryPoint(
+    sourceBox,
+    sourceCircular,
+    exitSignX,
+    -1,
+  );
+  const exitBend = {
+    x: exitAnchor.x + exitSignX * ARC_DIAGONAL_STUB,
+    y: exitAnchor.y - ARC_DIAGONAL_STUB,
+  };
+
+  const enterSignX = sourceCenterX >= targetCenterX ? 1 : -1;
+  const enterAnchor = diagonalBoundaryPoint(
+    targetBox,
+    targetCircular,
+    enterSignX,
+    -1,
+  );
+  const enterBend = {
+    x: enterAnchor.x + enterSignX * ARC_DIAGONAL_STUB,
+    y: enterAnchor.y - ARC_DIAGONAL_STUB,
+  };
+
+  // Both bends already sit outside (above) their own box, so the
+  // vertical legs connecting them to a shared lane above both boxes
+  // never cross either box's interior.
+  const aboveY = Math.min(exitBend.y, enterBend.y) - ARC_ROUTE_MARGIN;
   return [
-    exit,
-    { x: exit.x, y: belowSource },
-    { x: laneX, y: belowSource },
-    { x: laneX, y: aboveTarget },
-    { x: enter.x, y: aboveTarget },
-    enter,
+    exitAnchor,
+    exitBend,
+    { x: exitBend.x, y: aboveY },
+    { x: enterBend.x, y: aboveY },
+    enterBend,
+    enterAnchor,
   ];
 }
 
@@ -665,17 +736,46 @@ export default class CanvasView extends Component {
       const targetBox = effectiveBoxes.get(arc.target);
       if (!sourceBox || !targetBox) continue;
       const sourceType = model.elements.get(arc.source)?.type;
+      const targetType = model.elements.get(arc.target)?.type;
       const isPetriArc =
         sourceType === ElementType.PLACE ||
         sourceType === ElementType.TRANSITION;
-      this.drawArc(arc, sourceBox, targetBox, { vertical: isPetriArc });
+      const relationEnd =
+        sourceType === ElementType.RELATION
+          ? 'source'
+          : targetType === ElementType.RELATION
+            ? 'target'
+            : null;
+      this.drawArc(arc, sourceBox, targetBox, {
+        vertical: isPetriArc,
+        relationEnd,
+        sourceCircular: sourceType === ElementType.PLACE,
+        targetCircular: targetType === ElementType.PLACE,
+      });
     }
   }
 
-  drawArc(arc, sourceBox, targetBox, { vertical = false } = {}) {
+  drawArc(
+    arc,
+    sourceBox,
+    targetBox,
+    {
+      vertical = false,
+      relationEnd = null,
+      sourceCircular = false,
+      targetCircular = false,
+    } = {},
+  ) {
     const path = vertical
-      ? verticalArcPath(sourceBox, targetBox)
+      ? verticalArcPath(sourceBox, targetBox, {
+          sourceCircular,
+          targetCircular,
+        })
       : orthogonalPath(sourceBox, targetBox);
+    const isInheritance = arc.kind === 'inheritance';
+    // A plain ER arc (not inheritance, not Petri) can toggle its
+    // cardinality; the other two kinds don't have the concept.
+    const isErArc = !vertical && !isInheritance && relationEnd;
     const mainShape = new Konva.Shape({
       stroke: '#000000',
       strokeWidth: 2,
@@ -689,25 +789,51 @@ export default class CanvasView extends Component {
     mainShape.on('contextmenu', (event) => {
       event.evt.preventDefault();
       event.cancelBubble = true;
-      this.openContextMenu(event.evt, [
+      const items = [
         {
           label: 'Delete arc',
           action: () =>
             this.modelStore.mutate((model) => model.removeArc(arc.id)),
         },
-      ]);
+      ];
+      if (isErArc) {
+        items.unshift({
+          label:
+            arc.cardinality === 'one'
+              ? 'Clear cardinality (many)'
+              : 'Set cardinality: one (functional)',
+          action: () =>
+            this.modelStore.mutate((model) =>
+              model.updateArcCardinality(
+                arc.id,
+                arc.cardinality === 'one' ? null : 'one',
+              ),
+            ),
+        });
+      }
+      this.openContextMenu(event.evt, items);
     });
     this.shapeLayer.add(mainShape);
+    // An ER "is-a" (generalization) arc gets a hollow (white-filled,
+    // outlined) triangle at the supertype end instead of the ordinary
+    // filled one -- the standard ER/UML convention for inheritance, and
+    // slightly larger so the outline reads clearly.
     this.shapeLayer.add(
       new Konva.Line({
-        points: arrowHeadPoints(path.at(-1), path.at(-2)),
+        points: arrowHeadPoints(
+          path.at(-1),
+          path.at(-2),
+          isInheritance ? 13 : 9,
+        ),
         closed: true,
-        fill: '#000000',
+        fill: isInheritance ? '#ffffff' : '#000000',
+        stroke: isInheritance ? '#000000' : undefined,
+        strokeWidth: isInheritance ? 2 : undefined,
         name: 'fumoco-edge',
         listening: false,
       }),
     );
-    if (arc.weight !== 1) {
+    if (!isInheritance && arc.weight !== 1) {
       const mid = path[Math.floor(path.length / 2)];
       this.shapeLayer.add(
         new Konva.Text({
@@ -715,6 +841,35 @@ export default class CanvasView extends Component {
           y: mid.y - 14,
           text: String(arc.weight),
           fontSize: 12,
+          fill: '#000000',
+          name: 'fumoco-edge',
+          listening: false,
+        }),
+      );
+    }
+    // A 1:n/1:1 relation marks its functional side with a small arrow
+    // drawn a bit inside the relation's own box, pointing further inward
+    // -- FMC's "arrow inside the relation symbol" convention for
+    // cardinality (spec/index.html's Cardinality and roles section),
+    // distinct from the main edge's own end (which just reflects
+    // whichever way this arc happened to be drawn, not a semantic
+    // direction for an ER connection).
+    if (isErArc && arc.cardinality === 'one') {
+      const atTarget = relationEnd === 'target';
+      const border = atTarget ? path.at(-1) : path[0];
+      const from = atTarget ? path.at(-2) : path[1];
+      const dx = border.x - from.x;
+      const dy = border.y - from.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const inset = 14;
+      const tip = {
+        x: border.x + (dx / len) * inset,
+        y: border.y + (dy / len) * inset,
+      };
+      this.shapeLayer.add(
+        new Konva.Line({
+          points: arrowHeadPoints(tip, border, 7),
+          closed: true,
           fill: '#000000',
           name: 'fumoco-edge',
           listening: false,
@@ -1156,10 +1311,19 @@ export default class CanvasView extends Component {
   }
 
   elementMenuItems(id) {
-    return [
+    const element = this.modelStore.model.elements.get(id);
+    const items = [
       { label: 'Rename', action: () => this.promptRename(id) },
       { label: 'Copy', action: () => this.copyElement(id) },
       { label: 'Cut', action: () => this.cutElement(id) },
+    ];
+    if (element?.type === ElementType.RELATION) {
+      items.push({
+        label: 'Reify into entity set',
+        action: () => this.reifyRelation(id),
+      });
+    }
+    items.push(
       {
         label: 'Delete from view',
         action: () => this.removeSelectionFromView(),
@@ -1168,7 +1332,28 @@ export default class CanvasView extends Component {
         label: 'Delete from model',
         action: () => this.deleteSelectionFromModel(),
       },
-    ];
+    );
+    return items;
+  }
+
+  // Nests the relation inside a freshly-created entity set (see
+  // FmcModel.reifyRelation's comment) and also displays it nested in the
+  // active view -- same "establish the relationship in both the model
+  // and this view's display" convention drag-to-nest and the properties
+  // panel's "Add to container" already follow.
+  reifyRelation(relationId) {
+    const view = this.modelStore.activeView;
+    this.modelStore.mutate((model) => {
+      const entitySetId = model.reifyRelation(relationId);
+      if (view) {
+        const relationBox = view.boxes.get(relationId);
+        const { x, y } = relationBox ?? nextFreeBoxPosition(view);
+        view.included.push(entitySetId);
+        view.boxes.set(entitySetId, { x, y, width: 160, height: 120 });
+        view.nestedUnder.set(relationId, entitySetId);
+      }
+      this.selection.select(entitySetId);
+    });
   }
 
   edgeMenuItems(edgeId, view, point) {
@@ -1263,6 +1448,8 @@ export default class CanvasView extends Component {
             );
           case ConnectorKind.ARC:
             return model.addArc(sourceId, id);
+          case ConnectorKind.INHERITANCE:
+            return model.addArc(sourceId, id, 1, { kind: 'inheritance' });
           default:
             throw new FmcModelError(`unknown connector kind: ${tool.kind}`);
         }
@@ -1370,6 +1557,28 @@ export default class CanvasView extends Component {
 
     if (element.type === ElementType.HUMAN_AGENT) {
       group.add(this.buildStickFigure(box));
+    }
+
+    // A start place gets a short, unconnected stub arrow pointing into
+    // its left side -- the standard automaton/Petri net "entry point"
+    // marker, distinct from just holding tokens (a place can have a
+    // nonzero marking without being where the net's flow begins).
+    if (isPlace && element.isStart) {
+      const midY = box.height / 2;
+      group.add(
+        new Konva.Line({
+          points: arrowHeadPoints({ x: 0, y: midY }, { x: -18, y: midY }, 7),
+          closed: true,
+          fill: '#000000',
+        }),
+      );
+      group.add(
+        new Konva.Line({
+          points: [-18, midY, -4, midY],
+          stroke: '#000000',
+          strokeWidth: 2,
+        }),
+      );
     }
 
     // A place's marking (token count) is shown alongside its label rather

@@ -70,6 +70,12 @@ export class Element {
   // any other element type, same spirit as `dashed`/`channel` being
   // location-only fields.
   @tracked tokens;
+  // place only -- marks it as the net's starting place, drawn with a
+  // short unconnected stub arrow pointing into it (the standard
+  // automaton/Petri net "entry point" marker) -- distinct from just
+  // having tokens, since a place can hold a nonzero marking without
+  // being where the net's control flow is considered to begin.
+  @tracked isStart;
 
   constructor(
     id,
@@ -80,6 +86,7 @@ export class Element {
       dashed = false,
       channel = null,
       tokens = 0,
+      isStart = false,
     } = {},
   ) {
     this.id = id;
@@ -89,6 +96,7 @@ export class Element {
     this.dashed = dashed;
     this.channel = channel;
     this.tokens = tokens;
+    this.isStart = isStart;
   }
 }
 
@@ -293,30 +301,90 @@ export class FmcModel {
   // them is which type pair is valid, checked here against both pairs at
   // once rather than needing the caller to know which diagram type it's
   // in.
-  addArc(sourceId, targetId, weight = 1) {
+  // `kind: 'inheritance'` is the one exception to the bipartite pairing
+  // above: an ER "is-a" (generalization) arc deliberately connects two
+  // entity sets directly, drawn with a hollow triangle at the supertype
+  // end (see canvas-view.gjs's drawArc) rather than being routed through
+  // a relation node -- the standard ER/UML convention for generalization,
+  // not part of FMC's own bipartite structure, so it's kept as an
+  // explicit opt-in rather than folded into the general validPairs check.
+  addArc(
+    sourceId,
+    targetId,
+    weight = 1,
+    { kind = null, cardinality = null } = {},
+  ) {
     const source = this._require(sourceId, null);
     const target = this._require(targetId, null);
-    const validPairs = [
-      [ElementType.PLACE, ElementType.TRANSITION],
-      [ElementType.ENTITY_SET, ElementType.RELATION],
-    ];
-    const isValid = validPairs.some(
-      ([a, b]) =>
-        (source.type === a && target.type === b) ||
-        (source.type === b && target.type === a),
-    );
-    if (!isValid) {
-      throw new FmcModelError(
-        `bipartite violation: cannot connect a ${source.type} to a ${target.type}`,
+    if (kind === 'inheritance') {
+      if (
+        source.type !== ElementType.ENTITY_SET ||
+        target.type !== ElementType.ENTITY_SET
+      ) {
+        throw new FmcModelError(
+          `an inheritance arc only connects two entity sets, not a ${source.type} to a ${target.type}`,
+        );
+      }
+    } else {
+      const validPairs = [
+        [ElementType.PLACE, ElementType.TRANSITION],
+        [ElementType.ENTITY_SET, ElementType.RELATION],
+      ];
+      const isValid = validPairs.some(
+        ([a, b]) =>
+          (source.type === a && target.type === b) ||
+          (source.type === b && target.type === a),
       );
+      if (!isValid) {
+        throw new FmcModelError(
+          `bipartite violation: cannot connect a ${source.type} to a ${target.type}`,
+        );
+      }
     }
-    const arc = { id: makeId(), source: sourceId, target: targetId, weight };
+    const arc = {
+      id: makeId(),
+      source: sourceId,
+      target: targetId,
+      weight,
+      kind,
+      // ER entity_set<->relation arcs only: null (unconstrained/"many"),
+      // or 'one' to mark this entity set's side of the relation as
+      // functional -- drawn as a small arrow near the relation, FMC's
+      // notation for a 1:n/1:1 relation's arrow-inside-the-symbol
+      // convention (see spec/index.html's Cardinality and roles section).
+      cardinality,
+    };
     this.arcs.push(arc);
     return arc;
   }
 
   removeArc(id) {
     this._removeInPlace(this.arcs, (a) => a.id === id);
+  }
+
+  // Arcs are recreated wholesale on edit (see makeAccessEdge's comment for
+  // the same pattern on access edges) rather than field-mutated.
+  updateArcCardinality(id, cardinality) {
+    const index = this.arcs.findIndex((a) => a.id === id);
+    if (index === -1) return;
+    this.arcs.splice(index, 1, { ...this.arcs[index], cardinality });
+  }
+
+  // ER reification: "the elements of a relation become the elements of a
+  // new entity set, which can then participate in further relations of
+  // its own" (spec/index.html's Reification section). Modeled here as
+  // nesting the relation inside a fresh entity set via the existing
+  // generic containment mechanism (addContainment already allows any
+  // type mix), rather than a bespoke reification concept -- the new
+  // entity set visually and structurally stands in for the relation, and
+  // being an ordinary ENTITY_SET, it can immediately take part in further
+  // arcs the same as any other entity set. Returns the new entity set's
+  // id.
+  reifyRelation(relationId, { label = null } = {}) {
+    this._require(relationId, ElementType.RELATION);
+    const entitySetId = this.addElement(ElementType.ENTITY_SET, { label });
+    this.addContainment(entitySetId, relationId);
+    return entitySetId;
   }
 
   _removeInPlace(trackedArray, matches) {
@@ -537,6 +605,7 @@ export class FmcModel {
             dashed: element.dashed,
             channel: element.channel ? { ...element.channel } : null,
             tokens: element.tokens,
+            isStart: element.isStart,
           },
         ]),
       ),
@@ -575,6 +644,7 @@ export class FmcModel {
           dashed: element.dashed,
           channel: element.channel ? { ...element.channel } : null,
           tokens: element.tokens ?? 0,
+          isStart: element.isStart ?? false,
         }),
       );
     }

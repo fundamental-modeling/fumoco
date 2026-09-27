@@ -19,11 +19,16 @@ export const ConnectorKind = Object.freeze({
   // whichever specific pair actually applies, so the tool doesn't need to
   // know which diagram type is active to arm it.
   ARC: 'arc',
+  // ER "is-a" (generalization): entity_set->entity_set directly, drawn
+  // with a hollow triangle at the supertype end -- see FmcModel.addArc's
+  // `kind: 'inheritance'` comment.
+  INHERITANCE: 'inheritance',
 });
 
 const AGENT_TYPES = ['agent', 'human_agent'];
 const LOCATION_TYPES = ['location'];
 const ARC_TYPES = ['place', 'transition', 'entity_set', 'relation'];
+const ENTITY_SET_TYPES = ['entity_set'];
 
 // What each connector kind's source/target must be -- both for eligibility
 // highlighting on the canvas and for the toolbar's step-by-step hint text.
@@ -78,6 +83,12 @@ const RULES = {
     target: ARC_TYPES,
     sourceLabel: 'first element',
     targetLabel: 'second element',
+  },
+  [ConnectorKind.INHERITANCE]: {
+    source: ENTITY_SET_TYPES,
+    target: ENTITY_SET_TYPES,
+    sourceLabel: 'subtype entity set',
+    targetLabel: 'supertype entity set',
   },
 };
 

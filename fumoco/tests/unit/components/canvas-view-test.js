@@ -269,39 +269,120 @@ module('Unit | Component | canvas-view (nesting geometry)', function () {
     assert.strictEqual(path.at(-2).x, 30);
   });
 
-  test('verticalArcPath routes around, not through, the boxes when the target is above the source', function (assert) {
+  function overlapsBox(p1, p2, box) {
+    const segMinX = Math.min(p1.x, p2.x);
+    const segMaxX = Math.max(p1.x, p2.x);
+    const segMinY = Math.min(p1.y, p2.y);
+    const segMaxY = Math.max(p1.y, p2.y);
+    return (
+      segMaxX > box.x &&
+      segMinX < box.x + box.width &&
+      segMaxY > box.y &&
+      segMinY < box.y + box.height
+    );
+  }
+
+  function assertPathClearOfBoxes(assert, path, boxes) {
+    for (let i = 0; i < path.length - 1; i++) {
+      for (const box of boxes) {
+        assert.false(
+          overlapsBox(path[i], path[i + 1], box),
+          `segment ${i} should not cross a box`,
+        );
+      }
+    }
+  }
+
+  test('verticalArcPath routes around, not through, the boxes when the target is directly above the source', function (assert) {
     const source = { x: 200, y: 200, width: 60, height: 60 };
     const target = { x: 200, y: 0, width: 60, height: 60 };
 
     const path = verticalArcPath(source, target);
 
-    function overlapsBox(p1, p2, box) {
-      const segMinX = Math.min(p1.x, p2.x);
-      const segMaxX = Math.max(p1.x, p2.x);
-      const segMinY = Math.min(p1.y, p2.y);
-      const segMaxY = Math.max(p1.y, p2.y);
-      return (
-        segMaxX > box.x &&
-        segMinX < box.x + box.width &&
-        segMaxY > box.y &&
-        segMinY < box.y + box.height
-      );
-    }
+    assertPathClearOfBoxes(assert, path, [source, target]);
+    // A loop-back arc routes entirely above both boxes, so it must exit
+    // *and* enter via a top corner (north-ish) on both ends -- never the
+    // plain south exit/north entry a forward arc uses, and never a
+    // bottom (south) entry either, since that would force the line to
+    // travel past the target's whole height and loop underneath it just
+    // to reach a corner it could have entered directly from the lane
+    // it's already routing through.
+    assert.strictEqual(path[0].y, source.y);
+    assert.strictEqual(path.at(-1).y, target.y);
+  });
 
-    for (let i = 0; i < path.length - 1; i++) {
-      assert.false(
-        overlapsBox(path[i], path[i + 1], source),
-        `segment ${i} should not cross the source box`,
-      );
-      assert.false(
-        overlapsBox(path[i], path[i + 1], target),
-        `segment ${i} should not cross the target box`,
-      );
+  test('verticalArcPath exits and enters north-west/-east for a loop-back arc to a box beside it (not above/below)', function (assert) {
+    // The case this was actually written for: a transition to the right
+    // of a place at roughly the same height, e.g. a self-loop's return
+    // arc -- forcing a due-south exit here would have to loop all the
+    // way around instead of taking the short way via the near corners.
+    const place = { x: 0, y: 0, width: 60, height: 60 };
+    const transition = { x: 200, y: 0, width: 120, height: 60 };
+
+    const path = verticalArcPath(place, transition);
+
+    assertPathClearOfBoxes(assert, path, [place, transition]);
+    // Exits via place's top-right corner (facing the transition, to its
+    // right) instead of straight down from the bottom-center.
+    assert.deepEqual(path[0], { x: 60, y: 0 });
+    // Enters via transition's top-left corner (facing the place, to its
+    // left) -- top, not bottom, since the route stays in the lane above
+    // both boxes the whole way.
+    assert.deepEqual(path.at(-1), { x: 200, y: 0 });
+  });
+
+  test('verticalArcPath mirrors left/right corner choice when the boxes are swapped', function (assert) {
+    const transition = { x: 0, y: 0, width: 120, height: 60 };
+    const place = { x: 200, y: 0, width: 60, height: 60 };
+
+    const path = verticalArcPath(transition, place);
+
+    assertPathClearOfBoxes(assert, path, [transition, place]);
+    // Exits via the transition's top-right corner (facing the place).
+    assert.deepEqual(path[0], { x: 120, y: 0 });
+    // Enters via the place's top-left corner (facing the transition).
+    assert.deepEqual(path.at(-1), { x: 200, y: 0 });
+  });
+
+  test('verticalArcPath leaves a circular place from its actual circle, not its bounding-box corner, in the loop-back case', function (assert) {
+    const place = { x: 0, y: 0, width: 60, height: 60 };
+    const transition = { x: 200, y: 0, width: 120, height: 60 };
+
+    const path = verticalArcPath(place, transition, {
+      sourceCircular: true,
+    });
+
+    // The box corner would be (60, 0); the point 45° into that quadrant
+    // on a circle of radius 30 centered at (30, 30) is further in and
+    // down along the circle's own curve.
+    const k = Math.SQRT1_2;
+    assert.ok(Math.abs(path[0].x - (30 + 30 * k)) < 1e-9);
+    assert.ok(Math.abs(path[0].y - (30 - 30 * k)) < 1e-9);
+    assert.notDeepEqual(path[0], { x: 60, y: 0 });
+    // Still genuinely on the circle: distance from center is the radius.
+    const dx = path[0].x - 30;
+    const dy = path[0].y - 30;
+    assert.ok(Math.abs(Math.hypot(dx, dy) - 30) < 1e-9);
+  });
+
+  test('verticalArcPath leaves and arrives via a genuinely diagonal stub before bending to horizontal/vertical', function (assert) {
+    const place = { x: 0, y: 0, width: 60, height: 60 };
+    const transition = { x: 200, y: 0, width: 120, height: 60 };
+
+    const path = verticalArcPath(place, transition);
+
+    // First segment (anchor -> bend) moves in both x and y -- a diagonal,
+    // not an axis-aligned leg.
+    assert.notStrictEqual(path[0].x, path[1].x);
+    assert.notStrictEqual(path[0].y, path[1].y);
+    // Last segment (bend -> anchor) is diagonal too.
+    assert.notStrictEqual(path.at(-1).x, path.at(-2).x);
+    assert.notStrictEqual(path.at(-1).y, path.at(-2).y);
+    // Everything in between stays axis-aligned (horizontal or vertical).
+    for (let i = 1; i < path.length - 2; i++) {
+      const isAxisAligned =
+        path[i].x === path[i + 1].x || path[i].y === path[i + 1].y;
+      assert.true(isAxisAligned, `segment ${i} should be axis-aligned`);
     }
-    // Still leaves south and arrives north.
-    assert.deepEqual(path[0], { x: 230, y: 260 });
-    assert.deepEqual(path.at(-1), { x: 230, y: 0 });
-    assert.strictEqual(path[1].x, 230);
-    assert.strictEqual(path.at(-2).x, 230);
   });
 });
