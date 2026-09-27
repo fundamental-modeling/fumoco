@@ -347,18 +347,30 @@ exists to prevent -- for a reciprocal pair of arcs between the same two
 nodes (A->B and B->A), the corner-selection formula only depends on
 which side the *other* box is on, not on which arc is being drawn, so
 both arcs landed on the identical top corner of each box and traced the
-same line. The fix keeps *fixed, direction-independent ports per box
-role*, same idea as the forward case's south-exit/north-enter: a loop-
-back arc always exits its source's top corner and enters its target's
-*bottom* corner, so the source's own two corners (top when it's a
-source, bottom when it's a target for the return arc) are never the
-same point, and likewise for the target -- a reciprocal pair can never
-coincide. Since exit and enter are now on opposite sides, connecting
-them needed a route that fully encloses both boxes (up above both tops,
-across west of both left edges, down below both bottoms, across into the
-entry) rather than a single shared lane, so it stays clear of both boxes
-regardless of whether they're stacked, beside each other, or something
-in between.
+same line. A second attempt fixed the overlap (source always exits top,
+target always enters bottom) but reintroduced real box-crossings for
+some layouts and, per direct user feedback tracing a concrete example,
+attached the arc to a *corner* on both ends when only one of them (the
+place) should ever get diagonal treatment at all.
+
+Corrected a third time, now matching a traced example precisely: a
+Petri arc is always place<->transition (the bipartite rule), so exactly
+one endpoint is circular. Only that endpoint (the place) gets the
+diagonal "leave/arrive on its own circle" corner; the transition always
+keeps the plain south(if source)/north(if target) center port the
+forward case already uses -- a rectangle's edge midpoint needs no corner
+cut. The place's diagonal side (top when it's this arc's source, bottom
+when it's the target) always matches the transition's plain port for
+the same role, so both ends of one arc land on the same side (above both
+boxes, or below both) -- and a reciprocal arc, which swaps source and
+target, swaps which end is the place and therefore swaps top<->bottom
+too, so the pair never coincides. Two shapes now exist side by side:
+when the two boxes are genuinely beside each other (disjoint x-ranges),
+this short diagonal-corner/straight-port route applies directly; when
+their x-ranges overlap (a reversed arc along a shared column, not really
+"beside"), a short corner-cut can't stay clear of both boxes, so it falls
+back to the original plain-ports, route-around-via-a-west-lane shape
+that predates any of the diagonal work.
 
 ** DONE Petri net starting-place notation
 A place's new =isStart= flag (toggled via the properties panel) draws a
@@ -387,8 +399,8 @@ active view's =diagramType= is =er=. Arcs connect them via the same
 generic =FmcModel.arcs=/=addArc= mechanism Petri nets use (one bipartite-
 pair check per diagram type, not two parallel arc concepts). Role labels
 and n-ary relations beyond what the generic arc already allows are still
-deferred -- cardinality, reification, and inheritance are now DONE (see
-below).
+deferred -- cardinality, reification, and orthogonal partitioning are now
+DONE (see below).
 
 An entity set's corner rounding is =min(width, height) / 2= (a stadium/
 pill shape on a non-square box, a full circle on a square one) rather
@@ -402,13 +414,27 @@ inside the relation's own box, pointing further inward -- FMC's "arrow
 inside the relation symbol" convention (=spec/index.html='s Cardinality
 and roles section), distinct from the main edge's own arrowhead.
 
-** DONE ER inheritance ("is-a") with a hollow triangle
-=FmcModel.addArc(source, target, weight, { kind: 'inheritance' })=
-connects two entity sets directly (the one exception to the general
-bipartite-pair check, since generalization isn't part of FMC's own
-compositional/dynamic/value-range structure, but the standard ER/UML
-convention) and draws a hollow (white-filled, outlined) triangle at the
-supertype end instead of the ordinary filled one.
+** DONE ER independent (orthogonal) partitioning, drawn as a triangle node
+Superseded an earlier, incorrect first attempt (a =kind: 'inheritance'=
+arc connecting two entity sets directly with a hollow-triangle
+*arrowhead*, modeled on UML generalization) after direct feedback that
+what FMC/ER partitioning actually calls for is a triangle *node*, not an
+arrow decoration: the partitioned (super)set connects to the triangle's
+apex, and each part (subset) connects to its base -- see
+=spec/index.html='s "Orthogonal partitioning" section, which already
+defined the =part= relation formally but had no visual notation for it
+yet. =ElementType.PARTITION= is a new node type (rendered as an actual
+triangle shape in =buildShape=, apex up); it joins the general
+=FmcModel.arcs=/=addArc= bipartite mechanism as a third valid pair
+(=entity_set<->partition=, alongside =place<->transition= and
+=entity_set<->relation=) -- direction carries the meaning, an
+=entity_set->partition= arc is the superset (apex side), a
+=partition->entity_set= arc is one part (base side). A partitioning arc
+draws as a plain line with no arrowhead (the triangle itself already
+carries the meaning) via =drawArc='s new =isPartitionArc= flag. The old
+=kind: 'inheritance'= special case, its palette button, and
+=ConnectorKind.INHERITANCE= were removed entirely rather than kept
+alongside the new mechanism.
 
 ** DONE ER reification (relation -> entity set)
 =FmcModel.reifyRelation(relationId)= creates a fresh entity set and

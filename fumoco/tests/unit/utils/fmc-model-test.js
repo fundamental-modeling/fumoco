@@ -432,27 +432,27 @@ module('Unit | Utility | fmc-model', function () {
       assert.strictEqual(restored.arcs[0].weight, 5);
     });
 
-    test('addArc rejects an inheritance arc between anything but two entity sets', function (assert) {
+    test('addArc rejects two entity sets connected directly (partitioning goes through a partition node)', function (assert) {
       const model = new FmcModel();
-      const entitySet = model.addElement(ElementType.ENTITY_SET);
-      const relation = model.addElement(ElementType.RELATION);
+      const a = model.addElement(ElementType.ENTITY_SET);
+      const b = model.addElement(ElementType.ENTITY_SET);
 
-      assert.throws(
-        () => model.addArc(entitySet, relation, 1, { kind: 'inheritance' }),
-        FmcModelError,
-      );
+      assert.throws(() => model.addArc(a, b), FmcModelError);
     });
 
-    test('addArc creates an inheritance arc between two entity sets', function (assert) {
+    test('addArc connects an entity set and a partition, in either order', function (assert) {
       const model = new FmcModel();
-      const child = model.addElement(ElementType.ENTITY_SET);
       const parent = model.addElement(ElementType.ENTITY_SET);
+      const partition = model.addElement(ElementType.PARTITION);
+      const child = model.addElement(ElementType.ENTITY_SET);
 
-      const arc = model.addArc(child, parent, 1, { kind: 'inheritance' });
+      const apexArc = model.addArc(parent, partition);
+      const baseArc = model.addArc(partition, child);
 
-      assert.strictEqual(arc.source, child);
-      assert.strictEqual(arc.target, parent);
-      assert.strictEqual(arc.kind, 'inheritance');
+      assert.strictEqual(apexArc.source, parent);
+      assert.strictEqual(apexArc.target, partition);
+      assert.strictEqual(baseArc.source, partition);
+      assert.strictEqual(baseArc.target, child);
     });
 
     test('updateArcCardinality changes just that arc, leaving its id and endpoints alone', function (assert) {

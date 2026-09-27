@@ -293,57 +293,71 @@ module('Unit | Component | canvas-view (nesting geometry)', function () {
     }
   }
 
-  test('verticalArcPath routes around, not through, the boxes when the target is directly above the source', function (assert) {
+  test('verticalArcPath routes around, not through, the boxes when the target is directly above the source (overlapping x-ranges)', function (assert) {
     const source = { x: 200, y: 200, width: 60, height: 60 };
     const target = { x: 200, y: 0, width: 60, height: 60 };
 
     const path = verticalArcPath(source, target);
 
     assertPathClearOfBoxes(assert, path, [source, target]);
-    // A loop-back arc always exits its source's top and enters its
-    // target's bottom -- fixed, direction-independent ports (per box
-    // role) that keep a reciprocal pair of arcs between the same two
-    // nodes from ever landing on the same corner and reading as one
-    // bidirectional line.
-    assert.strictEqual(path[0].y, source.y);
-    assert.strictEqual(path.at(-1).y, target.y + target.height);
+    // Same x-range as the target -- not a "beside" pair, so this keeps
+    // the plain south-exit/north-enter ports and routes around via a
+    // lane to the side, same as the ordinary forward case's ports.
+    assert.strictEqual(path[0].y, source.y + source.height);
+    assert.strictEqual(path.at(-1).y, target.y);
   });
 
-  test('verticalArcPath exits north (source top) and enters south (target bottom) for a loop-back arc to a box beside it (not above/below)', function (assert) {
+  test('verticalArcPath exits the place diagonally and enters the transition straight from the north, for a loop-back arc to a box beside it', function (assert) {
     // The case this was actually written for: a transition to the right
     // of a place at roughly the same height, e.g. a self-loop's return
     // arc -- forcing a due-south exit here would have to loop all the
-    // way around instead of taking the short way via the near corners.
+    // way around instead of taking the short way via the near corner.
+    // Petri arcs are always place<->transition, so only the place (the
+    // circular end) gets the diagonal corner; the transition keeps its
+    // plain perpendicular port, same as the forward case.
     const place = { x: 0, y: 0, width: 60, height: 60 };
     const transition = { x: 200, y: 0, width: 120, height: 60 };
 
-    const path = verticalArcPath(place, transition);
+    const path = verticalArcPath(place, transition, {
+      sourceCircular: true,
+    });
 
-    assertPathClearOfBoxes(assert, path, [place, transition]);
-    // Exits via place's top-right corner (facing the transition, to its
-    // right) instead of straight down from the bottom-center.
-    assert.deepEqual(path[0], { x: 60, y: 0 });
-    // Enters via transition's bottom-left corner (facing the place, to
-    // its left) -- source exits top, target enters bottom, always, so a
-    // reciprocal return arc (transition -> place) would use place's
-    // bottom and transition's top instead, never colliding with this one.
-    assert.deepEqual(path.at(-1), { x: 200, y: 60 });
+    // Only checked against the *other* box: the exit stub necessarily
+    // grazes the place's own bounding-square corner on its way out (it
+    // leaves from the circle, which sits just inside that corner), which
+    // is the harmless, intended effect of that technique, not a real
+    // crossing -- see the dedicated circle-boundary test below.
+    assertPathClearOfBoxes(assert, path, [transition]);
+    // Exits via the actual point on the place's circle at 45°, not its
+    // bounding-box corner (which would be (60, 0)).
+    const k = Math.SQRT1_2;
+    assert.deepEqual(path[0], { x: 30 + 30 * k, y: 30 - 30 * k });
+    // Enters via the transition's plain top-center port, perpendicular to
+    // its northern edge -- no corner, since only the circular end needs
+    // the diagonal treatment.
+    assert.deepEqual(path.at(-1), { x: 260, y: 0 });
   });
 
-  test('verticalArcPath mirrors left/right corner choice when the boxes are swapped', function (assert) {
+  test('verticalArcPath exits the transition straight south and enters the place diagonally, for the reciprocal return arc', function (assert) {
     const transition = { x: 0, y: 0, width: 120, height: 60 };
     const place = { x: 200, y: 0, width: 60, height: 60 };
 
-    const path = verticalArcPath(transition, place);
+    const path = verticalArcPath(transition, place, {
+      targetCircular: true,
+    });
 
-    assertPathClearOfBoxes(assert, path, [transition, place]);
-    // Exits via the transition's top-right corner (facing the place).
-    assert.deepEqual(path[0], { x: 120, y: 0 });
-    // Enters via the place's bottom-left corner (facing the transition).
-    assert.deepEqual(path.at(-1), { x: 200, y: 60 });
+    // Only checked against the *other* box; see the comment on the
+    // previous test for why the circular end's own box is excluded here.
+    assertPathClearOfBoxes(assert, path, [transition]);
+    // Exits via the transition's plain bottom-center port.
+    assert.deepEqual(path[0], { x: 60, y: 60 });
+    // Enters via the actual point on the place's circle at 45° (facing
+    // the transition), not its bounding-box corner.
+    const k = Math.SQRT1_2;
+    assert.deepEqual(path.at(-1), { x: 230 - 30 * k, y: 30 + 30 * k });
   });
 
-  test('verticalArcPath never lands reciprocal arcs on the same corner of either box', function (assert) {
+  test('verticalArcPath never lands reciprocal arcs on the same corner/port of either box', function (assert) {
     const place = { x: 0, y: 0, width: 60, height: 60 };
     const transition = { x: 200, y: 0, width: 120, height: 60 };
 
@@ -354,9 +368,9 @@ module('Unit | Component | canvas-view (nesting geometry)', function () {
       targetCircular: true,
     });
 
-    // forward: place is source (exits top) / transition is target (enters
-    // bottom). backward: transition is source (exits top) / place is
-    // target (enters bottom) -- every anchor below must differ from its
+    // forward: place is source (top lane) / transition is target (top
+    // port). backward: transition is source (bottom port) / place is
+    // target (bottom lane) -- every anchor below must differ from its
     // counterpart in the other arc, on both boxes.
     assert.notDeepEqual(forward[0], backward.at(-1)); // both touch place
     assert.notDeepEqual(forward.at(-1), backward[0]); // both touch transition
@@ -383,21 +397,22 @@ module('Unit | Component | canvas-view (nesting geometry)', function () {
     assert.ok(Math.abs(Math.hypot(dx, dy) - 30) < 1e-9);
   });
 
-  test('verticalArcPath leaves and arrives via a genuinely diagonal stub before bending to horizontal/vertical', function (assert) {
+  test('verticalArcPath leaves the circular end via a genuinely diagonal stub before bending to horizontal/vertical', function (assert) {
     const place = { x: 0, y: 0, width: 60, height: 60 };
     const transition = { x: 200, y: 0, width: 120, height: 60 };
 
-    const path = verticalArcPath(place, transition);
+    const path = verticalArcPath(place, transition, {
+      sourceCircular: true,
+    });
 
     // First segment (anchor -> bend) moves in both x and y -- a diagonal,
-    // not an axis-aligned leg.
+    // not an axis-aligned leg, since the place (source) is circular.
     assert.notStrictEqual(path[0].x, path[1].x);
     assert.notStrictEqual(path[0].y, path[1].y);
-    // Last segment (bend -> anchor) is diagonal too.
-    assert.notStrictEqual(path.at(-1).x, path.at(-2).x);
-    assert.notStrictEqual(path.at(-1).y, path.at(-2).y);
-    // Everything in between stays axis-aligned (horizontal or vertical).
-    for (let i = 1; i < path.length - 2; i++) {
+    // Everything else stays axis-aligned (horizontal or vertical): the
+    // transition (target) is rectangular, so its own port is a plain
+    // perpendicular attachment with no diagonal stub.
+    for (let i = 1; i < path.length - 1; i++) {
       const isAxisAligned =
         path[i].x === path[i + 1].x || path[i].y === path[i + 1].y;
       assert.true(isAxisAligned, `segment ${i} should be axis-aligned`);

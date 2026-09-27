@@ -35,6 +35,12 @@ export const ElementType = Object.freeze({
   // entity_set<->relation, also via `arcs`.
   ENTITY_SET: 'entity_set',
   RELATION: 'relation',
+  // Orthogonal-partitioning triangle: a node (not a relation, not just an
+  // arrowhead), also connected to entity sets via `arcs` -- an arc from
+  // the partitioned (super)set to the triangle attaches at its apex, an
+  // arc from the triangle to each part (subset) attaches along its base.
+  // See spec/index.html's "Orthogonal partitioning" section.
+  PARTITION: 'partition',
 });
 
 // The "rounded" bipartite kind in each diagram type (agent/transition/
@@ -294,59 +300,40 @@ export class FmcModel {
     for (const view of this.views.values()) view.edgeWaypoints.delete(id);
   }
 
-  // Petri net (place<->transition) and ER (entity_set<->relation) arcs
-  // share this one method rather than getting one each, since both are
-  // "a directed arc between the two bipartite kinds of one diagram type,
-  // carrying an optional weight" -- the only thing that differs between
-  // them is which type pair is valid, checked here against both pairs at
-  // once rather than needing the caller to know which diagram type it's
-  // in.
-  // `kind: 'inheritance'` is the one exception to the bipartite pairing
-  // above: an ER "is-a" (generalization) arc deliberately connects two
-  // entity sets directly, drawn with a hollow triangle at the supertype
-  // end (see canvas-view.gjs's drawArc) rather than being routed through
-  // a relation node -- the standard ER/UML convention for generalization,
-  // not part of FMC's own bipartite structure, so it's kept as an
-  // explicit opt-in rather than folded into the general validPairs check.
-  addArc(
-    sourceId,
-    targetId,
-    weight = 1,
-    { kind = null, cardinality = null } = {},
-  ) {
+  // Petri net (place<->transition), ER (entity_set<->relation), and
+  // partitioning (entity_set<->partition) arcs share this one method
+  // rather than getting one each, since all three are "a directed arc
+  // between the two bipartite kinds of one diagram type, carrying an
+  // optional weight" -- the only thing that differs between them is which
+  // type pair is valid, checked here against all pairs at once rather
+  // than needing the caller to know which diagram type it's in. For a
+  // partitioning arc specifically, direction carries the meaning: an
+  // entity_set->partition arc is the partitioned (super)set, attaching at
+  // the triangle's apex; a partition->entity_set arc is one of its parts
+  // (subsets), attaching along its base (see canvas-view.gjs's drawArc).
+  addArc(sourceId, targetId, weight = 1, { cardinality = null } = {}) {
     const source = this._require(sourceId, null);
     const target = this._require(targetId, null);
-    if (kind === 'inheritance') {
-      if (
-        source.type !== ElementType.ENTITY_SET ||
-        target.type !== ElementType.ENTITY_SET
-      ) {
-        throw new FmcModelError(
-          `an inheritance arc only connects two entity sets, not a ${source.type} to a ${target.type}`,
-        );
-      }
-    } else {
-      const validPairs = [
-        [ElementType.PLACE, ElementType.TRANSITION],
-        [ElementType.ENTITY_SET, ElementType.RELATION],
-      ];
-      const isValid = validPairs.some(
-        ([a, b]) =>
-          (source.type === a && target.type === b) ||
-          (source.type === b && target.type === a),
+    const validPairs = [
+      [ElementType.PLACE, ElementType.TRANSITION],
+      [ElementType.ENTITY_SET, ElementType.RELATION],
+      [ElementType.ENTITY_SET, ElementType.PARTITION],
+    ];
+    const isValid = validPairs.some(
+      ([a, b]) =>
+        (source.type === a && target.type === b) ||
+        (source.type === b && target.type === a),
+    );
+    if (!isValid) {
+      throw new FmcModelError(
+        `bipartite violation: cannot connect a ${source.type} to a ${target.type}`,
       );
-      if (!isValid) {
-        throw new FmcModelError(
-          `bipartite violation: cannot connect a ${source.type} to a ${target.type}`,
-        );
-      }
     }
     const arc = {
       id: makeId(),
       source: sourceId,
       target: targetId,
       weight,
-      kind,
       // ER entity_set<->relation arcs only: null (unconstrained/"many"),
       // or 'one' to mark this entity set's side of the relation as
       // functional -- drawn as a small arrow near the relation, FMC's

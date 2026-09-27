@@ -446,45 +446,60 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
     guaranteed clear of both boxes, since it sits below the source's
     bottom and above the target's top by construction).
 
-    When the target *isn't* below the source -- a particular case,
-    typically a loop-back arc to a box beside rather than above/below
-    (the common shape of a self-loop's return arc) -- that single-bend
-    approach would cut straight through whichever box's vertical span the
-    midpoint fell into. Instead the arc leaves diagonally out of the
-    *source's* top corner (north-west/north-east, whichever faces the
-    other box) and arrives diagonally into the *target's bottom* corner
-    (south-west/south-east, facing back toward the source), each via a
-    short 45° stub right at the shape's own boundary (`ARC_DIAGONAL_STUB`,
+    When the target *isn't* below the source, two distinct shapes apply,
+    chosen by whether the boxes' x-ranges actually overlap:
+
+    If the x-ranges overlap (a reversed-direction arc along a shared
+    column -- not really "beside", just running against the usual
+    top-to-bottom flow), a short diagonal corner-cut can't stay clear of
+    both boxes (whichever side a lane sits on, it risks cutting through
+    whichever box extends further that way), so it falls back to the
+    original plain-ports shape that predates the diagonal work entirely:
+    down from the source, out to a lane west of both boxes, up past the
+    target, and in -- still leaving south and arriving north.
+
+    If the x-ranges are disjoint (genuinely beside -- e.g. a self-loop's
+    return arc to a transition left or right of its place), the arc
+    leaves/arrives via a short 45° diagonal stub (`ARC_DIAGONAL_STUB`,
     28px -- comfortably longer than `EDGE_CORNER_RADIUS` so canvas
     `arcTo` has room to render the same corner radius here as everywhere
     else, since `arcTo` shrinks the radius it draws when the adjacent
-    segment is too short to fit it).
+    segment is too short to fit it) right at the shape's own boundary,
+    but **only at the circular end**. A Petri arc is always
+    place<->transition (the bipartite rule), so exactly one endpoint is a
+    place; the transition endpoint always keeps the same plain
+    south(if source)/north(if target) center port the forward case above
+    already uses, since a rectangle's edge midpoint is already a clean
+    perpendicular attachment with no need for a corner cut. For the place
+    (drawn as a circle via `buildShape`'s `cornerRadius` trick), the
+    diagonal stub's anchor is the actual point on the circle at that 45°
+    angle (`diagonalBoundaryPoint`), not the invisible bounding box's
+    corner, which sits outside the circle.
 
-    Exit-top/enter-bottom (rather than the same corner on both ends) is
-    the same "fixed ports" trick the forward case already relies on,
-    generalized to a diagonal port: a reciprocal pair of arcs between the
-    same two nodes (A->B and B->A) each exits its own source's top and
-    enters its own target's bottom, so neither box's two corners (one
-    used as a source, the other as a target for the return arc) can ever
-    coincide -- an earlier version made *both* ends use the top corner,
-    reasoning that the transit lane sits above both boxes so a bottom
-    entry would loop underneath the target; that reintroduced the exact
-    bidirectional-overlap bug this mechanism exists to prevent, since two
-    reciprocal arcs then landed on the identical corner of each box and
-    traced the same line. Because exit and enter now sit on opposite
-    sides, the detour between the two stubs can't use a single shared
-    lane without risking a cut through whichever box the lane's height
-    happens to fall inside (a real risk once the two boxes' vertical
-    spans overlap, the normal "beside" case) -- so it instead fully
-    encloses both boxes: up from the exit stub to a lane above both tops,
-    across to a lane west of both left edges, down to a lane below both
-    bottoms, then across into the enter stub. Each of those three legs is
-    outside the other box's extent along the axis that matters, so none
-    of them can cross either box's interior regardless of how the two are
-    arranged. For a place (drawn as a circle via `buildShape`'s
-    `cornerRadius` trick), the diagonal stub's anchor is the actual point
-    on the circle at that 45° angle (`diagonalBoundaryPoint`), not the
-    invisible bounding box's corner, which sits outside the circle.
+    The place's diagonal side (top corner when it's this arc's source,
+    bottom corner when it's the target) always matches the transition's
+    plain port for the same role (a transition-as-target already enters
+    north/top; a transition-as-source already exits south/bottom), so
+    both ends of any one arc land on the same side -- above both boxes,
+    or below both -- letting a single shared lane connect them safely
+    (their x-ranges are disjoint here, so the vertical legs down to that
+    lane can't cross the other box). A reciprocal arc swaps source and
+    target, which swaps which end is the place and therefore swaps
+    top<->bottom too, so a loop-back pair can never land on the same
+    corner/port and never traces the same line.
+
+    This went through three iterations before landing here: an early
+    version made both ends leave/arrive via a top corner (reasoning the
+    transit lane sits above both boxes, so a bottom entry would loop
+    underneath the target) -- but that reintroduced the exact
+    bidirectional-overlap bug this mechanism exists to prevent, since the
+    corner formula only depended on which side the *other* box was on,
+    not on which arc was being drawn. A second attempt fixed the overlap
+    (source always top, target always bottom) with a route fully
+    enclosing both boxes, but a traced example showed it attached the arc
+    to a corner on *both* ends when only the circular one should ever get
+    diagonal treatment -- the fix above is what actually matches that
+    traced example, corner-for-corner.
   - An **ER arc** (entity_set<->relation) keeps using `orthogonalPath` --
     an ER diagram has no fixed reading direction (see `spec/index.html`'s
     ER section), so the shortest-route logic that access edges already
@@ -518,19 +533,37 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
   1:n/1:1 relation, distinct from the main edge's own end arrowhead.
   `buildArcs` figures out which end is the relation (`relationEnd`) from
   the elements' types so `drawArc` knows which side to draw it on.
-- ER inheritance ("is-a"): `FmcModel.addArc(source, target, weight, {
-  kind: 'inheritance' })` connects two entity sets directly -- the one
-  exception to the general bipartite-pair check, since generalization
-  isn't part of FMC's own compositional/dynamic/value-range structure,
-  but the standard ER/UML convention. `drawArc` gives it a hollow (white-
-  filled, outlined) triangle at the supertype end instead of the ordinary
-  filled one, and skips the weight label (not meaningful here). Drawn from
-  the UI via the palette's "Inheritance (is-a)" connector button, shown
-  only in an `er` view alongside "Arc" (`ConnectorKind.INHERITANCE`,
-  `connector-tool.js`'s rule requires both ends to be an entity set) --
-  this button was missing for a while after the model/tool-layer support
-  landed, so there was no way to actually draw one from the editor even
-  though `addArc`/`connector-tool.js` already supported it.
+- ER independent (orthogonal) partitioning: a `PARTITION` element renders
+  as an actual triangle (a `Konva.Line` with 3 points, apex at the box's
+  top-center, base along its bottom edge, in `buildShape`) rather than the
+  usual rounded/angular box -- the standard notation for splitting one
+  entity set into subsets along an axis (`spec/index.html`'s "Orthogonal
+  partitioning" section, which already defined the `part` relation
+  formally but had no visual notation until now). It joins the general
+  `FmcModel.arcs`/`addArc` bipartite mechanism as a third valid pair
+  (`entity_set<->partition`, alongside `place<->transition` and
+  `entity_set<->relation`) -- direction carries the meaning: an
+  `entity_set->partition` arc is the partitioned superset, attaching at
+  the apex; a `partition->entity_set` arc is one part (subset), attaching
+  along the base. `drawArc`'s `isPartitionArc` flag (derived in
+  `buildArcs` from either endpoint's type, same pattern as `relationEnd`)
+  suppresses both the arrowhead and the weight label for these arcs -- a
+  plain line, since the triangle itself already carries the meaning, not
+  an arrow decoration. Created from the palette's "Partition" button in
+  an `er` view; connected via the ordinary "Arc" connector, no dedicated
+  connector kind needed since `ConnectorKind.ARC`'s type list already
+  covers whichever pair `addArc` itself validates.
+
+  This replaces a first, incorrect attempt at "ER is-a": a `kind:
+  'inheritance'` arc connecting two entity sets directly with a hollow
+  triangle *arrowhead*, modeled on UML generalization. That confused two
+  distinct things -- subtyping via nesting one entity set inside another
+  (the "subset" approach, already covered by ordinary containment) versus
+  independent partitioning of one entity set into several (which needs
+  its own triangle *node*, not a decorated line) -- so it was removed
+  outright (the `kind` field, `ConnectorKind.INHERITANCE`, and the
+  palette's "Inheritance (is-a)" button all deleted) rather than kept
+  alongside the corrected mechanism.
 - ER reification: `FmcModel.reifyRelation(relationId, { label })` creates
   a fresh entity set and nests the relation inside it via the existing
   generic containment mechanism (`addContainment` already allows any type
@@ -545,10 +578,10 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
 **Known gaps, tracked as future work, not bugs**: no NOP transitions, no
 swimlanes, no recursion elements, no standard-construct stencils
 (sequence/case/loop/concurrency) for Petri nets; no role labels or n-ary
-relations beyond what a generic arc already allows, no orthogonal
-partitioning, for ER diagrams; no export; no validation extension
-(`FmcModel.validate` still only checks block-diagram Access-arity laws).
-All explicitly out of scope for this pass.
+relations beyond what a generic arc already allows, for ER diagrams; no
+export; no validation extension (`FmcModel.validate` still only checks
+block-diagram Access-arity laws). All explicitly out of scope for this
+pass.
 
 ## Canvas viewport (pan)
 

@@ -316,71 +316,97 @@ export function verticalArcPath(
     return [exit, { x: exit.x, y: midY }, { x: enter.x, y: midY }, enter];
   }
 
-  // The target isn't below the source -- a particular case, typically a
-  // loop-back arc where the other node sits roughly level with (or to
-  // the side of) this one, not above or below it. The arc leaves
-  // diagonally out of the *source's* top corner (north-west/north-east,
-  // facing whichever side the target is on) and arrives diagonally into
-  // the *target's* bottom corner (south-west/south-east, facing back
-  // toward the source), each via a short stub segment right at the
-  // shape's own boundary before bending onto the ordinary horizontal/
-  // vertical routing for the transit between them -- only this stub is a
-  // free-angle segment, never the whole path.
+  // The target isn't below the source. Two distinct shapes, chosen by
+  // whether the boxes actually sit side by side (disjoint x-ranges) or
+  // are more like a reversed vertical pair (overlapping x-ranges, e.g. a
+  // straight-up return arc in a single column):
+  const xRangesOverlap =
+    sourceBox.x < targetBox.x + targetBox.width &&
+    targetBox.x < sourceBox.x + sourceBox.width;
+
+  if (xRangesOverlap) {
+    // A reversed-direction arc along a shared column, not a "beside"
+    // pair -- a short diagonal corner-cut can't stay clear of both boxes
+    // here (whichever side a lane sits on, it risks running through
+    // whichever box extends further that way), so route the long way
+    // around instead: down from the source, out to a lane west of both,
+    // up past the target, and in -- still leaving south and arriving
+    // north (plain ports, no diagonal; the diagonal corner treatment
+    // below is for the genuinely-beside case).
+    const exit = { x: sourceCenterX, y: sourceBottom };
+    const enter = { x: targetCenterX, y: targetBox.y };
+    const belowSource = exit.y + ARC_ROUTE_MARGIN;
+    const aboveTarget = enter.y - ARC_ROUTE_MARGIN;
+    const laneX = Math.min(sourceBox.x, targetBox.x) - ARC_ROUTE_MARGIN;
+    return [
+      exit,
+      { x: exit.x, y: belowSource },
+      { x: laneX, y: belowSource },
+      { x: laneX, y: aboveTarget },
+      { x: enter.x, y: aboveTarget },
+      enter,
+    ];
+  }
+
+  // Genuinely beside (disjoint x-ranges) -- the case this was actually
+  // written for, e.g. a self-loop's return arc to a transition left or
+  // right of its place rather than above/below it. A Petri arc is always
+  // place<->transition (the bipartite rule), so exactly one end here is
+  // circular; only that end gets the diagonal "leaves/arrives on its own
+  // circle" treatment (`diagonalBoundaryPoint`, not the invisible
+  // bounding-box corner) -- the other (a transition) keeps the same
+  // plain south(if source)/north(if target) port the forward case above
+  // already uses, since a rectangular box's edge midpoint is already a
+  // clean perpendicular attachment with no need for a corner cut.
   //
-  // Using the source's top and the target's bottom (rather than the same
-  // side on both ends) is deliberate, not just a style choice: a
-  // reciprocal pair of arcs between the same two nodes (A->B and B->A)
-  // each exits its own source's top and enters its own target's bottom,
-  // so the two arcs always land on two *different* corners of each box
-  // (one node's "exit" corner is never the other arc's "entry" corner) --
-  // this is what keeps a loop-back pair from ever tracing the same line
-  // and reading as one bidirectional arrow.
-  const exitSignX = targetCenterX >= sourceCenterX ? 1 : -1;
-  const exitAnchor = diagonalBoundaryPoint(
-    sourceBox,
-    sourceCircular,
-    exitSignX,
-    -1,
-  );
-  const exitBend = {
-    x: exitAnchor.x + exitSignX * ARC_DIAGONAL_STUB,
-    y: exitAnchor.y - ARC_DIAGONAL_STUB,
-  };
+  // The place's diagonal side (top when it's this arc's source, bottom
+  // when it's the target) always matches the transition's plain port for
+  // the same role (a transition-as-target already enters north/top; a
+  // transition-as-source already exits south/bottom) -- so both ends of
+  // any one arc land on the same side, above both boxes or below both.
+  // A reciprocal arc swaps source and target, which swaps which end is
+  // the place and therefore swaps top<->bottom too, so a loop-back pair
+  // never lands on the same corner/port and never traces the same line.
+  const sign = sourceCircular ? -1 : 1; // -1 = above both (top lane), 1 = below both (bottom lane)
 
-  const enterSignX = sourceCenterX >= targetCenterX ? 1 : -1;
-  const enterAnchor = diagonalBoundaryPoint(
-    targetBox,
-    targetCircular,
-    enterSignX,
-    1,
-  );
-  const enterBend = {
-    x: enterAnchor.x + enterSignX * ARC_DIAGONAL_STUB,
-    y: enterAnchor.y + ARC_DIAGONAL_STUB,
-  };
+  const exitDiagonalSignX = targetCenterX >= sourceCenterX ? 1 : -1;
+  const exitAnchor = sourceCircular
+    ? diagonalBoundaryPoint(sourceBox, true, exitDiagonalSignX, sign)
+    : { x: sourceCenterX, y: sign < 0 ? sourceBox.y : sourceBottom };
+  const exitBend = sourceCircular
+    ? {
+        x: exitAnchor.x + exitDiagonalSignX * ARC_DIAGONAL_STUB,
+        y: exitAnchor.y + sign * ARC_DIAGONAL_STUB,
+      }
+    : { x: exitAnchor.x, y: exitAnchor.y + sign * ARC_ROUTE_MARGIN };
 
-  // Since exit and enter are now on opposite (top vs. bottom) sides, a
-  // single shared lane can't safely connect them when the two boxes
-  // overlap vertically (a "beside" pair, the usual loop-back shape) --
-  // any lane positioned relative to only one box's edge risks cutting
-  // through the other. So the detour instead fully encloses *both*
-  // boxes: up from the exit stub to a lane above both tops, sideways to
-  // a lane to the west of both left edges, down to a lane below both
-  // bottoms, then across into the enter stub -- each of those three
-  // legs is, by construction, entirely outside the other box's extent
-  // along the axis that matters, so none of them can ever cross either
-  // box's interior regardless of how the two are arranged.
-  const aboveY = Math.min(sourceBox.y, targetBox.y) - ARC_ROUTE_MARGIN;
-  const belowY =
-    Math.max(sourceBottom, targetBox.y + targetBox.height) + ARC_ROUTE_MARGIN;
-  const laneX = Math.min(sourceBox.x, targetBox.x) - ARC_ROUTE_MARGIN;
+  const enterDiagonalSignX = sourceCenterX >= targetCenterX ? 1 : -1;
+  const enterAnchor = targetCircular
+    ? diagonalBoundaryPoint(targetBox, true, enterDiagonalSignX, sign)
+    : {
+        x: targetCenterX,
+        y: sign < 0 ? targetBox.y : targetBox.y + targetBox.height,
+      };
+  const enterBend = targetCircular
+    ? {
+        x: enterAnchor.x + enterDiagonalSignX * ARC_DIAGONAL_STUB,
+        y: enterAnchor.y + sign * ARC_DIAGONAL_STUB,
+      }
+    : { x: enterAnchor.x, y: enterAnchor.y + sign * ARC_ROUTE_MARGIN };
+
+  // Both bends already sit beyond their own box on the shared side, so a
+  // single lane at whichever bend is furthest out is clear of both boxes
+  // (their x-ranges are disjoint here, so the vertical legs down to it
+  // can't cross the other box either).
+  const laneY =
+    sign < 0
+      ? Math.min(exitBend.y, enterBend.y)
+      : Math.max(exitBend.y, enterBend.y);
   return [
     exitAnchor,
     exitBend,
-    { x: exitBend.x, y: aboveY },
-    { x: laneX, y: aboveY },
-    { x: laneX, y: belowY },
-    { x: enterBend.x, y: belowY },
+    { x: exitBend.x, y: laneY },
+    { x: enterBend.x, y: laneY },
     enterBend,
     enterAnchor,
   ];
@@ -761,9 +787,13 @@ export default class CanvasView extends Component {
           : targetType === ElementType.RELATION
             ? 'target'
             : null;
+      const isPartitionArc =
+        sourceType === ElementType.PARTITION ||
+        targetType === ElementType.PARTITION;
       this.drawArc(arc, sourceBox, targetBox, {
         vertical: isPetriArc,
         relationEnd,
+        isPartitionArc,
         sourceCircular: sourceType === ElementType.PLACE,
         targetCircular: targetType === ElementType.PLACE,
       });
@@ -777,6 +807,7 @@ export default class CanvasView extends Component {
     {
       vertical = false,
       relationEnd = null,
+      isPartitionArc = false,
       sourceCircular = false,
       targetCircular = false,
     } = {},
@@ -787,10 +818,9 @@ export default class CanvasView extends Component {
           targetCircular,
         })
       : orthogonalPath(sourceBox, targetBox);
-    const isInheritance = arc.kind === 'inheritance';
-    // A plain ER arc (not inheritance, not Petri) can toggle its
-    // cardinality; the other two kinds don't have the concept.
-    const isErArc = !vertical && !isInheritance && relationEnd;
+    // A plain ER arc (not partitioning, not Petri) can toggle its
+    // cardinality; the other kinds don't have the concept.
+    const isErArc = !vertical && !isPartitionArc && relationEnd;
     const mainShape = new Konva.Shape({
       stroke: '#000000',
       strokeWidth: 2,
@@ -829,26 +859,23 @@ export default class CanvasView extends Component {
       this.openContextMenu(event.evt, items);
     });
     this.shapeLayer.add(mainShape);
-    // An ER "is-a" (generalization) arc gets a hollow (white-filled,
-    // outlined) triangle at the supertype end instead of the ordinary
-    // filled one -- the standard ER/UML convention for inheritance, and
-    // slightly larger so the outline reads clearly.
-    this.shapeLayer.add(
-      new Konva.Line({
-        points: arrowHeadPoints(
-          path.at(-1),
-          path.at(-2),
-          isInheritance ? 13 : 9,
-        ),
-        closed: true,
-        fill: isInheritance ? '#ffffff' : '#000000',
-        stroke: isInheritance ? '#000000' : undefined,
-        strokeWidth: isInheritance ? 2 : undefined,
-        name: 'fumoco-edge',
-        listening: false,
-      }),
-    );
-    if (!isInheritance && arc.weight !== 1) {
+    // A partitioning arc is a plain line, no arrowhead -- the triangle
+    // node itself (apex = the partitioned superset's side, base = each
+    // part) already carries the meaning; an arrowhead would be redundant
+    // and isn't part of the notation. Every other arc gets the ordinary
+    // filled triangle.
+    if (!isPartitionArc) {
+      this.shapeLayer.add(
+        new Konva.Line({
+          points: arrowHeadPoints(path.at(-1), path.at(-2), 9),
+          closed: true,
+          fill: '#000000',
+          name: 'fumoco-edge',
+          listening: false,
+        }),
+      );
+    }
+    if (!isPartitionArc && arc.weight !== 1) {
       const mid = path[Math.floor(path.length / 2)];
       this.shapeLayer.add(
         new Konva.Text({
@@ -1463,8 +1490,6 @@ export default class CanvasView extends Component {
             );
           case ConnectorKind.ARC:
             return model.addArc(sourceId, id);
-          case ConnectorKind.INHERITANCE:
-            return model.addArc(sourceId, id, 1, { kind: 'inheritance' });
           default:
             throw new FmcModelError(`unknown connector kind: ${tool.kind}`);
         }
@@ -1544,6 +1569,7 @@ export default class CanvasView extends Component {
     const isChannel = !!element.channel;
     const isPlace = element.type === ElementType.PLACE;
     const isEntitySet = element.type === ElementType.ENTITY_SET;
+    const isPartition = element.type === ElementType.PARTITION;
     // A channel's place, a Petri net place, or an ER entity set all use
     // the same trick: cornerRadius = half the *smaller* box dimension.
     // For a square box that reads as a perfect circle (channel/place);
@@ -1559,15 +1585,27 @@ export default class CanvasView extends Component {
         : isRoundedElementType(element.type)
           ? Math.min(12, box.width / 2, box.height / 2)
           : 0;
-    const rect = new Konva.Rect({
-      width: box.width,
-      height: box.height,
-      fill: '#ffffff',
-      stroke: '#000000',
-      strokeWidth: NODE_STROKE_WIDTH,
-      cornerRadius,
-      dash: isLocation && element.dashed ? [6, 4] : undefined,
-    });
+    // An orthogonal-partitioning node is a triangle, not a box: apex at
+    // the top (where the partitioned superset's arc attaches) and base at
+    // the bottom (where each part/subset's arc attaches) -- see
+    // spec/index.html's "Orthogonal partitioning" section.
+    const rect = isPartition
+      ? new Konva.Line({
+          points: [box.width / 2, 0, box.width, box.height, 0, box.height],
+          closed: true,
+          fill: '#ffffff',
+          stroke: '#000000',
+          strokeWidth: NODE_STROKE_WIDTH,
+        })
+      : new Konva.Rect({
+          width: box.width,
+          height: box.height,
+          fill: '#ffffff',
+          stroke: '#000000',
+          strokeWidth: NODE_STROKE_WIDTH,
+          cornerRadius,
+          dash: isLocation && element.dashed ? [6, 4] : undefined,
+        });
     group.add(rect);
 
     if (element.type === ElementType.HUMAN_AGENT) {

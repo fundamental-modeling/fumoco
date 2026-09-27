@@ -18,11 +18,7 @@ const BLOCK_CONNECTOR_BUTTONS = [
   { kind: ConnectorKind.REQRES_SHORTHAND, label: 'Req/Res (short)' },
 ];
 
-const PETRI_CONNECTOR_BUTTONS = [{ kind: ConnectorKind.ARC, label: 'Arc' }];
-const ER_CONNECTOR_BUTTONS = [
-  { kind: ConnectorKind.ARC, label: 'Arc' },
-  { kind: ConnectorKind.INHERITANCE, label: 'Inheritance (is-a) ▷' },
-];
+const ARC_CONNECTOR_BUTTONS = [{ kind: ConnectorKind.ARC, label: 'Arc' }];
 
 export default class Palette extends Component {
   @service modelStore;
@@ -33,10 +29,9 @@ export default class Palette extends Component {
   }
 
   get connectorButtons() {
-    if (this.diagramType === 'block') return BLOCK_CONNECTOR_BUTTONS;
-    return this.diagramType === 'er'
-      ? ER_CONNECTOR_BUTTONS
-      : PETRI_CONNECTOR_BUTTONS;
+    return this.diagramType === 'block'
+      ? BLOCK_CONNECTOR_BUTTONS
+      : ARC_CONNECTOR_BUTTONS;
   }
 
   get hint() {
@@ -99,6 +94,13 @@ export default class Palette extends Component {
   }
 
   @action
+  addPartition() {
+    // Small and roughly square, like a place -- a triangle glyph, not a
+    // label-sized box.
+    this.addElement(ElementType.PARTITION, null, { width: 60, height: 50 });
+  }
+
+  @action
   toggleConnector(kind) {
     this.connectorTool.arm(kind);
   }
@@ -119,6 +121,10 @@ export default class Palette extends Component {
       {{else if (eq this.diagramType "er")}}
         <button type="button" {{on "click" this.addEntitySet}}>Entity set</button>
         <button type="button" {{on "click" this.addRelation}}>Relation</button>
+        <button
+          type="button"
+          {{on "click" this.addPartition}}
+        >Partition</button>
       {{/if}}
 
       <h3>Connectors</h3>

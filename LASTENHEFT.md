@@ -224,9 +224,11 @@ implementation notes here — that's the other two documents' job.
   bipartite rule enforced the same way agent/storage is today.
 - As a modeler, I want to create ER entity sets and (possibly n-ary)
   relations, with arcs carrying role/cardinality labels.
-- As a modeler, I want an ER "is-a" relationship drawn with the standard
-  hollow triangle at the supertype end, connecting two entity sets
-  directly.
+- As a modeler, I want to draw an ER independent (orthogonal) partitioning
+  of an entity set into subsets as a triangle: the partitioned (parent)
+  entity set connects to the triangle's tip, and each subset connects to
+  its base — distinct from the "subset" approach of nesting one entity
+  set inside another.
 - As a modeler, I want small arrows on a relation for its 1:n, n:1, and
   1:1 cardinality, matching FMC's arrow-inside-the-relation convention.
 - As a modeler, I want to reify a relation into an entity set by nesting
