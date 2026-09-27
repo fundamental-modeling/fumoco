@@ -272,6 +272,17 @@ diagram, not a live editing invariant.
 ** OPEN Soft diagram-size nudge past a standard page/screen size
 Advisory, not a hard limit — surface it, don't block on it.
 
+** DONE Right-click context menu (delete/copy/cut/paste, waypoint removal)
+Per-target menus on =canvas-view.gjs=: a box (rename/copy/cut/delete-
+from-view/delete-from-model), an arrow (insert waypoint here/delete
+connector), a waypoint handle (remove point), and empty canvas (paste,
+shown only when something's been copied/cut). Copy/cut capture just an
+element's own type/label/dashed/channel (not id, containment, or access
+edges) into in-memory =clipboard= state; paste creates a fresh,
+disconnected element. Rendered as a small HTML =<ul>= overlay positioned
+via a modifier (not an inline =style=, which =ember-template-lint=
+disallows), closed on Escape, an outside click, or running an item.
+
 * Milestone A.5 — Formal FMC specification
 
 ** INPROGRESS Formal, W3C-ReSpec-based specification of FMC's block diagram notation

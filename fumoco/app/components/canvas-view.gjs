@@ -1,5 +1,9 @@
 import Component from '@glimmer/component';
+import { tracked } from '@glimmer/tracking';
+import { action } from '@ember/object';
 import { service } from '@ember/service';
+import { on } from '@ember/modifier';
+import { fn } from '@ember/helper';
 import { modifier } from 'ember-modifier';
 import Konva from 'konva';
 import { TrackedArray } from 'tracked-built-ins';
@@ -341,6 +345,14 @@ export default class CanvasView extends Component {
   nodesById = new Map();
   marqueeRect;
   marqueeStart = null;
+  // { x, y, items: [{label, action}] } in viewport pixel coords, or null
+  // when no context menu is open.
+  @tracked contextMenu = null;
+  // A single copied/cut element's own properties (type/label/dashed/
+  // channel) -- deliberately not its id, containment, or access edges, so
+  // pasting always creates an independent element rather than something
+  // that looks like an alias of the original.
+  @tracked clipboard = null;
 
   setupStage = modifier((element) => {
     this.stage = new Konva.Stage({
@@ -382,8 +394,20 @@ export default class CanvasView extends Component {
     });
 
     this.stage.on('mousedown', (event) => {
+      if (event.evt.button !== 0) return; // right/middle click: not a marquee drag
       if (event.target !== this.stage) return;
       this.marqueeStart = this.stage.getRelativePointerPosition();
+    });
+
+    // Right-click on the empty canvas background -- per-shape/edge/handle
+    // contextmenu handlers (buildShape, addRoutedEdge, syncEdgeHandles)
+    // each cancelBubble their own, so this only ever fires for a genuine
+    // background right-click.
+    this.stage.on('contextmenu', (event) => {
+      event.evt.preventDefault();
+      if (event.target !== this.stage) return;
+      const point = this.stage.getRelativePointerPosition();
+      this.openContextMenu(event.evt, this.backgroundMenuItems(point));
     });
 
     this.stage.on('mousemove', () => {
@@ -429,6 +453,10 @@ export default class CanvasView extends Component {
 
     const keydown = (event) => {
       if (document.activeElement?.tagName === 'INPUT') return;
+      if (event.key === 'Escape' && this.contextMenu) {
+        this.contextMenu = null;
+        return;
+      }
       // Enter-to-rename doesn't depend on double-click/double-tap timing
       // at all -- useful since Konva suppresses click/dblclick on a
       // draggable node once it detects even a sub-pixel drag between the
@@ -453,9 +481,21 @@ export default class CanvasView extends Component {
     };
     window.addEventListener('keydown', keydown);
 
+    // Closes the context menu on any click that isn't on the menu itself
+    // (a click *on* a menu item closes it via runMenuItem instead, right
+    // after running the action) -- a right-click never fires a plain
+    // 'click' DOM event, so opening a new menu never races with this.
+    const closeContextMenu = (event) => {
+      if (!this.contextMenu) return;
+      if (event.target.closest?.('.canvas-context-menu')) return;
+      this.contextMenu = null;
+    };
+    window.addEventListener('click', closeContextMenu);
+
     return () => {
       window.removeEventListener('resize', resize);
       window.removeEventListener('keydown', keydown);
+      window.removeEventListener('click', closeContextMenu);
       this.stage.destroy();
     };
   });
@@ -582,6 +622,17 @@ export default class CanvasView extends Component {
         if (!view) return;
         const point = this.stage.getRelativePointerPosition();
         this.insertWaypoint(edgeId, view, point);
+      });
+      mainShape.on('contextmenu', (event) => {
+        event.evt.preventDefault();
+        event.cancelBubble = true;
+        if (!view) return;
+        this.selection.selectEdge(edgeId);
+        const point = this.stage.getRelativePointerPosition();
+        this.openContextMenu(
+          event.evt,
+          this.edgeMenuItems(edgeId, view, point),
+        );
       });
     }
     this.shapeLayer.add(mainShape);
@@ -844,6 +895,14 @@ export default class CanvasView extends Component {
         event.cancelBubble = true;
         this.removeWaypoint(edgeId, view, index);
       });
+      handle.on('contextmenu', (event) => {
+        event.evt.preventDefault();
+        event.cancelBubble = true;
+        this.openContextMenu(
+          event.evt,
+          this.handleMenuItems(edgeId, view, index),
+        );
+      });
       this.shapeLayer.add(handle);
     });
     this.shapeLayer.batchDraw();
@@ -896,6 +955,116 @@ export default class CanvasView extends Component {
       for (const id of ids) model.removeElement(id);
     });
     this.selection.clear();
+  }
+
+  copyElement(id) {
+    const element = this.modelStore.model.elements.get(id);
+    if (!element) return;
+    this.clipboard = {
+      type: element.type,
+      label: element.label,
+      dashed: element.dashed,
+      channel: element.channel ? { ...element.channel } : null,
+    };
+  }
+
+  cutElement(id) {
+    this.copyElement(id);
+    this.modelStore.mutate((model) => model.removeElement(id));
+    this.selection.clear();
+  }
+
+  pasteClipboard(point) {
+    if (!this.clipboard) return;
+    const view = this.modelStore.activeView;
+    if (!view) return;
+    const width = 120;
+    const height = 60;
+    this.modelStore.mutate((model) => {
+      const id = model.addElement(this.clipboard.type, {
+        label: this.clipboard.label,
+        dashed: this.clipboard.dashed,
+        channel: this.clipboard.channel,
+      });
+      view.included.push(id);
+      view.boxes.set(id, {
+        x: point.x - width / 2,
+        y: point.y - height / 2,
+        width,
+        height,
+      });
+      this.selection.select(id);
+    });
+  }
+
+  // Runs a context-menu item's action then always closes the menu --
+  // separate from the window-level `closeContextMenu` click listener,
+  // which only closes it on a click *outside* the menu (a click on an
+  // item is "inside" as far as that listener is concerned).
+  @action
+  runMenuItem(itemAction) {
+    itemAction();
+    this.contextMenu = null;
+  }
+
+  // Sets the menu's viewport position imperatively rather than through a
+  // template `style="..."` attribute (disallowed by ember-template-lint's
+  // no-inline-styles rule) -- functionally identical, just expressed as a
+  // tiny element modifier instead.
+  positionContextMenu = modifier((element, [x, y]) => {
+    element.style.left = `${x}px`;
+    element.style.top = `${y}px`;
+  });
+
+  openContextMenu(domEvent, items) {
+    if (!items.length) return;
+    this.contextMenu = { x: domEvent.clientX, y: domEvent.clientY, items };
+  }
+
+  elementMenuItems(id) {
+    return [
+      { label: 'Rename', action: () => this.promptRename(id) },
+      { label: 'Copy', action: () => this.copyElement(id) },
+      { label: 'Cut', action: () => this.cutElement(id) },
+      {
+        label: 'Delete from view',
+        action: () => this.removeSelectionFromView(),
+      },
+      {
+        label: 'Delete from model',
+        action: () => this.deleteSelectionFromModel(),
+      },
+    ];
+  }
+
+  edgeMenuItems(edgeId, view, point) {
+    return [
+      {
+        label: 'Insert waypoint here',
+        action: () => this.insertWaypoint(edgeId, view, point),
+      },
+      {
+        label: 'Delete connector',
+        action: () => {
+          this.modelStore.mutate((model) => model.removeAccess(edgeId));
+          if (this.selection.selectedEdgeId === edgeId) this.selection.clear();
+        },
+      },
+    ];
+  }
+
+  handleMenuItems(edgeId, view, index) {
+    return [
+      {
+        label: 'Remove point',
+        action: () => this.removeWaypoint(edgeId, view, index),
+      },
+    ];
+  }
+
+  backgroundMenuItems(point) {
+    if (!this.clipboard) return [];
+    return [{ label: 'Paste', action: () => this.pasteClipboard(point) }];
   }
 
   handleConnectorClick(id) {
@@ -1114,6 +1283,13 @@ export default class CanvasView extends Component {
       this.promptRename(element.id);
     });
 
+    group.on('contextmenu', (event) => {
+      event.evt.preventDefault();
+      event.cancelBubble = true;
+      this.selection.select(element.id);
+      this.openContextMenu(event.evt, this.elementMenuItems(element.id));
+    });
+
     if (nested) {
       let dragStart = null;
       let descendants = [];
@@ -1327,5 +1503,20 @@ export default class CanvasView extends Component {
       {{this.syncEdgeSelection}}
       {{this.syncConnectorEligibility}}
     ></div>
+    {{#if this.contextMenu}}
+      <ul
+        class="canvas-context-menu"
+        {{this.positionContextMenu this.contextMenu.x this.contextMenu.y}}
+      >
+        {{#each this.contextMenu.items as |item|}}
+          <li>
+            <button
+              type="button"
+              {{on "click" (fn this.runMenuItem item.action)}}
+            >{{item.label}}</button>
+          </li>
+        {{/each}}
+      </ul>
+    {{/if}}
   </template>
 }

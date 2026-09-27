@@ -345,6 +345,50 @@ wrapping back to the start on a fixed schedule. Bounded at 200 attempts,
 falling back to just past the last one tried, so a pathological diagram
 can't hang the UI.
 
+## Right-click context menu (`canvas-view.gjs`)
+
+`@tracked contextMenu` (`{ x, y, items }` in viewport pixel coordinates,
+or `null`) drives a small HTML `<ul>` overlay rendered alongside the
+Konva `<div>`, not inside the canvas itself. Each interactive Konva node
+type gets its own `'contextmenu'` handler (`event.evt.preventDefault()` +
+`event.cancelBubble = true`) building a target-specific item list, so
+there's no need for a single dispatcher walking Konva's hit hierarchy:
+
+- A box's `group` (in `buildShape`): selects it, then rename/copy/cut/
+  delete-from-view/delete-from-model (`elementMenuItems`).
+- An edge's main path shape (in `addRoutedEdge`, only when `edgeId` is
+  set): selects the edge, then insert-waypoint-here (using the same
+  `insertWaypoint` a double-click on the line already calls) and delete-
+  connector (`edgeMenuItems`).
+- A waypoint handle (in `syncEdgeHandles`): just remove-this-point
+  (`handleMenuItems`), reusing `removeWaypoint` -- a menu-driven
+  alternative to double-clicking the handle, for discoverability.
+- The stage itself, only when `event.target === this.stage` (every
+  more-specific handler above already `cancelBubble`d): paste, shown only
+  when `clipboard` is non-empty (`backgroundMenuItems`).
+
+Copy/cut/paste (`copyElement`/`cutElement`/`pasteClipboard`) work off a
+single `@tracked clipboard` holding just an element's own
+type/label/dashed/channel -- deliberately not its id, containment, or
+access edges, so a paste always creates an independent element rather
+than something that reads as an alias of the original. Cut is copy +
+`removeElement`. Paste creates a fresh element, adds it to the active
+view centered on the right-click point, and selects it.
+
+The menu closes on Escape (checked first in the existing `keydown`
+handler), a click anywhere outside `.canvas-context-menu` (a dedicated
+window `click` listener, safe from racing a right-click's own menu-open
+since a right-click never fires a plain DOM `click` event), or running an
+item (`runMenuItem` wraps every action to also clear `contextMenu`
+afterward). Positioned via a small `positionContextMenu` element modifier
+that sets `element.style.left/top` directly, rather than a template
+`style="..."` attribute -- `ember-template-lint`'s `no-inline-styles`
+rule disallows the latter.
+
+`this.stage.on('mousedown', ...)` (marquee-select) now also checks
+`event.evt.button !== 0` first, so a right-click opening a context menu
+can't also kick off a marquee-selection drag underneath it.
+
 ## Canvas viewport (pan)
 
 Wheel/trackpad scroll pans by translating `stage.x()`/`stage.y()`

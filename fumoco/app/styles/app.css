@@ -231,6 +231,39 @@ body {
   text-decoration: underline;
 }
 
+.canvas-context-menu {
+  position: fixed;
+  z-index: 1000;
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  min-width: 160px;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 15%);
+  font-size: 13px;
+}
+
+/* stylelint-disable-next-line no-descending-specificity -- unrelated
+   component (canvas overlay vs. tree panel); this selector never
+   competes with .model-tree-validation's for the same element. */
+.canvas-context-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+/* stylelint-disable-next-line no-descending-specificity -- see above */
+.canvas-context-menu button:hover {
+  background: #f0f0f0;
+}
+
 .model-tree-list {
   list-style: none;
   margin: 0;

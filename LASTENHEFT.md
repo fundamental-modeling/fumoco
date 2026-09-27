@@ -192,6 +192,23 @@ implementation notes here — that's the other two documents' job.
   allowing an incomplete diagram forever or blocking me mid-edit for
   something that's only wrong if I leave it that way.
 
+## Context menu / copy-paste
+
+- As a modeler, I want a right-click context menu on the canvas, so
+  actions like delete/copy/cut/paste don't require memorizing keyboard
+  shortcuts or hunting through the properties panel.
+- As a modeler, right-clicking a box should offer rename, copy, cut,
+  delete-from-view, and delete-from-model — the same actions already
+  available elsewhere, just reachable at the point I'm looking at.
+- As a modeler, right-clicking an arrow should offer inserting a waypoint
+  right at that point and deleting the connector.
+- As a modeler, right-clicking a waypoint on an arrow should offer
+  removing just that point — a menu-driven alternative to double-clicking
+  it, since deleting a routing point is exactly the kind of action that
+  belongs on a context menu.
+- As a modeler, right-clicking empty canvas should offer pasting,
+  whenever I've copied or cut something.
+
 ## Beyond block diagrams
 
 - As a modeler, I want a formal, W3C-ReSpec-based specification of FMC's
