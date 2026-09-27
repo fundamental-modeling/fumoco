@@ -450,26 +450,41 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
     typically a loop-back arc to a box beside rather than above/below
     (the common shape of a self-loop's return arc) -- that single-bend
     approach would cut straight through whichever box's vertical span the
-    midpoint fell into. Instead the whole detour routes *above* both
-    boxes, so both ends leave/arrive diagonally (north-west/north-east,
-    whichever corner faces the other box) via a short 45° stub right at
-    the shape's own boundary (`ARC_DIAGONAL_STUB`, 28px -- comfortably
-    longer than `EDGE_CORNER_RADIUS` so canvas `arcTo` has room to render
-    the same corner radius here as everywhere else, since `arcTo` shrinks
-    the radius it draws when the adjacent segment is too short to fit
-    it), then bends onto ordinary horizontal/vertical routing for the
-    transit between them -- only that stub is a free-angle segment, never
-    the whole path. Both ends face the *same* direction (top/north) since
-    they share one transit lane above both boxes; entering via a target's
-    *bottom* corner instead (an earlier version's attempt at "arriving
-    diagonally from the south") was a real bug, since the lane already
-    sits above the target and entering from below would force the line to
-    travel past the target's entire height and loop underneath it, rather
-    than simply coming straight down out of the lane it was already in.
-    For a place (drawn as a circle via `buildShape`'s `cornerRadius`
-    trick), the diagonal stub's anchor is the actual point on the circle
-    at that 45° angle (`diagonalBoundaryPoint`), not the invisible
-    bounding box's corner, which sits outside the circle.
+    midpoint fell into. Instead the arc leaves diagonally out of the
+    *source's* top corner (north-west/north-east, whichever faces the
+    other box) and arrives diagonally into the *target's bottom* corner
+    (south-west/south-east, facing back toward the source), each via a
+    short 45° stub right at the shape's own boundary (`ARC_DIAGONAL_STUB`,
+    28px -- comfortably longer than `EDGE_CORNER_RADIUS` so canvas
+    `arcTo` has room to render the same corner radius here as everywhere
+    else, since `arcTo` shrinks the radius it draws when the adjacent
+    segment is too short to fit it).
+
+    Exit-top/enter-bottom (rather than the same corner on both ends) is
+    the same "fixed ports" trick the forward case already relies on,
+    generalized to a diagonal port: a reciprocal pair of arcs between the
+    same two nodes (A->B and B->A) each exits its own source's top and
+    enters its own target's bottom, so neither box's two corners (one
+    used as a source, the other as a target for the return arc) can ever
+    coincide -- an earlier version made *both* ends use the top corner,
+    reasoning that the transit lane sits above both boxes so a bottom
+    entry would loop underneath the target; that reintroduced the exact
+    bidirectional-overlap bug this mechanism exists to prevent, since two
+    reciprocal arcs then landed on the identical corner of each box and
+    traced the same line. Because exit and enter now sit on opposite
+    sides, the detour between the two stubs can't use a single shared
+    lane without risking a cut through whichever box the lane's height
+    happens to fall inside (a real risk once the two boxes' vertical
+    spans overlap, the normal "beside" case) -- so it instead fully
+    encloses both boxes: up from the exit stub to a lane above both tops,
+    across to a lane west of both left edges, down to a lane below both
+    bottoms, then across into the enter stub. Each of those three legs is
+    outside the other box's extent along the axis that matters, so none
+    of them can cross either box's interior regardless of how the two are
+    arranged. For a place (drawn as a circle via `buildShape`'s
+    `cornerRadius` trick), the diagonal stub's anchor is the actual point
+    on the circle at that 45° angle (`diagonalBoundaryPoint`), not the
+    invisible bounding box's corner, which sits outside the circle.
   - An **ER arc** (entity_set<->relation) keeps using `orthogonalPath` --
     an ER diagram has no fixed reading direction (see `spec/index.html`'s
     ER section), so the shortest-route logic that access edges already
@@ -509,7 +524,13 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
   isn't part of FMC's own compositional/dynamic/value-range structure,
   but the standard ER/UML convention. `drawArc` gives it a hollow (white-
   filled, outlined) triangle at the supertype end instead of the ordinary
-  filled one, and skips the weight label (not meaningful here).
+  filled one, and skips the weight label (not meaningful here). Drawn from
+  the UI via the palette's "Inheritance (is-a)" connector button, shown
+  only in an `er` view alongside "Arc" (`ConnectorKind.INHERITANCE`,
+  `connector-tool.js`'s rule requires both ends to be an entity set) --
+  this button was missing for a while after the model/tool-layer support
+  landed, so there was no way to actually draw one from the editor even
+  though `addArc`/`connector-tool.js` already supported it.
 - ER reification: `FmcModel.reifyRelation(relationId, { label })` creates
   a fresh entity set and nests the relation inside it via the existing
   generic containment mechanism (`addContainment` already allows any type

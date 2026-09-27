@@ -300,18 +300,16 @@ module('Unit | Component | canvas-view (nesting geometry)', function () {
     const path = verticalArcPath(source, target);
 
     assertPathClearOfBoxes(assert, path, [source, target]);
-    // A loop-back arc routes entirely above both boxes, so it must exit
-    // *and* enter via a top corner (north-ish) on both ends -- never the
-    // plain south exit/north entry a forward arc uses, and never a
-    // bottom (south) entry either, since that would force the line to
-    // travel past the target's whole height and loop underneath it just
-    // to reach a corner it could have entered directly from the lane
-    // it's already routing through.
+    // A loop-back arc always exits its source's top and enters its
+    // target's bottom -- fixed, direction-independent ports (per box
+    // role) that keep a reciprocal pair of arcs between the same two
+    // nodes from ever landing on the same corner and reading as one
+    // bidirectional line.
     assert.strictEqual(path[0].y, source.y);
-    assert.strictEqual(path.at(-1).y, target.y);
+    assert.strictEqual(path.at(-1).y, target.y + target.height);
   });
 
-  test('verticalArcPath exits and enters north-west/-east for a loop-back arc to a box beside it (not above/below)', function (assert) {
+  test('verticalArcPath exits north (source top) and enters south (target bottom) for a loop-back arc to a box beside it (not above/below)', function (assert) {
     // The case this was actually written for: a transition to the right
     // of a place at roughly the same height, e.g. a self-loop's return
     // arc -- forcing a due-south exit here would have to loop all the
@@ -325,10 +323,11 @@ module('Unit | Component | canvas-view (nesting geometry)', function () {
     // Exits via place's top-right corner (facing the transition, to its
     // right) instead of straight down from the bottom-center.
     assert.deepEqual(path[0], { x: 60, y: 0 });
-    // Enters via transition's top-left corner (facing the place, to its
-    // left) -- top, not bottom, since the route stays in the lane above
-    // both boxes the whole way.
-    assert.deepEqual(path.at(-1), { x: 200, y: 0 });
+    // Enters via transition's bottom-left corner (facing the place, to
+    // its left) -- source exits top, target enters bottom, always, so a
+    // reciprocal return arc (transition -> place) would use place's
+    // bottom and transition's top instead, never colliding with this one.
+    assert.deepEqual(path.at(-1), { x: 200, y: 60 });
   });
 
   test('verticalArcPath mirrors left/right corner choice when the boxes are swapped', function (assert) {
@@ -340,8 +339,27 @@ module('Unit | Component | canvas-view (nesting geometry)', function () {
     assertPathClearOfBoxes(assert, path, [transition, place]);
     // Exits via the transition's top-right corner (facing the place).
     assert.deepEqual(path[0], { x: 120, y: 0 });
-    // Enters via the place's top-left corner (facing the transition).
-    assert.deepEqual(path.at(-1), { x: 200, y: 0 });
+    // Enters via the place's bottom-left corner (facing the transition).
+    assert.deepEqual(path.at(-1), { x: 200, y: 60 });
+  });
+
+  test('verticalArcPath never lands reciprocal arcs on the same corner of either box', function (assert) {
+    const place = { x: 0, y: 0, width: 60, height: 60 };
+    const transition = { x: 200, y: 0, width: 120, height: 60 };
+
+    const forward = verticalArcPath(place, transition, {
+      sourceCircular: true,
+    });
+    const backward = verticalArcPath(transition, place, {
+      targetCircular: true,
+    });
+
+    // forward: place is source (exits top) / transition is target (enters
+    // bottom). backward: transition is source (exits top) / place is
+    // target (enters bottom) -- every anchor below must differ from its
+    // counterpart in the other arc, on both boxes.
+    assert.notDeepEqual(forward[0], backward.at(-1)); // both touch place
+    assert.notDeepEqual(forward.at(-1), backward[0]); // both touch transition
   });
 
   test('verticalArcPath leaves a circular place from its actual circle, not its bounding-box corner, in the loop-back case', function (assert) {

@@ -333,18 +333,32 @@ actual point on the circle at that 45° angle, not the invisible bounding
 box's corner -- =diagonalBoundaryPoint= handles both circular and
 rectangular shapes with one formula.
 
-An earlier version of this entered the target via its *bottom* corner
-(reading as "arriving diagonally from the south"), which was a real bug:
-since the transit lane already sits above the target, entering from its
-bottom forced the line to travel past the target's entire height and
-loop around underneath it, instead of simply coming straight down out of
-the lane it was already routing through. Fixed by entering via the
-target's top corner too, matching the exit side. Also widened the
-diagonal stub (16px -> 28px) so canvas =arcTo='s rounding has enough
-room to render the *same* corner radius at a diagonal-to-orthogonal bend
-as it already does at a plain orthogonal-to-orthogonal one -- =arcTo=
-silently shrinks the radius it draws when the adjacent segment is too
-short to fit it.
+Also widened the diagonal stub (16px -> 28px) so canvas =arcTo='s
+rounding has enough room to render the *same* corner radius at a
+diagonal-to-orthogonal bend as it already does at a plain
+orthogonal-to-orthogonal one -- =arcTo= silently shrinks the radius it
+draws when the adjacent segment is too short to fit it.
+
+Corrected again: an intermediate version made *both* ends leave/arrive
+via a top corner (reasoning that since the transit routes above both
+boxes, a bottom entry would force a loop-under). That reintroduced
+exactly the bidirectional-overlap bug this whole =verticalArcPath=
+exists to prevent -- for a reciprocal pair of arcs between the same two
+nodes (A->B and B->A), the corner-selection formula only depends on
+which side the *other* box is on, not on which arc is being drawn, so
+both arcs landed on the identical top corner of each box and traced the
+same line. The fix keeps *fixed, direction-independent ports per box
+role*, same idea as the forward case's south-exit/north-enter: a loop-
+back arc always exits its source's top corner and enters its target's
+*bottom* corner, so the source's own two corners (top when it's a
+source, bottom when it's a target for the return arc) are never the
+same point, and likewise for the target -- a reciprocal pair can never
+coincide. Since exit and enter are now on opposite sides, connecting
+them needed a route that fully encloses both boxes (up above both tops,
+across west of both left edges, down below both bottoms, across into the
+entry) rather than a single shared lane, so it stays clear of both boxes
+regardless of whether they're stacked, beside each other, or something
+in between.
 
 ** DONE Petri net starting-place notation
 A place's new =isStart= flag (toggled via the properties panel) draws a

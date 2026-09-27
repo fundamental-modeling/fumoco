@@ -318,21 +318,23 @@ export function verticalArcPath(
 
   // The target isn't below the source -- a particular case, typically a
   // loop-back arc where the other node sits roughly level with (or to
-  // the side of) this one, not above or below it. Forcing a due-south
-  // exit here would have to loop all the way around, so instead the
-  // whole detour routes *above* both boxes -- which means both ends must
-  // face that same lane: the arc leaves diagonally (north-west/north-
-  // east) from the source's own top and *also* arrives diagonally
-  // (again north-west/north-east, not south) into the target's top, each
-  // via a short stub segment right at the shape's own boundary before
-  // bending onto the ordinary horizontal/vertical routing for the transit
-  // between them -- only this stub is a free-angle segment, never the
-  // whole path. (An earlier version entered via the target's *bottom*
-  // corner to "arrive diagonally from the south" -- but since the transit
-  // lane sits above the target, that forced the line to travel past the
-  // target's entire height and loop underneath it just to reach that
-  // bottom corner, instead of simply coming straight down out of the
-  // lane it was already in.)
+  // the side of) this one, not above or below it. The arc leaves
+  // diagonally out of the *source's* top corner (north-west/north-east,
+  // facing whichever side the target is on) and arrives diagonally into
+  // the *target's* bottom corner (south-west/south-east, facing back
+  // toward the source), each via a short stub segment right at the
+  // shape's own boundary before bending onto the ordinary horizontal/
+  // vertical routing for the transit between them -- only this stub is a
+  // free-angle segment, never the whole path.
+  //
+  // Using the source's top and the target's bottom (rather than the same
+  // side on both ends) is deliberate, not just a style choice: a
+  // reciprocal pair of arcs between the same two nodes (A->B and B->A)
+  // each exits its own source's top and enters its own target's bottom,
+  // so the two arcs always land on two *different* corners of each box
+  // (one node's "exit" corner is never the other arc's "entry" corner) --
+  // this is what keeps a loop-back pair from ever tracing the same line
+  // and reading as one bidirectional arrow.
   const exitSignX = targetCenterX >= sourceCenterX ? 1 : -1;
   const exitAnchor = diagonalBoundaryPoint(
     sourceBox,
@@ -350,22 +352,35 @@ export function verticalArcPath(
     targetBox,
     targetCircular,
     enterSignX,
-    -1,
+    1,
   );
   const enterBend = {
     x: enterAnchor.x + enterSignX * ARC_DIAGONAL_STUB,
-    y: enterAnchor.y - ARC_DIAGONAL_STUB,
+    y: enterAnchor.y + ARC_DIAGONAL_STUB,
   };
 
-  // Both bends already sit outside (above) their own box, so the
-  // vertical legs connecting them to a shared lane above both boxes
-  // never cross either box's interior.
-  const aboveY = Math.min(exitBend.y, enterBend.y) - ARC_ROUTE_MARGIN;
+  // Since exit and enter are now on opposite (top vs. bottom) sides, a
+  // single shared lane can't safely connect them when the two boxes
+  // overlap vertically (a "beside" pair, the usual loop-back shape) --
+  // any lane positioned relative to only one box's edge risks cutting
+  // through the other. So the detour instead fully encloses *both*
+  // boxes: up from the exit stub to a lane above both tops, sideways to
+  // a lane to the west of both left edges, down to a lane below both
+  // bottoms, then across into the enter stub -- each of those three
+  // legs is, by construction, entirely outside the other box's extent
+  // along the axis that matters, so none of them can ever cross either
+  // box's interior regardless of how the two are arranged.
+  const aboveY = Math.min(sourceBox.y, targetBox.y) - ARC_ROUTE_MARGIN;
+  const belowY =
+    Math.max(sourceBottom, targetBox.y + targetBox.height) + ARC_ROUTE_MARGIN;
+  const laneX = Math.min(sourceBox.x, targetBox.x) - ARC_ROUTE_MARGIN;
   return [
     exitAnchor,
     exitBend,
     { x: exitBend.x, y: aboveY },
-    { x: enterBend.x, y: aboveY },
+    { x: laneX, y: aboveY },
+    { x: laneX, y: belowY },
+    { x: enterBend.x, y: belowY },
     enterBend,
     enterAnchor,
   ];

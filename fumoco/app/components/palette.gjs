@@ -18,7 +18,11 @@ const BLOCK_CONNECTOR_BUTTONS = [
   { kind: ConnectorKind.REQRES_SHORTHAND, label: 'Req/Res (short)' },
 ];
 
-const ARC_CONNECTOR_BUTTONS = [{ kind: ConnectorKind.ARC, label: 'Arc' }];
+const PETRI_CONNECTOR_BUTTONS = [{ kind: ConnectorKind.ARC, label: 'Arc' }];
+const ER_CONNECTOR_BUTTONS = [
+  { kind: ConnectorKind.ARC, label: 'Arc' },
+  { kind: ConnectorKind.INHERITANCE, label: 'Inheritance (is-a) ▷' },
+];
 
 export default class Palette extends Component {
   @service modelStore;
@@ -29,9 +33,10 @@ export default class Palette extends Component {
   }
 
   get connectorButtons() {
-    return this.diagramType === 'block'
-      ? BLOCK_CONNECTOR_BUTTONS
-      : ARC_CONNECTOR_BUTTONS;
+    if (this.diagramType === 'block') return BLOCK_CONNECTOR_BUTTONS;
+    return this.diagramType === 'er'
+      ? ER_CONNECTOR_BUTTONS
+      : PETRI_CONNECTOR_BUTTONS;
   }
 
   get hint() {
