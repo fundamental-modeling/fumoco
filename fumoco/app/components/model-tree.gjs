@@ -47,10 +47,20 @@ export default class ModelTree extends Component {
     return this.validationIssues !== null;
   }
 
+  // Which diagram type the "+ View" button creates next -- block by
+  // default (Milestone A), switchable to petri/er (Milestones B/C,
+  // primitive support) via the adjoining select.
+  @tracked newViewType = 'block';
+
+  @action
+  setNewViewType(event) {
+    this.newViewType = event.target.value;
+  }
+
   @action
   addView() {
     const id = this.modelStore.mutate((model) =>
-      model.createView(`View ${this.views.length + 1}`),
+      model.createView(`View ${this.views.length + 1}`, this.newViewType),
     );
     this.modelStore.activeViewId = id;
   }
@@ -174,6 +184,14 @@ export default class ModelTree extends Component {
 
       <div class="model-tree-section">
         <h3>Views</h3>
+        <select
+          aria-label="New view's diagram type"
+          {{on "change" this.setNewViewType}}
+        >
+          <option value="block">Block</option>
+          <option value="petri">Petri net</option>
+          <option value="er">ER</option>
+        </select>
         <button type="button" title="Add view" {{on "click" this.addView}}>
           <Icon @icon={{SquarePlus}} />
         </button>

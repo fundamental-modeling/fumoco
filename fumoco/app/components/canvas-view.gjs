@@ -7,7 +7,11 @@ import { fn } from '@ember/helper';
 import { modifier } from 'ember-modifier';
 import Konva from 'konva';
 import { TrackedArray } from 'tracked-built-ins';
-import { FmcModelError } from 'fumoco/utils/fmc-model';
+import {
+  ElementType,
+  FmcModelError,
+  isRoundedElementType,
+} from 'fumoco/utils/fmc-model';
 import { ConnectorKind, connectorRule } from 'fumoco/services/connector-tool';
 
 const GRID = 10;
@@ -537,6 +541,7 @@ export default class CanvasView extends Component {
       this.shapeLayer.add(node);
     }
     this.buildEdges(view, effectiveBoxes);
+    this.buildArcs(view, effectiveBoxes);
     this.transformer.moveToTop();
     this.shapeLayer.batchDraw();
     // Deferred to the next runloop tick, *outside* this modifier's own
@@ -568,8 +573,11 @@ export default class CanvasView extends Component {
     if (!this.shapeLayer) return;
     const view = this.modelStore.activeView;
     this.shapeLayer.find('.fumoco-edge').forEach((node) => node.destroy());
-    if (view)
-      this.buildEdges(view, computeEffectiveBoxes(this.modelStore.model, view));
+    if (view) {
+      const effectiveBoxes = computeEffectiveBoxes(this.modelStore.model, view);
+      this.buildEdges(view, effectiveBoxes);
+      this.buildArcs(view, effectiveBoxes);
+    }
     this.transformer.moveToTop();
     this.refreshEdgeStyling();
     this.shapeLayer.batchDraw();
@@ -586,6 +594,72 @@ export default class CanvasView extends Component {
       if (!agentBox || !locationBox) continue;
       const locationElement = model.elements.get(access.location);
       this.drawAccessEdge(access, agentBox, locationBox, locationElement, view);
+    }
+  }
+
+  // Petri net and ER arcs -- much simpler than an access edge: always a
+  // single directed leg from source to target, no read/write/modify kind,
+  // no channel rendering, no routing waypoints (primitive support --
+  // Milestone A's full connector treatment is deliberately not ported
+  // here yet).
+  buildArcs(view, effectiveBoxes) {
+    const included = new Set(view.included);
+    const model = this.modelStore.model;
+    for (const arc of model.arcs) {
+      if (!included.has(arc.source) || !included.has(arc.target)) continue;
+      const sourceBox = effectiveBoxes.get(arc.source);
+      const targetBox = effectiveBoxes.get(arc.target);
+      if (!sourceBox || !targetBox) continue;
+      this.drawArc(arc, sourceBox, targetBox);
+    }
+  }
+
+  drawArc(arc, sourceBox, targetBox) {
+    const path = orthogonalPath(sourceBox, targetBox);
+    const mainShape = new Konva.Shape({
+      stroke: '#000000',
+      strokeWidth: 2,
+      hitStrokeWidth: 16,
+      name: 'fumoco-edge',
+      sceneFunc: (ctx, shapeNode) => {
+        drawRoundedPolyline(ctx, path, EDGE_CORNER_RADIUS);
+        ctx.strokeShape(shapeNode);
+      },
+    });
+    mainShape.on('contextmenu', (event) => {
+      event.evt.preventDefault();
+      event.cancelBubble = true;
+      this.openContextMenu(event.evt, [
+        {
+          label: 'Delete arc',
+          action: () =>
+            this.modelStore.mutate((model) => model.removeArc(arc.id)),
+        },
+      ]);
+    });
+    this.shapeLayer.add(mainShape);
+    this.shapeLayer.add(
+      new Konva.Line({
+        points: arrowHeadPoints(path.at(-1), path.at(-2)),
+        closed: true,
+        fill: '#000000',
+        name: 'fumoco-edge',
+        listening: false,
+      }),
+    );
+    if (arc.weight !== 1) {
+      const mid = path[Math.floor(path.length / 2)];
+      this.shapeLayer.add(
+        new Konva.Text({
+          x: mid.x,
+          y: mid.y - 14,
+          text: String(arc.weight),
+          fontSize: 12,
+          fill: '#000000',
+          name: 'fumoco-edge',
+          listening: false,
+        }),
+      );
     }
   }
 
@@ -1127,6 +1201,8 @@ export default class CanvasView extends Component {
               id,
               model.addReqRes(sourceId, id, { shorthand: true }),
             );
+          case ConnectorKind.ARC:
+            return model.addArc(sourceId, id);
           default:
             throw new FmcModelError(`unknown connector kind: ${tool.kind}`);
         }
@@ -1202,19 +1278,24 @@ export default class CanvasView extends Component {
       id: element.id,
       dragBoundFunc: (pos) => ({ x: snapToGrid(pos.x), y: snapToGrid(pos.y) }),
     });
-    const isLocation = element.type === 'location';
+    const isLocation = element.type === ElementType.LOCATION;
     const isChannel = !!element.channel;
-    // A channel's place is an ordinary Location element rendered as a
-    // circle instead of a (rounded) rect -- a plain Konva.Rect with
+    const isPlace = element.type === ElementType.PLACE;
+    // A channel's place (or a Petri net place) is rendered as a circle
+    // instead of a (rounded) rect -- a plain Konva.Rect with
     // cornerRadius = half its (square) box reads as a perfect circle,
     // which keeps every other piece of shape-generic code (hit area,
     // resize/transform, selection styling, snap guides) working
     // unchanged rather than needing a Rect-vs-Circle branch throughout.
-    const cornerRadius = isChannel
-      ? Math.min(box.width, box.height) / 2
-      : isLocation
-        ? Math.min(12, box.width / 2, box.height / 2)
-        : 0;
+    // Every other rounded-family type (plain location, entity set) gets a
+    // rounded-corner rect instead; the angular family (agent, transition,
+    // relation) gets square corners.
+    const cornerRadius =
+      isChannel || isPlace
+        ? Math.min(box.width, box.height) / 2
+        : isRoundedElementType(element.type)
+          ? Math.min(12, box.width / 2, box.height / 2)
+          : 0;
     const rect = new Konva.Rect({
       width: box.width,
       height: box.height,
@@ -1226,9 +1307,18 @@ export default class CanvasView extends Component {
     });
     group.add(rect);
 
-    if (element.type === 'human_agent') {
+    if (element.type === ElementType.HUMAN_AGENT) {
       group.add(this.buildStickFigure(box));
     }
+
+    // A place's marking (token count) is shown alongside its label rather
+    // than as separate dots per token -- simple, and legible at any
+    // marking size, which drawing one dot per token stops being once a
+    // place holds more than a handful.
+    const labelText =
+      isPlace && element.tokens
+        ? `${element.label ?? ''} (${element.tokens})`.trim()
+        : (element.label ?? '');
 
     let label;
     if (nested) {
@@ -1239,7 +1329,7 @@ export default class CanvasView extends Component {
       // so it still reads as a container label rather than centered
       // content.
       label = new Konva.Text({
-        text: element.label ?? '',
+        text: labelText,
         x: 8,
         y: 6,
         fontSize: 15,
@@ -1247,7 +1337,7 @@ export default class CanvasView extends Component {
       });
     } else {
       label = new Konva.Text({
-        text: element.label ?? '',
+        text: labelText,
         width: box.width,
         height: box.height,
         align: 'center',

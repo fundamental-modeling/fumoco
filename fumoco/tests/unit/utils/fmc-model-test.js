@@ -1,5 +1,10 @@
 import { module, test } from 'qunit';
-import { ElementType, FmcModel, FmcModelError } from 'fumoco/utils/fmc-model';
+import {
+  ElementType,
+  FmcModel,
+  FmcModelError,
+  isRoundedElementType,
+} from 'fumoco/utils/fmc-model';
 
 module('Unit | Utility | fmc-model', function () {
   test('addAccess rejects a non-agent source', function (assert) {
@@ -326,6 +331,105 @@ module('Unit | Utility | fmc-model', function () {
       model.addAccess(a, 'modify', storage);
 
       assert.deepEqual(model.validate(), []);
+    });
+  });
+
+  module('Petri net and ER arcs (primitive support)', function () {
+    test('isRoundedElementType is true for location/place/entity_set, false for agent/transition/relation', function (assert) {
+      assert.true(isRoundedElementType(ElementType.LOCATION));
+      assert.true(isRoundedElementType(ElementType.PLACE));
+      assert.true(isRoundedElementType(ElementType.ENTITY_SET));
+      assert.false(isRoundedElementType(ElementType.AGENT));
+      assert.false(isRoundedElementType(ElementType.TRANSITION));
+      assert.false(isRoundedElementType(ElementType.RELATION));
+    });
+
+    test('addArc connects a place and a transition, in either order', function (assert) {
+      const model = new FmcModel();
+      const place = model.addElement(ElementType.PLACE);
+      const transition = model.addElement(ElementType.TRANSITION);
+
+      const arc1 = model.addArc(place, transition);
+      const arc2 = model.addArc(transition, place, 3);
+
+      assert.strictEqual(model.arcs.length, 2);
+      assert.strictEqual(arc1.weight, 1);
+      assert.strictEqual(arc2.weight, 3);
+    });
+
+    test('addArc connects an entity set and a relation', function (assert) {
+      const model = new FmcModel();
+      const entitySet = model.addElement(ElementType.ENTITY_SET);
+      const relation = model.addElement(ElementType.RELATION);
+
+      const arc = model.addArc(entitySet, relation);
+
+      assert.strictEqual(arc.source, entitySet);
+      assert.strictEqual(arc.target, relation);
+    });
+
+    test('addArc rejects a place connected to a relation (wrong diagram type pairing)', function (assert) {
+      const model = new FmcModel();
+      const place = model.addElement(ElementType.PLACE);
+      const relation = model.addElement(ElementType.RELATION);
+
+      assert.throws(() => model.addArc(place, relation), FmcModelError);
+    });
+
+    test('addArc rejects two places (same-kind pairing)', function (assert) {
+      const model = new FmcModel();
+      const a = model.addElement(ElementType.PLACE);
+      const b = model.addElement(ElementType.PLACE);
+
+      assert.throws(() => model.addArc(a, b), FmcModelError);
+    });
+
+    test('removeArc removes just that arc', function (assert) {
+      const model = new FmcModel();
+      const place = model.addElement(ElementType.PLACE);
+      const transition = model.addElement(ElementType.TRANSITION);
+      const arc1 = model.addArc(place, transition);
+      const arc2 = model.addArc(transition, place);
+
+      model.removeArc(arc1.id);
+
+      assert.strictEqual(model.arcs.length, 1);
+      assert.strictEqual(model.arcs[0].id, arc2.id);
+    });
+
+    test('removeElement drops every arc touching it', function (assert) {
+      const model = new FmcModel();
+      const place = model.addElement(ElementType.PLACE);
+      const transition = model.addElement(ElementType.TRANSITION);
+      model.addArc(place, transition);
+
+      model.removeElement(place);
+
+      assert.strictEqual(model.arcs.length, 0);
+    });
+
+    test('a place element has a default token count of 0, settable via addElement', function (assert) {
+      const model = new FmcModel();
+      const place = model.addElement(ElementType.PLACE);
+      const markedPlace = model.addElement(ElementType.PLACE, { tokens: 2 });
+
+      assert.strictEqual(model.elements.get(place).tokens, 0);
+      assert.strictEqual(model.elements.get(markedPlace).tokens, 2);
+    });
+
+    test('arcs and token counts round-trip through toJSON/fromJSON', function (assert) {
+      const model = new FmcModel();
+      const place = model.addElement(ElementType.PLACE, { tokens: 2 });
+      const transition = model.addElement(ElementType.TRANSITION);
+      model.addArc(place, transition, 5);
+
+      const restored = FmcModel.fromJSON(model.toJSON());
+
+      assert.strictEqual(restored.elements.get(place).tokens, 2);
+      assert.strictEqual(restored.arcs.length, 1);
+      assert.strictEqual(restored.arcs[0].source, place);
+      assert.strictEqual(restored.arcs[0].target, transition);
+      assert.strictEqual(restored.arcs[0].weight, 5);
     });
   });
 

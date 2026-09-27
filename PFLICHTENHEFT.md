@@ -389,6 +389,65 @@ rule disallows the latter.
 `event.evt.button !== 0` first, so a right-click opening a context menu
 can't also kick off a marquee-selection drag underneath it.
 
+## Petri nets and ER diagrams (primitive support)
+
+Milestones B and C, deliberately minimal ("primitive support is okay for
+now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
+`ENTITY_SET`/`RELATION` for ER) and one new generic edge concept,
+`FmcModel.arcs`, rather than one bespoke edge type per diagram type.
+
+- `isRoundedElementType(type)` (`fmc-model.js`) generalizes the angular/
+  rounded bipartite distinction across all three diagram types --
+  `LOCATION`/`PLACE`/`ENTITY_SET` are rounded, everything else (agent,
+  transition, relation) is angular -- so `canvas-view.gjs`'s `buildShape`
+  only needs one shared branch instead of duplicating the channel-circle
+  trick per diagram type.
+- `FmcModel.addArc(sourceId, targetId, weight = 1)`: one method handling
+  both a Petri arc and an ER arc, since both are "a directed edge between
+  the two bipartite kinds of one diagram type, with no read/write/modify
+  distinction." Validates against *both* valid type pairs
+  (place<->transition, entity_set<->relation) rather than needing the
+  caller to know which diagram type it's in; throws `FmcModelError` on
+  anything else, same as every other bipartite check. `removeArc(id)` and
+  `removeElement`'s arc-sweep are equally generic.
+- `Element.tokens` (place-only, default 0, same "only meaningful for one
+  type" spirit as `dashed`/`channel`) holds a place's marking. No firing
+  rule, no capacity, no multi-token/infinite-capacity place styling --
+  just a settable count, editable via the properties panel's `showsTokensOption`
+  field and rendered inline with the label (`"label (n)"`) in
+  `buildShape` rather than as per-token dots, which stop being legible
+  past a handful.
+- `canvas-view.gjs`'s `buildArcs`/`drawArc` mirror `buildEdges`/
+  `drawAccessEdge` structurally but are much simpler: a single directed
+  leg (`orthogonalPath` + arrowhead, reusing the exact same routing and
+  arrowhead-drawing code access edges use), an optional weight label when
+  `weight !== 1`, and a `contextmenu` handler offering only "Delete arc"
+  -- no selection state, no waypoints, no kind-switching. This is the
+  actual "primitive" cut: Milestone A's full connector treatment
+  (`selection.selectedEdgeId`, `edgeWaypoints`, the properties panel's
+  connector section) was deliberately not ported to arcs in this pass.
+- `connector-tool.js`'s new `ConnectorKind.ARC` covers both diagram
+  types' arcs with one rule (`source`/`target` both accept
+  place/transition/entity_set/relation) -- the specific pairing is
+  `addArc`'s job, not the tool's.
+- `palette.gjs` now branches its Elements section on
+  `modelStore.activeView.diagramType` (block/petri/er) and swaps its
+  Connectors section between the existing block-diagram buttons and a
+  single "Arc" button. A new place defaults to a 60x60 (square) box so
+  the existing channel-circle rendering trick (`cornerRadius` = half the
+  box) reads as an actual circle.
+- `model-tree.gjs`'s "+ View" gained an adjoining `<select>` for the new
+  view's diagram type (block/petri/er), read by `addView` and passed to
+  `FmcModel.createView`.
+
+**Known gaps, tracked as future work, not bugs**: no NOP transitions, no
+swimlanes, no recursion elements, no standard-construct stencils
+(sequence/case/loop/concurrency) for Petri nets; no cardinality ranges,
+role labels, reification, or orthogonal partitioning for ER diagrams; no
+export; no validation extension (`FmcModel.validate` still only checks
+block-diagram Access-arity laws). All explicitly out of scope for this
+pass.
+
 ## Canvas viewport (pan)
 
 Wheel/trackpad scroll pans by translating `stage.x()`/`stage.y()`

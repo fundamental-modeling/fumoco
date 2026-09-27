@@ -79,6 +79,10 @@ export default class PropertiesPanel extends Component {
     return element?.type === 'location' && !element.channel;
   }
 
+  get showsTokensOption() {
+    return this.selectedElement?.type === 'place';
+  }
+
   @action
   updateLabel(event) {
     const element = this.selectedElement;
@@ -94,6 +98,16 @@ export default class PropertiesPanel extends Component {
     if (!element) return;
     this.modelStore.mutate(() => {
       element.dashed = event.target.checked;
+    });
+  }
+
+  @action
+  updateTokens(event) {
+    const element = this.selectedElement;
+    if (!element) return;
+    const tokens = Math.max(0, parseInt(event.target.value, 10) || 0);
+    this.modelStore.mutate(() => {
+      element.tokens = tokens;
     });
   }
 
@@ -180,6 +194,17 @@ export default class PropertiesPanel extends Component {
               {{on "change" this.toggleDashed}}
             />
             Dashed (structure variance)
+          </label>
+        {{/if}}
+        {{#if this.showsTokensOption}}
+          <label class="properties-panel-field">
+            Tokens (marking)
+            <input
+              type="number"
+              min="0"
+              value={{this.selectedElement.tokens}}
+              {{on "input" this.updateTokens}}
+            />
           </label>
         {{/if}}
         <div class="properties-panel-field">

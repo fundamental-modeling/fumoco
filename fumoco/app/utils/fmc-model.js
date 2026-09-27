@@ -25,7 +25,30 @@ export const ElementType = Object.freeze({
   AGENT: 'agent',
   HUMAN_AGENT: 'human_agent',
   LOCATION: 'location',
+  // Petri net (Milestone B, primitive support): place<->transition,
+  // enforced the same bipartite way as agent<->location, via `arcs`
+  // below rather than `accesses` (a Petri arc has no read/write/modify
+  // kind, just an optional weight).
+  PLACE: 'place',
+  TRANSITION: 'transition',
+  // ER / value-range diagram (Milestone C, primitive support):
+  // entity_set<->relation, also via `arcs`.
+  ENTITY_SET: 'entity_set',
+  RELATION: 'relation',
 });
+
+// The "rounded" bipartite kind in each diagram type (agent/transition/
+// relation are the "angular" counterpart in each pair) -- shared by
+// canvas-view.gjs's shape rendering and anything else that needs to draw
+// the angular/rounded distinction consistently across all three diagram
+// types rather than re-deriving it per call site.
+export function isRoundedElementType(type) {
+  return (
+    type === ElementType.LOCATION ||
+    type === ElementType.PLACE ||
+    type === ElementType.ENTITY_SET
+  );
+}
 
 export class Element {
   id;
@@ -43,11 +66,21 @@ export class Element {
   // edges touching it (the label's own glyph, e.g. "R▶", carries
   // direction instead). See canvas-view.gjs.
   @tracked channel;
+  // place only -- its current marking (token count). Not meaningful for
+  // any other element type, same spirit as `dashed`/`channel` being
+  // location-only fields.
+  @tracked tokens;
 
   constructor(
     id,
     type,
-    { label = null, parents = [], dashed = false, channel = null } = {},
+    {
+      label = null,
+      parents = [],
+      dashed = false,
+      channel = null,
+      tokens = 0,
+    } = {},
   ) {
     this.id = id;
     this.type = type;
@@ -55,6 +88,7 @@ export class Element {
     for (const parentId of parents) this.parents.push(parentId);
     this.dashed = dashed;
     this.channel = channel;
+    this.tokens = tokens;
   }
 }
 
@@ -195,7 +229,13 @@ export class View {
 
 export class FmcModel {
   elements = new TrackedMap(); // id -> Element
-  accesses = new TrackedArray(); // AccessEdge[]
+  accesses = new TrackedArray(); // AccessEdge[] -- block diagrams only
+  // Directed arcs for Petri nets (place<->transition) and ER diagrams
+  // (entity_set<->relation) -- { id, source, target, weight }. A separate
+  // array from `accesses` since these carry a weight, not a read/write/
+  // modify kind, and their bipartite rule spans two different type pairs
+  // rather than one fixed agent/location pair.
+  arcs = new TrackedArray();
   views = new TrackedMap(); // id -> View
 
   // ---- elements & containment ----
@@ -238,11 +278,45 @@ export class FmcModel {
     for (const view of this.views.values()) {
       for (const edgeId of removedEdgeIds) view.edgeWaypoints.delete(edgeId);
     }
+    this._removeInPlace(this.arcs, (a) => a.source === id || a.target === id);
   }
 
   removeAccess(id) {
     this._removeInPlace(this.accesses, (a) => a.id === id);
     for (const view of this.views.values()) view.edgeWaypoints.delete(id);
+  }
+
+  // Petri net (place<->transition) and ER (entity_set<->relation) arcs
+  // share this one method rather than getting one each, since both are
+  // "a directed arc between the two bipartite kinds of one diagram type,
+  // carrying an optional weight" -- the only thing that differs between
+  // them is which type pair is valid, checked here against both pairs at
+  // once rather than needing the caller to know which diagram type it's
+  // in.
+  addArc(sourceId, targetId, weight = 1) {
+    const source = this._require(sourceId, null);
+    const target = this._require(targetId, null);
+    const validPairs = [
+      [ElementType.PLACE, ElementType.TRANSITION],
+      [ElementType.ENTITY_SET, ElementType.RELATION],
+    ];
+    const isValid = validPairs.some(
+      ([a, b]) =>
+        (source.type === a && target.type === b) ||
+        (source.type === b && target.type === a),
+    );
+    if (!isValid) {
+      throw new FmcModelError(
+        `bipartite violation: cannot connect a ${source.type} to a ${target.type}`,
+      );
+    }
+    const arc = { id: makeId(), source: sourceId, target: targetId, weight };
+    this.arcs.push(arc);
+    return arc;
+  }
+
+  removeArc(id) {
+    this._removeInPlace(this.arcs, (a) => a.id === id);
   }
 
   _removeInPlace(trackedArray, matches) {
@@ -462,10 +536,12 @@ export class FmcModel {
             parents: [...element.parents],
             dashed: element.dashed,
             channel: element.channel ? { ...element.channel } : null,
+            tokens: element.tokens,
           },
         ]),
       ),
       accesses: [...this.accesses],
+      arcs: [...this.arcs],
       views: Object.fromEntries(
         [...this.views].map(([id, view]) => [
           id,
@@ -498,6 +574,7 @@ export class FmcModel {
           parents: element.parents ?? [],
           dashed: element.dashed,
           channel: element.channel ? { ...element.channel } : null,
+          tokens: element.tokens ?? 0,
         }),
       );
     }
@@ -506,6 +583,9 @@ export class FmcModel {
       // current export's own id wins and only a legacy/missing one gets a
       // fresh one assigned here.
       model.accesses.push({ id: makeId(), ...access });
+    }
+    for (const arc of json.arcs ?? []) {
+      model.arcs.push({ id: makeId(), ...arc });
     }
     for (const [id, view] of Object.entries(json.views ?? {})) {
       const v = new View(id, view.name, view.diagramType);

@@ -8,7 +8,7 @@ import { ElementType } from 'fumoco/utils/fmc-model';
 import { ConnectorKind, connectorRule } from 'fumoco/services/connector-tool';
 import { nextFreeBoxPosition } from 'fumoco/utils/box-layout';
 
-const CONNECTOR_BUTTONS = [
+const BLOCK_CONNECTOR_BUTTONS = [
   { kind: ConnectorKind.READ, label: 'Read' },
   { kind: ConnectorKind.WRITE, label: 'Write' },
   { kind: ConnectorKind.MODIFY, label: 'Modify' },
@@ -18,11 +18,21 @@ const CONNECTOR_BUTTONS = [
   { kind: ConnectorKind.REQRES_SHORTHAND, label: 'Req/Res (short)' },
 ];
 
+const ARC_CONNECTOR_BUTTONS = [{ kind: ConnectorKind.ARC, label: 'Arc' }];
+
 export default class Palette extends Component {
   @service modelStore;
   @service connectorTool;
 
-  connectorButtons = CONNECTOR_BUTTONS;
+  get diagramType() {
+    return this.modelStore.activeView?.diagramType ?? 'block';
+  }
+
+  get connectorButtons() {
+    return this.diagramType === 'block'
+      ? BLOCK_CONNECTOR_BUTTONS
+      : ARC_CONNECTOR_BUTTONS;
+  }
 
   get hint() {
     const kind = this.connectorTool.kind;
@@ -33,14 +43,14 @@ export default class Palette extends Component {
       : `Click the ${rule.sourceLabel}…`;
   }
 
-  addElement(type, label) {
+  addElement(type, label, { width = 120, height = 60 } = {}) {
     const view = this.modelStore.activeView;
     this.modelStore.mutate((model) => {
       const id = model.addElement(type, { label });
       if (view) {
-        const { x, y } = nextFreeBoxPosition(view);
+        const { x, y } = nextFreeBoxPosition(view, width, height);
         view.included.push(id);
-        view.boxes.set(id, { x, y, width: 120, height: 60 });
+        view.boxes.set(id, { x, y, width, height });
       }
     });
   }
@@ -61,6 +71,29 @@ export default class Palette extends Component {
   }
 
   @action
+  addPlace() {
+    // Square box so the channel/place circle-rendering trick in
+    // buildShape (cornerRadius = half the box) reads as an actual circle
+    // rather than an ellipse.
+    this.addElement(ElementType.PLACE, 'New place', { width: 60, height: 60 });
+  }
+
+  @action
+  addTransition() {
+    this.addElement(ElementType.TRANSITION, 'New transition');
+  }
+
+  @action
+  addEntitySet() {
+    this.addElement(ElementType.ENTITY_SET, 'New entity set');
+  }
+
+  @action
+  addRelation() {
+    this.addElement(ElementType.RELATION, 'New relation');
+  }
+
+  @action
   toggleConnector(kind) {
     this.connectorTool.arm(kind);
   }
@@ -68,9 +101,20 @@ export default class Palette extends Component {
   <template>
     <div class="palette">
       <h3>Elements</h3>
-      <button type="button" {{on "click" this.addAgent}}>Agent</button>
-      <button type="button" {{on "click" this.addHumanAgent}}>Human agent</button>
-      <button type="button" {{on "click" this.addLocation}}>Location</button>
+      {{#if (eq this.diagramType "block")}}
+        <button type="button" {{on "click" this.addAgent}}>Agent</button>
+        <button type="button" {{on "click" this.addHumanAgent}}>Human agent</button>
+        <button type="button" {{on "click" this.addLocation}}>Location</button>
+      {{else if (eq this.diagramType "petri")}}
+        <button type="button" {{on "click" this.addPlace}}>Place</button>
+        <button
+          type="button"
+          {{on "click" this.addTransition}}
+        >Transition</button>
+      {{else if (eq this.diagramType "er")}}
+        <button type="button" {{on "click" this.addEntitySet}}>Entity set</button>
+        <button type="button" {{on "click" this.addRelation}}>Relation</button>
+      {{/if}}
 
       <h3>Connectors</h3>
       {{#each this.connectorButtons as |option|}}

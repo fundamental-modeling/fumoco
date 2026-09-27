@@ -297,15 +297,41 @@ to. Drafted alongside the block diagram section in the same
 
 * Milestone B — Petri nets
 
-** TODO Create places, transitions, and arcs, laid out manually like block diagrams
+** DONE Create places, transitions, and arcs, laid out manually like block diagrams (primitive)
+=Place=/=Transition= element types; palette buttons shown when the
+active view's =diagramType= is =petri=; "+ View" gained a diagram-type
+select. Arcs are directed, carry a weight (default 1, shown as a label
+only when != 1), drawn via the shared =FmcModel.arcs=/=addArc= mechanism
+(see Milestone C below) rather than a Petri-specific one. Not yet built:
+NOP transitions, swimlanes, multi-token/infinite-capacity place styling,
+recursion elements, the standard-construct stencils tracked separately
+under Milestone A's visualization-guidance items — all deliberately out
+of scope for this pass per "primitive support is okay for now".
 
-** TODO Editor enforces the place/transition bipartite rule
-The same way it enforces agent/storage today.
+** DONE Editor enforces the place/transition bipartite rule
+The same way it enforces agent/storage today -- =FmcModel.addArc=
+rejects anything that isn't a place<->transition or entity_set<->relation
+pair with an =FmcModelError=, surfaced the same =alert= way as every
+other bipartite violation.
+
+** DONE A place shows its marking (token count)
+Editable via the properties panel (a plain number input, place-only,
+minimum 0) when a place is selected; rendered inline with the label on
+canvas as =\"label (n)\"= rather than one dot per token, which stops
+being legible past a handful of tokens.
 
 * Milestone C — ER / value-range diagrams
 
-** TODO Create entity sets and (possibly n-ary) relations
-With arcs carrying role/cardinality labels.
+** DONE Create entity sets and (possibly n-ary) relations (primitive)
+=EntitySet=/=Relation= element types, palette buttons shown when the
+active view's =diagramType= is =er=. Arcs connect them via the same
+generic =FmcModel.arcs=/=addArc= mechanism Petri nets use (one bipartite-
+pair check per diagram type, not two parallel arc concepts). Cardinality
+ranges, role labels, n-ary relations beyond what the generic arc already
+allows, reification, and orthogonal partitioning are all explicitly
+deferred -- "primitive support" here means "entity sets and relations
+exist and connect," not the full notation from =spec/index.html='s ER
+section.
 
 * Milestone D — VS Code extension
 
