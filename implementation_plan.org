@@ -308,6 +308,19 @@ recursion elements, the standard-construct stencils tracked separately
 under Milestone A's visualization-guidance items — all deliberately out
 of scope for this pass per "primitive support is okay for now".
 
+Follow-up fix: a Petri arc always exits its source's bottom (south) and
+enters its target's top (north), perpendicular to that edge, via a
+dedicated =verticalArcPath= rather than the generic shortest-route
+=orthogonalPath= (which ER arcs still use, since ER has no fixed reading
+direction). Two motivations: FMC's standard Petri net flow is top-to-
+bottom, and a naive single-bend route could (a) draw two opposite-
+direction arcs between the same pair as one perfectly overlapping line
+with an arrowhead at each end — reading as a forbidden bidirectional
+edge — and (b) cut straight through a box when the target sits above the
+source's exit point. Fixed ports plus a route-around path for that
+backward case (down past the source, across a lane clear of both boxes,
+up past the target, then in) fix both.
+
 ** DONE Editor enforces the place/transition bipartite rule
 The same way it enforces agent/storage today -- =FmcModel.addArc=
 rejects anything that isn't a place<->transition or entity_set<->relation
@@ -332,6 +345,11 @@ allows, reification, and orthogonal partitioning are all explicitly
 deferred -- "primitive support" here means "entity sets and relations
 exist and connect," not the full notation from =spec/index.html='s ER
 section.
+
+An entity set's corner rounding is =min(width, height) / 2= (a stadium/
+pill shape on a non-square box, a full circle on a square one) rather
+than a plain location's smaller fixed 12px rounding, so it reads visibly
+different from an ordinary location box.
 
 * Milestone D — VS Code extension
 

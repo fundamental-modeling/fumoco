@@ -4,6 +4,7 @@ import {
   computeEffectiveBoxes,
   displayParentOf,
   nestingDepth,
+  verticalArcPath,
 } from 'fumoco/components/canvas-view';
 import { ElementType, FmcModel } from 'fumoco/utils/fmc-model';
 
@@ -253,5 +254,54 @@ module('Unit | Component | canvas-view (nesting geometry)', function () {
 
     assert.true(order.indexOf(a) < order.indexOf(childOfA));
     assert.deepEqual(order, [a, childOfA, b]);
+  });
+
+  test('verticalArcPath exits the source south and enters the target north when target is below', function (assert) {
+    const source = { x: 0, y: 0, width: 60, height: 60 };
+    const target = { x: 0, y: 200, width: 60, height: 60 };
+
+    const path = verticalArcPath(source, target);
+
+    assert.deepEqual(path[0], { x: 30, y: 60 }); // source bottom-center
+    assert.deepEqual(path.at(-1), { x: 30, y: 200 }); // target top-center
+    // Perpendicular in and out: first/last legs share their box's x.
+    assert.strictEqual(path[1].x, 30);
+    assert.strictEqual(path.at(-2).x, 30);
+  });
+
+  test('verticalArcPath routes around, not through, the boxes when the target is above the source', function (assert) {
+    const source = { x: 200, y: 200, width: 60, height: 60 };
+    const target = { x: 200, y: 0, width: 60, height: 60 };
+
+    const path = verticalArcPath(source, target);
+
+    function overlapsBox(p1, p2, box) {
+      const segMinX = Math.min(p1.x, p2.x);
+      const segMaxX = Math.max(p1.x, p2.x);
+      const segMinY = Math.min(p1.y, p2.y);
+      const segMaxY = Math.max(p1.y, p2.y);
+      return (
+        segMaxX > box.x &&
+        segMinX < box.x + box.width &&
+        segMaxY > box.y &&
+        segMinY < box.y + box.height
+      );
+    }
+
+    for (let i = 0; i < path.length - 1; i++) {
+      assert.false(
+        overlapsBox(path[i], path[i + 1], source),
+        `segment ${i} should not cross the source box`,
+      );
+      assert.false(
+        overlapsBox(path[i], path[i + 1], target),
+        `segment ${i} should not cross the target box`,
+      );
+    }
+    // Still leaves south and arrives north.
+    assert.deepEqual(path[0], { x: 230, y: 260 });
+    assert.deepEqual(path.at(-1), { x: 230, y: 0 });
+    assert.strictEqual(path[1].x, 230);
+    assert.strictEqual(path.at(-2).x, 230);
   });
 });

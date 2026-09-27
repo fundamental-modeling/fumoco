@@ -246,6 +246,60 @@ function orthogonalPath(a, b) {
   ];
 }
 
+// Petri net arcs deliberately don't use orthogonalPath's "shortest route"
+// logic: FMC's standard flow direction is top-to-bottom, and always
+// exiting a box's bottom (south) and entering the next one's top (north)
+// -- regardless of their actual relative position -- is what gives a
+// Petri net that flow feel. It also fixes a real bug for free: two
+// opposite-direction arcs between the same place/transition pair used to
+// route identically (just traversed in reverse), so they'd draw as one
+// perfectly overlapping line with an arrowhead at each end -- reading as
+// a single bidirectional edge, which a Petri arc must never be. Forcing
+// fixed ports makes the forward and reverse arcs take visibly different
+// paths (a straight line down vs. an S-curve back up) instead of ever
+// coinciding. ER arcs keep using orthogonalPath -- an ER diagram has no
+// such fixed reading direction (see spec/index.html's ER section).
+const ARC_ROUTE_MARGIN = 20;
+
+export function verticalArcPath(sourceBox, targetBox) {
+  const exit = {
+    x: sourceBox.x + sourceBox.width / 2,
+    y: sourceBox.y + sourceBox.height,
+  };
+  const enter = { x: targetBox.x + targetBox.width / 2, y: targetBox.y };
+
+  // The common case: the target's top is at or below the source's exit
+  // point (the usual top-to-bottom flow, or two boxes side by side at
+  // the same level). A single horizontal leg at the midpoint is already
+  // guaranteed clear of both boxes, since it's below the source's own
+  // bottom edge and above the target's own top edge by construction.
+  if (enter.y >= exit.y) {
+    if (exit.x === enter.x) return [exit, enter];
+    const midY = (exit.y + enter.y) / 2;
+    return [exit, { x: exit.x, y: midY }, { x: enter.x, y: midY }, enter];
+  }
+
+  // The target sits *above* the source's exit point (a reverse arc, or
+  // any arc running against the flow direction) -- a straight midpoint
+  // bend would cut through whichever box's vertical span it lands in,
+  // since "below source" and "above target" no longer overlap. Route
+  // around instead: down away from the source, across to a lane clear of
+  // both boxes' horizontal extents, up past the target, then across and
+  // down into it -- still leaving south and arriving north, just via a
+  // path that never crosses either box's interior.
+  const belowSource = exit.y + ARC_ROUTE_MARGIN;
+  const aboveTarget = enter.y - ARC_ROUTE_MARGIN;
+  const laneX = Math.min(sourceBox.x, targetBox.x) - ARC_ROUTE_MARGIN;
+  return [
+    exit,
+    { x: exit.x, y: belowSource },
+    { x: laneX, y: belowSource },
+    { x: laneX, y: aboveTarget },
+    { x: enter.x, y: aboveTarget },
+    enter,
+  ];
+}
+
 const EDGE_CORNER_RADIUS = 10;
 
 // A user-added routing waypoint is just a point the edge must pass
@@ -610,12 +664,18 @@ export default class CanvasView extends Component {
       const sourceBox = effectiveBoxes.get(arc.source);
       const targetBox = effectiveBoxes.get(arc.target);
       if (!sourceBox || !targetBox) continue;
-      this.drawArc(arc, sourceBox, targetBox);
+      const sourceType = model.elements.get(arc.source)?.type;
+      const isPetriArc =
+        sourceType === ElementType.PLACE ||
+        sourceType === ElementType.TRANSITION;
+      this.drawArc(arc, sourceBox, targetBox, { vertical: isPetriArc });
     }
   }
 
-  drawArc(arc, sourceBox, targetBox) {
-    const path = orthogonalPath(sourceBox, targetBox);
+  drawArc(arc, sourceBox, targetBox, { vertical = false } = {}) {
+    const path = vertical
+      ? verticalArcPath(sourceBox, targetBox)
+      : orthogonalPath(sourceBox, targetBox);
     const mainShape = new Konva.Shape({
       stroke: '#000000',
       strokeWidth: 2,
@@ -1281,17 +1341,18 @@ export default class CanvasView extends Component {
     const isLocation = element.type === ElementType.LOCATION;
     const isChannel = !!element.channel;
     const isPlace = element.type === ElementType.PLACE;
-    // A channel's place (or a Petri net place) is rendered as a circle
-    // instead of a (rounded) rect -- a plain Konva.Rect with
-    // cornerRadius = half its (square) box reads as a perfect circle,
-    // which keeps every other piece of shape-generic code (hit area,
-    // resize/transform, selection styling, snap guides) working
-    // unchanged rather than needing a Rect-vs-Circle branch throughout.
-    // Every other rounded-family type (plain location, entity set) gets a
-    // rounded-corner rect instead; the angular family (agent, transition,
-    // relation) gets square corners.
+    const isEntitySet = element.type === ElementType.ENTITY_SET;
+    // A channel's place, a Petri net place, or an ER entity set all use
+    // the same trick: cornerRadius = half the *smaller* box dimension.
+    // For a square box that reads as a perfect circle (channel/place);
+    // for a wider-than-tall box it reads as a stadium/pill shape (two
+    // half-circles joined by a rectangle) -- which is exactly what
+    // distinguishes an entity set from a plain location's much smaller,
+    // fixed 12px corner rounding. A plain location gets that smaller
+    // rounding instead; the angular family (agent, transition, relation)
+    // gets square corners.
     const cornerRadius =
-      isChannel || isPlace
+      isChannel || isPlace || isEntitySet
         ? Math.min(box.width, box.height) / 2
         : isRoundedElementType(element.type)
           ? Math.min(12, box.width / 2, box.height / 2)

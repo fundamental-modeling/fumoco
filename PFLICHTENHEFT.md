@@ -401,7 +401,12 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
   `LOCATION`/`PLACE`/`ENTITY_SET` are rounded, everything else (agent,
   transition, relation) is angular -- so `canvas-view.gjs`'s `buildShape`
   only needs one shared branch instead of duplicating the channel-circle
-  trick per diagram type.
+  trick per diagram type. An entity set specifically reuses that same
+  `cornerRadius = min(width, height) / 2` formula (not the plain
+  location's smaller fixed 12px rounding): for a square box that's a
+  circle, for a wider-than-tall box it's a stadium/pill shape (two
+  half-circles joined by a straight-sided rectangle), visually
+  distinguishing an entity set from an ordinary location at a glance.
 - `FmcModel.addArc(sourceId, targetId, weight = 1)`: one method handling
   both a Petri arc and an ER arc, since both are "a directed edge between
   the two bipartite kinds of one diagram type, with no read/write/modify
@@ -419,13 +424,38 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
   past a handful.
 - `canvas-view.gjs`'s `buildArcs`/`drawArc` mirror `buildEdges`/
   `drawAccessEdge` structurally but are much simpler: a single directed
-  leg (`orthogonalPath` + arrowhead, reusing the exact same routing and
-  arrowhead-drawing code access edges use), an optional weight label when
-  `weight !== 1`, and a `contextmenu` handler offering only "Delete arc"
-  -- no selection state, no waypoints, no kind-switching. This is the
-  actual "primitive" cut: Milestone A's full connector treatment
-  (`selection.selectedEdgeId`, `edgeWaypoints`, the properties panel's
-  connector section) was deliberately not ported to arcs in this pass.
+  leg, an optional weight label when `weight !== 1`, and a `contextmenu`
+  handler offering only "Delete arc" -- no selection state, no waypoints,
+  no kind-switching. This is the actual "primitive" cut: Milestone A's
+  full connector treatment (`selection.selectedEdgeId`, `edgeWaypoints`,
+  the properties panel's connector section) was deliberately not ported
+  to arcs in this pass. Routing differs by diagram type, chosen in
+  `buildArcs` from the source element's type:
+  - A **Petri arc** (place<->transition) uses `verticalArcPath`, not
+    `orthogonalPath`: FMC's standard Petri net flow is top-to-bottom, so
+    it always exits the source's bottom-center and enters the target's
+    top-center, regardless of their actual relative position. This also
+    fixes a real bug for free -- two opposite-direction arcs between the
+    same pair used to route identically (just traversed in reverse), so
+    they'd draw as one perfectly overlapping line with an arrowhead at
+    each end, reading as a single bidirectional edge, which a Petri arc
+    must never be; fixed ports make forward and reverse arcs take
+    visibly different paths instead. When the target's top is at or
+    below the source's exit point, a single horizontal leg at their
+    midpoint connects the two (already guaranteed clear of both boxes,
+    since it sits below the source's bottom and above the target's top by
+    construction). When the target is *above* the source's exit point
+    (a reverse arc), that single-bend approach would cut straight through
+    whichever box's vertical span the midpoint fell into -- instead the
+    path routes around: down past the source, over to a lane clear of
+    both boxes' horizontal extents (`min(sourceBox.x, targetBox.x) -
+    margin`, always outside both), up past the target, then over and
+    down into it. Both cases still leave south and arrive north
+    perpendicular to that edge, never at an angle.
+  - An **ER arc** (entity_set<->relation) keeps using `orthogonalPath` --
+    an ER diagram has no fixed reading direction (see `spec/index.html`'s
+    ER section), so the shortest-route logic that access edges already
+    use is the right fit, not a forced vertical flow.
 - `connector-tool.js`'s new `ConnectorKind.ARC` covers both diagram
   types' arcs with one rule (`source`/`target` both accept
   place/transition/entity_set/relation) -- the specific pairing is
