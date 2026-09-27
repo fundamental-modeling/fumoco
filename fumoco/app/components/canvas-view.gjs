@@ -712,10 +712,25 @@ export default class CanvasView extends Component {
   // (re)builds its draggable waypoint handles. A separate modifier from
   // syncSelection since edge selection and element selection are mutually
   // exclusive but independently tracked (see selection.js).
+  //
+  // Deferred to a queued microtask for the same reason syncShapes defers
+  // its own selection-dependent calls: syncEdgeHandles reads
+  // `view.edgeWaypoints`, and calling it synchronously here would make
+  // *this modifier* depend on that tracked array too -- so dragging a
+  // handle (which live-writes into that same array on every `dragmove`,
+  // for immediate visual feedback) would re-fire this modifier on every
+  // pixel of the drag, destroying and recreating the very handle Konva is
+  // in the middle of dragging. That's exactly what made dragging (and,
+  // transitively, double-clicking to remove a handle right after
+  // dragging one) feel broken. Queuing the read outside this modifier's
+  // synchronous extent breaks that dependency without losing the
+  // "reflect the current selection right when it changes" behavior.
   syncEdgeSelection = modifier(() => {
     void this.selection.selectedEdgeId;
-    this.refreshEdgeStyling();
-    this.syncEdgeHandles();
+    queueMicrotask(() => {
+      this.refreshEdgeStyling();
+      this.syncEdgeHandles();
+    });
   });
 
   // Re-runs whenever the armed connector kind or its pending source changes
@@ -804,7 +819,7 @@ export default class CanvasView extends Component {
       const handle = new Konva.Circle({
         x: point.x,
         y: point.y,
-        radius: 5,
+        radius: 7, // a bit larger than the visual dot, easier to grab
         fill: '#0078ff',
         stroke: '#ffffff',
         strokeWidth: 1,

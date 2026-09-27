@@ -243,13 +243,25 @@ triangles stay `listening: false`, purely decorative):
   anchor *centers* rather than the actual rendered rounded/orthogonal
   path — close enough to feel natural without reproducing the rendering
   geometry just to pick an insertion index.
-- `syncEdgeHandles` draws a small draggable `Konva.Circle` at each of the
-  selected edge's waypoints (rebuilt from scratch on every
+- `syncEdgeHandles` draws a small draggable `Konva.Circle` (radius 7, a
+  bit bigger than its visual dot for an easier grab target) at each of
+  the selected edge's waypoints (rebuilt from scratch on every
   selection/edit, same as the shape layer — there are never more than a
   handful); dragging one live-updates its point (and calls `refreshEdges`
   for immediate visual feedback, uncommitted until `dragend`, same
   live/commit split as every other drag in this file); double-clicking a
   handle removes that waypoint (`removeWaypoint`).
+- `syncEdgeSelection` (the modifier driving the above) defers its
+  `refreshEdgeStyling`/`syncEdgeHandles` calls into a queued microtask
+  rather than calling them synchronously in its own body — same fix, and
+  same reason, as `syncShapes`' deferred styling calls (see "Draw order /
+  z-index" above): `syncEdgeHandles` reads `view.edgeWaypoints`, and
+  calling it synchronously would make *this modifier* depend on that
+  array too. Since a handle's own `dragmove` live-writes into that same
+  array (for the immediate-feedback line redraw), every pixel of a drag
+  would re-fire this modifier and destroy-and-recreate the very handle
+  Konva was mid-drag on — which is exactly why dragging a waypoint handle
+  (and, transitively, double-clicking one right after) didn't work.
 - A known rendering wart: two waypoints that happen to be exactly
   horizontally/vertically aligned still get an unnecessary small jog
   instead of a dead-straight segment, since `orthogonalPath`'s "already
