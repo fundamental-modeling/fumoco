@@ -294,10 +294,14 @@ function diagonalBoundaryPoint(box, isCircular, signX, signY) {
   };
 }
 
+// `targetCircular` isn't read here: a Petri arc is always place<->
+// transition (the bipartite rule), so exactly one end is ever circular,
+// and `sourceCircular` alone already says which -- callers still pass
+// both, matching `drawArc`'s own options shape.
 export function verticalArcPath(
   sourceBox,
   targetBox,
-  { sourceCircular = false, targetCircular = false } = {},
+  { sourceCircular = false } = {},
 ) {
   const sourceBottom = sourceBox.y + sourceBox.height;
   const sourceCenterX = sourceBox.x + sourceBox.width / 2;
@@ -369,47 +373,49 @@ export function verticalArcPath(
   // never lands on the same corner/port and never traces the same line.
   const sign = sourceCircular ? -1 : 1; // -1 = above both (top lane), 1 = below both (bottom lane)
 
-  const exitDiagonalSignX = targetCenterX >= sourceCenterX ? 1 : -1;
-  const exitAnchor = sourceCircular
-    ? diagonalBoundaryPoint(sourceBox, true, exitDiagonalSignX, sign)
-    : { x: sourceCenterX, y: sign < 0 ? sourceBox.y : sourceBottom };
-  const exitBend = sourceCircular
-    ? {
-        x: exitAnchor.x + exitDiagonalSignX * ARC_DIAGONAL_STUB,
-        y: exitAnchor.y + sign * ARC_DIAGONAL_STUB,
-      }
-    : { x: exitAnchor.x, y: exitAnchor.y + sign * ARC_ROUTE_MARGIN };
-
-  const enterDiagonalSignX = sourceCenterX >= targetCenterX ? 1 : -1;
-  const enterAnchor = targetCircular
-    ? diagonalBoundaryPoint(targetBox, true, enterDiagonalSignX, sign)
-    : {
-        x: targetCenterX,
-        y: sign < 0 ? targetBox.y : targetBox.y + targetBox.height,
-      };
-  const enterBend = targetCircular
-    ? {
-        x: enterAnchor.x + enterDiagonalSignX * ARC_DIAGONAL_STUB,
-        y: enterAnchor.y + sign * ARC_DIAGONAL_STUB,
-      }
-    : { x: enterAnchor.x, y: enterAnchor.y + sign * ARC_ROUTE_MARGIN };
-
-  // Both bends already sit beyond their own box on the shared side, so a
-  // single lane at whichever bend is furthest out is clear of both boxes
-  // (their x-ranges are disjoint here, so the vertical legs down to it
-  // can't cross the other box either).
-  const laneY =
+  // Exactly one end is circular; the other is a plain rectangular port
+  // with no bend of its own -- the diagonal stub is the *only* detour
+  // this path needs, so the lane it turns onto is simply that stub's own
+  // height (nudged out only if the straight end's own edge would
+  // otherwise stick out past it), and the straight end connects to that
+  // lane directly, with no bend of its own. (An earlier version gave the
+  // straight end its own short vertical "bend" via ARC_ROUTE_MARGIN too,
+  // then took the min/max of *both* bends as the lane -- but that margin
+  // rarely lined up exactly with the diagonal stub's height, leaving a
+  // near-zero-length leftover segment between them. Visually that read
+  // as the diagonal overshooting into a spurious vertical hop before
+  // snapping back to horizontal, and the degenerate segment gave canvas
+  // arcTo an undefined direction to round against, so the next corner
+  // rendered sharp instead of curved.)
+  const circularBox = sourceCircular ? sourceBox : targetBox;
+  const straightBox = sourceCircular ? targetBox : sourceBox;
+  const signX = (
+    sourceCircular
+      ? targetCenterX >= sourceCenterX
+      : sourceCenterX >= targetCenterX
+  )
+    ? 1
+    : -1;
+  const circularAnchor = diagonalBoundaryPoint(circularBox, true, signX, sign);
+  const circularBend = {
+    x: circularAnchor.x + signX * ARC_DIAGONAL_STUB,
+    y: circularAnchor.y + sign * ARC_DIAGONAL_STUB,
+  };
+  const straightAnchor = {
+    x: straightBox.x + straightBox.width / 2,
+    y: sign < 0 ? straightBox.y : straightBox.y + straightBox.height,
+  };
+  const circularBendClears =
     sign < 0
-      ? Math.min(exitBend.y, enterBend.y)
-      : Math.max(exitBend.y, enterBend.y);
-  return [
-    exitAnchor,
-    exitBend,
-    { x: exitBend.x, y: laneY },
-    { x: enterBend.x, y: laneY },
-    enterBend,
-    enterAnchor,
-  ];
+      ? circularBend.y < straightAnchor.y
+      : circularBend.y > straightAnchor.y;
+  const laneY = circularBendClears
+    ? circularBend.y
+    : straightAnchor.y + sign * ARC_ROUTE_MARGIN;
+  const lanePoint = { x: straightAnchor.x, y: laneY };
+  return sourceCircular
+    ? [circularAnchor, circularBend, lanePoint, straightAnchor]
+    : [straightAnchor, lanePoint, circularBend, circularAnchor];
 }
 
 const EDGE_CORNER_RADIUS = 10;

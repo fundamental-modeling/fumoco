@@ -488,7 +488,7 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
     top<->bottom too, so a loop-back pair can never land on the same
     corner/port and never traces the same line.
 
-    This went through three iterations before landing here: an early
+    This went through several iterations before landing here: an early
     version made both ends leave/arrive via a top corner (reasoning the
     transit lane sits above both boxes, so a bottom entry would loop
     underneath the target) -- but that reintroduced the exact
@@ -498,8 +498,28 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
     (source always top, target always bottom) with a route fully
     enclosing both boxes, but a traced example showed it attached the arc
     to a corner on *both* ends when only the circular one should ever get
-    diagonal treatment -- the fix above is what actually matches that
-    traced example, corner-for-corner.
+    diagonal treatment.
+
+    A further precision bug in that fix, also caught by tracing an actual
+    example by hand: the transition end was given its own short vertical
+    "bend" via `ARC_ROUTE_MARGIN` (20px) too, and the shared lane was the
+    min/max of *both* bends -- but that margin almost never lined up
+    exactly with the diagonal stub's own height (`ARC_DIAGONAL_STUB`,
+    28px, measured from a different anchor point), leaving a
+    near-zero-length leftover segment between the two. Visually that read
+    as the diagonal overshooting into a spurious, nearly invisible
+    vertical hop before snapping back to horizontal instead of a clean
+    45°-to-horizontal bend, and the degenerate segment gave canvas
+    `arcTo` an undefined direction to round against at the *next* corner
+    too, so a turn several segments later rendered as a sharp point
+    instead of curved. Fixed by dropping the straight end's own bend
+    entirely: since only the circular end ever needs a detour, the lane
+    is simply that diagonal stub's own height (`circularBend.y`), nudged
+    further out only if the straight box's own edge would otherwise stick
+    past it (`circularBendClears`), and the straight end connects to that
+    lane with a single plain segment, no bend of its own. Exactly 4
+    points now (diagonal stub, bend onto the lane, bend into the straight
+    port) instead of 6.
   - An **ER arc** (entity_set<->relation) keeps using `orthogonalPath` --
     an ER diagram has no fixed reading direction (see `spec/index.html`'s
     ER section), so the shortest-route logic that access edges already

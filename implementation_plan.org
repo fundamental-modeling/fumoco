@@ -372,6 +372,25 @@ their x-ranges overlap (a reversed arc along a shared column, not really
 back to the original plain-ports, route-around-via-a-west-lane shape
 that predates any of the diagonal work.
 
+Fixed a precision bug in the beside case, caught by tracing an actual
+example by hand: the transition end was given its own short vertical
+"bend" (via =ARC_ROUTE_MARGIN=), and the shared lane was the min/max of
+*both* bends -- but that margin (20px) almost never lined up exactly with
+the diagonal stub's own height (28px, measured from a different anchor
+point), leaving a near-zero-length leftover segment between the two.
+Visually that read as the diagonal overshooting into a spurious, almost
+invisible vertical hop before snapping back to horizontal instead of a
+clean 45°-to-horizontal bend, and the degenerate segment gave canvas
+=arcTo= an undefined direction to round against at the *next* corner too,
+so a turn several segments later rendered as a sharp point instead of
+curved. Fixed by dropping the straight end's own bend entirely -- since
+only the circular end ever needs a detour, the lane is simply that
+diagonal stub's own height (only nudged further out if the straight
+box's own edge would otherwise stick past it), and the straight end
+connects to that lane directly with a single plain segment. Down to
+exactly 4 points now (diagonal stub, one bend onto the lane, one bend
+into the straight port) instead of 6.
+
 ** DONE Petri net starting-place notation
 A place's new =isStart= flag (toggled via the properties panel) draws a
 short, unconnected stub arrow pointing into its left side -- the
