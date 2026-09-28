@@ -74,22 +74,18 @@ export default class Palette extends Component {
   addPlace() {
     // Square box so the channel/place circle-rendering trick in
     // buildShape (cornerRadius = half the box) reads as an actual circle
-    // rather than an ellipse.
-    this.addElement(ElementType.PLACE, 'New place', { width: 60, height: 60 });
+    // rather than an ellipse. Sized down from the plain 60px default to
+    // keep the transition-height/place-diameter ratio from the measured
+    // reference screenshot (~2.4em transition height / ~1.33em place
+    // diameter) once the transition box itself went back to its original
+    // 120x60 (the 200x110 transition read too large next to the label
+    // text) -- 60 * (1.33/2.4) ~= 33.
+    this.addElement(ElementType.PLACE, 'New place', { width: 33, height: 33 });
   }
 
   @action
   addTransition() {
-    // Sized relative to the place's 60px diameter using the em ratios
-    // measured from a reference screenshot (transition height ~2.4em,
-    // width ~4.5em, place diameter ~1.33em -> ~108x203px), rounded to a
-    // cleaner 110x200 -- noticeably larger than the generic 120x60
-    // default, matching how much taller/wider a transition reads next to
-    // a place in the actual notation.
-    this.addElement(ElementType.TRANSITION, 'New transition', {
-      width: 200,
-      height: 110,
-    });
+    this.addElement(ElementType.TRANSITION, 'New transition');
   }
 
   @action

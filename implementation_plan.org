@@ -314,15 +314,18 @@ place's filled inner circle ~0.6-0.67em (used for the isStart marker
 below); transition box height ~2.4em, width ~4.5em; a NOP-transition bar
 ~0.67em tall, ~12.0em wide. The NOP-bar dimensions are noted here for
 whenever that element gets built; the other two ratios are now both
-applied -- see the isStart entry below for the inner circle, and the
-default transition size (=palette.gjs='s =addTransition=) for the
-place/transition proportions: anchored to the place's existing 60px
-diameter (scale ~45.1px/em), the ratios give a transition ~108x203px,
-rounded to a cleaner 200x110 -- noticeably larger than the generic
-120x60 default every other block-diagram element still uses, since a
-transition genuinely reads bigger next to a place in the real notation.
-Only affects newly-created transitions; existing diagrams keep whatever
-box size they were saved with.
+applied -- see the isStart entry below for the inner circle.
+
+For the place/transition size ratio, an initial attempt anchored the
+place's *existing* 60px diameter and scaled the transition up to match
+(~200x110) -- but the user found the resulting transition too large
+relative to the label text. Inverted instead: the transition box went
+back to =addElement='s plain 120x60 default (its original size, which
+reads right against the text), and the *place* was sized down to match
+the ~2.4em-transition-height/~1.33em-place-diameter ratio against that:
+=60 * (1.33/2.4) ~= 33=. =addPlace= now creates a 33x33 place instead of
+60x60; the isStart inner-circle ratio (0.47x the place's own diameter)
+already scales automatically, so no separate change was needed there.
 
 Follow-up fix: a Petri arc almost always exits its source's bottom
 (south) and enters its target's top (north), perpendicular to that edge,

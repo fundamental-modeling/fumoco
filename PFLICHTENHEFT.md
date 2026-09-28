@@ -662,14 +662,17 @@ section for the exact counts.
   short, unconnected stub arrow pointing into the place's left side; that
   wasn't FMC's actual convention and was replaced outright, not kept
   alongside the correct marker.
-- Default transition size: the same reference screenshot also measured a
-  transition box at ~2.4em tall, ~4.5em wide against a ~1.33em place
-  diameter -- a noticeably bigger-relative-to-a-place proportion than the
-  generic 120x60 default every other block-diagram element still uses.
-  `palette.gjs`'s `addTransition` now passes its own explicit box
-  (200x110, rounded from ~203x108 -- the ratios anchored to the place's
-  existing 60px diameter, scale ~45.1px/em) instead of falling through to
-  `addElement`'s generic default. Only affects newly-created transitions.
+- Default place/transition size ratio: the same reference screenshot
+  also measured a transition box at ~2.4em tall, ~4.5em wide against a
+  ~1.33em place diameter. A first attempt kept the place at its existing
+  60px and scaled the transition up (~200x110) to match, but that read
+  too large relative to the label text. Inverted instead: `addTransition`
+  no longer passes an explicit box at all (back to `addElement`'s plain
+  120x60 default, its original size), and `addPlace` was sized *down* to
+  `60 * (1.33/2.4) ~= 33` (33x33, was 60x60) to keep the same ratio
+  against that. The isStart inner-circle sizing (`0.47 *
+  Math.min(box.width, box.height)`) is already relative to the place's
+  own size, so it scales down automatically with no separate change.
 - ER cardinality: an entity_set<->relation arc's `cardinality` field
   (`null` or `'one'`, toggled via the arc's right-click menu,
   `FmcModel.updateArcCardinality`) draws a small filled triangle a short
