@@ -458,18 +458,25 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
     the source's bottom and above the target's top by construction).
 
     When the target *isn't* below the source, two distinct shapes apply,
-    chosen by whether the boxes' x-ranges actually overlap:
+    chosen by the actual gap between the boxes' x-ranges, not merely
+    whether they overlap:
 
-    If the x-ranges overlap (a reversed-direction arc along a shared
-    column -- not really "beside", just running against the usual
-    top-to-bottom flow), a short diagonal corner-cut can't stay clear of
-    both boxes (whichever side a lane sits on, it risks cutting through
-    whichever box extends further that way), so it falls back to the
-    original plain-ports shape that predates the diagonal work entirely:
-    down from the source, out to a lane west of both boxes, up past the
-    target, and in -- still leaving south and arriving north.
+    If that gap is narrower than `ARC_DIAGONAL_STUB` -- including
+    overlapping ranges (a reversed-direction arc along a shared column,
+    not really "beside", just running against the usual top-to-bottom
+    flow) *and* disjoint-but-touching ranges (two boxes pushed flush
+    against each other, a real traced case: a place's right edge exactly
+    meeting a transition's left edge) -- a short diagonal corner-cut
+    can't stay clear of both boxes: the stub's fixed reach isn't enough
+    to clear the far box's near edge, so it would land *inside* that box
+    and the connecting segment would cut straight through it. This falls
+    back to the original plain-ports shape that predates the diagonal
+    work entirely: down from the source, out to a lane west of both
+    boxes, up past the target, and in -- still leaving south and
+    arriving north.
 
-    If the x-ranges are disjoint (genuinely beside -- e.g. a self-loop's
+    Only once the gap is at least `ARC_DIAGONAL_STUB` wide (genuinely
+    beside with room for the stub to actually clear -- e.g. a self-loop's
     return arc to a transition left or right of its place), the arc
     leaves/arrives via a short 45° diagonal stub (`ARC_DIAGONAL_STUB`,
     28px -- comfortably longer than `EDGE_CORNER_RADIUS` so canvas
@@ -545,6 +552,17 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
     center when either end is circular (or the source's center when
     neither is), and only the *other*, rectangular box (`flexBox`) is
     checked for whether that x fits inside it.
+
+    A third bug turned up in the loop-back branch's "genuinely beside"
+    shape, caught the same way ("Reg test 4"): the shape assumed the
+    diagonal stub's fixed 28px reach was always enough to clear the far
+    box's near edge -- true with a comfortable horizontal gap, but not
+    when the two boxes are pushed flush against each other (zero gap,
+    disjoint x-ranges but touching). Fixed by replacing the old boolean
+    "do the x-ranges overlap" check with an actual gap measurement
+    (`xGap`), and only taking the diagonal shape when that gap is at
+    least `ARC_DIAGONAL_STUB` wide; anything narrower -- overlapping or
+    merely touching -- falls back to the safe west-lane wraparound.
   - An **ER arc** (entity_set<->relation) keeps using `orthogonalPath` --
     an ER diagram has no fixed reading direction (see `spec/index.html`'s
     ER section), so the shortest-route logic that access edges already

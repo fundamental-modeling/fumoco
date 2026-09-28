@@ -407,6 +407,21 @@ transition's exit that shifts to line up with the place's fixed pole
 (not the reverse), still only when that shift lands safely inside the
 transition's own edge.
 
+Fixed a third bug in the loop-back branch, again caught by a
+hand-provided example ("Reg test 4"): the "genuinely beside" diagonal
+shape assumes the diagonal stub's fixed 28px reach is enough to clear
+the far box's near edge -- true when there's a comfortable horizontal
+gap between the two boxes, but not when they're pushed flush against
+each other (a real, traced case: a place and a transition with the
+place's right edge exactly meeting the transition's left edge, zero
+gap). The stub landed *inside* the far box, and the connecting segment
+cut straight through it. Fixed by measuring the actual gap between the
+two x-ranges and only taking the diagonal shape when it's at least
+=ARC_DIAGONAL_STUB= wide; anything narrower (including overlapping
+ranges, the case this check replaces) falls back to the safe
+route-around-via-a-west-lane shape, which stays clear of both boxes
+regardless of how tightly they're packed.
+
 ** DONE Petri net starting-place notation
 A place's new =isStart= flag (toggled via the properties panel) draws a
 short, unconnected stub arrow pointing into its left side -- the

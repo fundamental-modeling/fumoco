@@ -497,4 +497,27 @@ module('Unit | Component | canvas-view (nesting geometry)', function () {
       { x: 160, y: 170 },
     ]);
   });
+
+  test('Reg test 4 (human-provided): two boxes pushed flush against each other (zero x-gap) fall back to the safe wraparound, not the diagonal stub', function (assert) {
+    const P = { x: 130, y: 170, width: 60, height: 60 };
+    // C's left edge (190) exactly meets P's right edge (190) -- disjoint
+    // x-ranges, but zero gap between them. The diagonal stub's fixed
+    // 28px reach isn't enough to clear C's left edge from there, so the
+    // stub would land *inside* C and the path would cut through it.
+    const C = { x: 190, y: 40, width: 120, height: 60 };
+
+    const path = verticalArcPath(P, C, { sourceCircular: true });
+
+    assertPathClearOfBoxes(assert, path, [P, C]);
+    // Falls back to the safe wraparound: south out of P, west of both,
+    // north past C, then straight into C's own top edge.
+    assert.deepEqual(path, [
+      { x: 160, y: 230 },
+      { x: 160, y: 250 },
+      { x: 110, y: 250 },
+      { x: 110, y: 20 },
+      { x: 250, y: 20 },
+      { x: 250, y: 40 },
+    ]);
+  });
 });

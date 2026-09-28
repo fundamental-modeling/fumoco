@@ -346,22 +346,29 @@ export function verticalArcPath(
   }
 
   // The target isn't below the source. Two distinct shapes, chosen by
-  // whether the boxes actually sit side by side (disjoint x-ranges) or
-  // are more like a reversed vertical pair (overlapping x-ranges, e.g. a
-  // straight-up return arc in a single column):
-  const xRangesOverlap =
-    sourceBox.x < targetBox.x + targetBox.width &&
-    targetBox.x < sourceBox.x + sourceBox.width;
+  // whether the boxes actually sit side by side with enough of a gap for
+  // a short diagonal stub to clear the far one, or are more like a
+  // reversed vertical pair (overlapping or merely touching x-ranges,
+  // e.g. a straight-up return arc in a single column, or two boxes
+  // pushed flush against each other):
+  const xGap =
+    sourceBox.x + sourceBox.width <= targetBox.x
+      ? targetBox.x - (sourceBox.x + sourceBox.width)
+      : targetBox.x + targetBox.width <= sourceBox.x
+        ? sourceBox.x - (targetBox.x + targetBox.width)
+        : -1; // overlapping
 
-  if (xRangesOverlap) {
+  if (xGap < ARC_DIAGONAL_STUB) {
     // A reversed-direction arc along a shared column, not a "beside"
     // pair -- a short diagonal corner-cut can't stay clear of both boxes
-    // here (whichever side a lane sits on, it risks running through
-    // whichever box extends further that way), so route the long way
-    // around instead: down from the source, out to a lane west of both,
-    // up past the target, and in -- still leaving south and arriving
-    // north (plain ports, no diagonal; the diagonal corner treatment
-    // below is for the genuinely-beside case).
+    // here: even when the x-ranges are technically disjoint, too small a
+    // gap means the diagonal stub's fixed reach lands *inside* the far
+    // box instead of past it (a real, confirmed case: two boxes pushed
+    // flush against each other, zero gap). So route the long way around
+    // instead: down from the source, out to a lane west of both, up past
+    // the target, and in -- still leaving south and arriving north
+    // (plain ports, no diagonal; the diagonal corner treatment below is
+    // for the genuinely-beside case, with room for the stub to work).
     const exit = { x: sourceCenterX, y: sourceBottom };
     const enter = { x: targetCenterX, y: targetBox.y };
     const belowSource = exit.y + ARC_ROUTE_MARGIN;
