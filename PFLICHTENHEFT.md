@@ -535,9 +535,10 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
     is simply that diagonal stub's own height (`circularBend.y`), nudged
     further out only if the straight box's own edge would otherwise stick
     past it (`circularBendClears`), and the straight end connects to that
-    lane with a single plain segment, no bend of its own. Exactly 4
-    points now (diagonal stub, bend onto the lane, bend into the straight
-    port) instead of 6.
+    lane with a single plain segment, no bend of its own -- 4 points in
+    the common case (diagonal stub, bend onto the lane, bend into the
+    straight port) instead of 6, or 5 when `circularBendClears` is false
+    (see the fifth bug below, which needed an extra point here too).
 
     A second bug turned up in the *forward* case's plumb-line shortcut,
     caught the same way (tracing a hand-provided example, "Reg test 3"):
@@ -563,6 +564,39 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
     (`xGap`), and only taking the diagonal shape when that gap is at
     least `ARC_DIAGONAL_STUB` wide; anything narrower -- overlapping or
     merely touching -- falls back to the safe west-lane wraparound.
+
+    A fourth bug: even with a sufficient `xGap`, the diagonal shape could
+    still cut through the straight box if the two boxes' vertical offset
+    was large enough that the stub's fixed reach fell well short of the
+    lane height ("Reg test 5") -- jumping straight from the stub to the
+    lane point was then a genuinely diagonal segment (not axis-aligned),
+    slicing through the straight box's near corner on the way. Fixed by
+    inserting one more point at the stub's own x when
+    `!circularBendClears`, keeping every segment axis-aligned; that x is
+    provably always clear of the straight box given the `xGap >=
+    ARC_DIAGONAL_STUB` gate already in place (the stub can reach at most
+    `ARC_DIAGONAL_STUB - circularBox's own radius * (1 - cos 45°)` past
+    the circular box's own edge, strictly less than `ARC_DIAGONAL_STUB`
+    itself), so the extra vertical leg down/up to the lane never enters
+    it.
+
+    A fifth bug, this time in the west-lane wraparound branch itself, was
+    caught by a systematic swept regression test added at the user's
+    request after the fourth and fifth reports in a row (many
+    place/transition placements, both arc directions, asserting no
+    crossing in any of them, run at both a coarse grid in the test suite
+    and a much finer one standalone) rather than waiting for the next
+    one-off report. That branch's clearance margins were each measured
+    off only the *nearer* box's own edge (`exit.y + ARC_ROUTE_MARGIN` for
+    the bottom lane, `enter.y - ARC_ROUTE_MARGIN` for the top lane) --
+    correct back when this branch was only reached for a target cleanly
+    above the source, but broken once the `xGap` fix (bug three) also
+    routed merely-touching x-ranges through it, where the two boxes can
+    overlap substantially in y. Fixed by measuring both lane heights
+    against *both* boxes (`Math.max(sourceBottom, targetBottom) +
+    ARC_ROUTE_MARGIN` and `Math.min(sourceBox.y, targetBox.y) -
+    ARC_ROUTE_MARGIN`), the same "clear of both, not just the nearer one"
+    principle the diagonal branch already relies on.
   - An **ER arc** (entity_set<->relation) keeps using `orthogonalPath` --
     an ER diagram has no fixed reading direction (see `spec/index.html`'s
     ER section), so the shortest-route logic that access edges already

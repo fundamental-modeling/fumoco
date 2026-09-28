@@ -520,4 +520,64 @@ module('Unit | Component | canvas-view (nesting geometry)', function () {
       { x: 250, y: 40 },
     ]);
   });
+
+  test('Reg test 5 (human-provided): the diagonal-stub shortcut can still cut through the transition when the stub does not reach the lane height', function (assert) {
+    const P = { x: 130, y: 170, width: 60, height: 60 };
+    // C sits well clear of P horizontally (a 64px gap, past the
+    // Reg-test-4 fallback threshold) but far enough above that the
+    // diagonal stub's fixed 28px reach doesn't get anywhere near C's own
+    // top edge -- jumping straight from the stub to the lane used to be
+    // a diagonal segment that sliced through C's top-left corner.
+    const C = { x: 254, y: 40.6044921875, width: 120, height: 60 };
+
+    assertPathClearOfBoxes(
+      assert,
+      verticalArcPath(P, C, { sourceCircular: true }),
+      [C],
+    );
+    assertPathClearOfBoxes(
+      assert,
+      verticalArcPath(C, P, { targetCircular: true }),
+      [C],
+    );
+  });
+
+  test('verticalArcPath never crosses the transition box, swept across many place/transition placements (general regression guard)', function (assert) {
+    // A broader, systematic version of Reg test 4/5: those were each one
+    // specific placement that happened to cut through the transition.
+    // Rather than wait for the next one-off report, sweep a grid of
+    // transition positions around a fixed place and check every one, in
+    // both arc directions -- this is the standing guard the user asked
+    // for after finding two separate crossings this way.
+    const place = { x: 0, y: 0, width: 60, height: 60 };
+
+    function overlapsBoxes(a, b) {
+      return (
+        a.x < b.x + b.width &&
+        b.x < a.x + a.width &&
+        a.y < b.y + b.height &&
+        b.y < a.y + a.height
+      );
+    }
+
+    let checked = 0;
+    for (let dx = -400; dx <= 400; dx += 40) {
+      for (let dy = -400; dy <= 400; dy += 40) {
+        const transition = { x: dx, y: dy, width: 120, height: 60 };
+        if (overlapsBoxes(place, transition)) continue; // not a real layout
+        checked += 1;
+        assertPathClearOfBoxes(
+          assert,
+          verticalArcPath(place, transition, { sourceCircular: true }),
+          [transition],
+        );
+        assertPathClearOfBoxes(
+          assert,
+          verticalArcPath(transition, place, { targetCircular: true }),
+          [transition],
+        );
+      }
+    }
+    assert.true(checked > 100, 'the sweep actually exercised many placements');
+  });
 });

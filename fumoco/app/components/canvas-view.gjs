@@ -371,15 +371,24 @@ export function verticalArcPath(
     // for the genuinely-beside case, with room for the stub to work).
     const exit = { x: sourceCenterX, y: sourceBottom };
     const enter = { x: targetCenterX, y: targetBox.y };
-    const belowSource = exit.y + ARC_ROUTE_MARGIN;
-    const aboveTarget = enter.y - ARC_ROUTE_MARGIN;
+    // Both lane heights clear *both* boxes (not just the one nearer that
+    // end), since this branch is no longer only reached when the target
+    // is cleanly above the source -- once it also covers merely-touching
+    // x-ranges (the Reg-test-4 fix), the two boxes can overlap
+    // substantially in y too. A margin measured off only one box's own
+    // edge (a real, swept-and-confirmed case) can then still sit inside
+    // the *other* box, and the horizontal leg at that height cuts
+    // straight through it.
+    const belowY =
+      Math.max(sourceBottom, targetBox.y + targetBox.height) + ARC_ROUTE_MARGIN;
+    const aboveY = Math.min(sourceBox.y, targetBox.y) - ARC_ROUTE_MARGIN;
     const laneX = Math.min(sourceBox.x, targetBox.x) - ARC_ROUTE_MARGIN;
     return [
       exit,
-      { x: exit.x, y: belowSource },
-      { x: laneX, y: belowSource },
-      { x: laneX, y: aboveTarget },
-      { x: enter.x, y: aboveTarget },
+      { x: exit.x, y: belowY },
+      { x: laneX, y: belowY },
+      { x: laneX, y: aboveY },
+      { x: enter.x, y: aboveY },
       enter,
     ];
   }
@@ -445,9 +454,31 @@ export function verticalArcPath(
     ? circularBend.y
     : straightAnchor.y + sign * ARC_ROUTE_MARGIN;
   const lanePoint = { x: straightAnchor.x, y: laneY };
+  // When the stub doesn't already clear the straight box's edge, jumping
+  // straight from the bend to lanePoint would be a diagonal segment (they
+  // no longer share a y) that can cut right through the straight box --
+  // confirmed with a traced example where the stub landed well short of
+  // the target's height, so the "shortcut" sliced through its top-left
+  // corner on the way to the lane. Routing through an extra point at the
+  // bend's own x first keeps every segment axis-aligned instead: that x
+  // is always clear of the straight box (the diagonal stub can reach at
+  // most STUB - circularBox.width/2 * (1 - k) past the circular box's own
+  // edge, strictly less than ARC_DIAGONAL_STUB, and the gate above
+  // already guarantees at least that much of a gap before this "beside"
+  // shape is used at all), so the vertical leg down/up to the lane never
+  // enters it, and the horizontal leg at the lane height is clear by the
+  // same construction as the ordinary case.
+  const path = circularBendClears
+    ? [circularAnchor, circularBend, lanePoint]
+    : [
+        circularAnchor,
+        circularBend,
+        { x: circularBend.x, y: laneY },
+        lanePoint,
+      ];
   return sourceCircular
-    ? [circularAnchor, circularBend, lanePoint, straightAnchor]
-    : [straightAnchor, lanePoint, circularBend, circularAnchor];
+    ? [...path, straightAnchor]
+    : [straightAnchor, ...path.slice().reverse()];
 }
 
 const EDGE_CORNER_RADIUS = 10;

@@ -422,6 +422,37 @@ ranges, the case this check replaces) falls back to the safe
 route-around-via-a-west-lane shape, which stays clear of both boxes
 regardless of how tightly they're packed.
 
+Fixed a fourth bug, and a fifth: after the =xGap= fix above, a further
+hand-provided example ("Reg test 5") found that the diagonal shape can
+still cut through the straight box even *with* a sufficient horizontal
+gap, if the two boxes' vertical offset is large enough that the
+diagonal stub's fixed reach falls well short of the lane height --
+jumping straight from the stub to the lane point was then a genuinely
+diagonal segment (not axis-aligned), which sliced through the straight
+box's near corner. Fixed by inserting one more point (at the stub's own
+x) when the stub doesn't already clear, keeping every segment
+axis-aligned; that x is provably always clear of the straight box given
+the =xGap >= ARC_DIAGONAL_STUB= gate already in place, so the extra
+vertical leg never enters it.
+
+At the user's request, a systematic swept regression test (many
+place/transition placements, both arc directions, asserting no crossing
+in any of them) was added as a standing guard rather than waiting for
+the next one-off report -- and it immediately caught a *fifth* bug of
+the same family, this time in the route-around-via-a-west-lane branch
+(the one the =xGap= fix falls back to): its clearance margins were each
+measured off only the *nearer* box's own edge (=exit.y + MARGIN= for
+the bottom lane, =enter.y - MARGIN= for the top lane), which was correct
+back when this branch was only reached for a target cleanly above the
+source, but broke once it also started covering merely-touching
+x-ranges, where the two boxes can overlap substantially in y. Fixed by
+measuring both lane heights against *both* boxes
+(=Math.max(sourceBottom, targetBottom) + MARGIN= and
+=Math.min(sourceBox.y, targetBox.y) - MARGIN=), matching the same
+"clear of both, not just the nearer one" principle the diagonal branch
+already relies on. The sweep (12,748 checked placements at a finer
+10px grid, run standalone) now finds zero crossings.
+
 ** DONE Petri net starting-place notation
 A place's new =isStart= flag (toggled via the properties panel) draws a
 short, unconnected stub arrow pointing into its left side -- the
