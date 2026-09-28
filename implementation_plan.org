@@ -453,6 +453,18 @@ measuring both lane heights against *both* boxes
 already relies on. The sweep (12,748 checked placements at a finer
 10px grid, run standalone) now finds zero crossings.
 
+Extended with two more swept regression tests, per the user's follow-up
+ask for "any other sweeping tests" (also raised specifically for block
+diagrams): one sweeps place/transition *sizes* as well as positions
+(tiny places, very wide/narrow transitions) against =verticalArcPath=,
+and one sweeps =orthogonalPath= -- the routing function block-diagram
+access/channel edges and ER arcs actually use, which had zero prior test
+coverage of any kind. Both came back clean (no crossings found in either
+a standalone finer sweep or the in-suite coarser one), so these are
+pure standing regression guards, not fixes -- =orthogonalPath= is now
+exported (like =verticalArcPath=) purely so the test can call it
+directly.
+
 ** DONE Petri net starting-place notation
 A place's new =isStart= flag (toggled via the properties panel) draws a
 short, unconnected stub arrow pointing into its left side -- the

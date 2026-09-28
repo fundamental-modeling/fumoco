@@ -4,6 +4,7 @@ import {
   computeEffectiveBoxes,
   displayParentOf,
   nestingDepth,
+  orthogonalPath,
   verticalArcPath,
 } from 'fumoco/components/canvas-view';
 import { ElementType, FmcModel } from 'fumoco/utils/fmc-model';
@@ -579,5 +580,102 @@ module('Unit | Component | canvas-view (nesting geometry)', function () {
       }
     }
     assert.true(checked > 100, 'the sweep actually exercised many placements');
+  });
+
+  test('verticalArcPath never crosses the transition box, swept across many place/transition sizes too (not just positions)', function (assert) {
+    // The position sweep above holds both boxes at their default sizes.
+    // This sweeps place and transition *sizes* as well -- tiny places,
+    // very wide/narrow transitions, etc. -- since the diagonal stub's
+    // safety margins (ARC_DIAGONAL_STUB vs. EDGE_CORNER_RADIUS) were
+    // derived assuming roughly-default proportions and could plausibly
+    // break down at the extremes.
+    function overlapsBoxes(a, b) {
+      return (
+        a.x < b.x + b.width &&
+        b.x < a.x + a.width &&
+        a.y < b.y + b.height &&
+        b.y < a.y + a.height
+      );
+    }
+
+    const placeSizes = [
+      [20, 20],
+      [60, 60],
+      [100, 100],
+      [60, 120],
+      [120, 60],
+    ];
+    const transitionSizes = [
+      [60, 60],
+      [120, 60],
+      [200, 40],
+      [40, 200],
+      [20, 20],
+    ];
+
+    let checked = 0;
+    for (const [pw, ph] of placeSizes) {
+      const place = { x: 0, y: 0, width: pw, height: ph };
+      for (const [tw, th] of transitionSizes) {
+        for (let dx = -300; dx <= 300; dx += 150) {
+          for (let dy = -300; dy <= 300; dy += 150) {
+            const transition = { x: dx, y: dy, width: tw, height: th };
+            if (overlapsBoxes(place, transition)) continue;
+            checked += 1;
+            assertPathClearOfBoxes(
+              assert,
+              verticalArcPath(place, transition, { sourceCircular: true }),
+              [transition],
+            );
+            assertPathClearOfBoxes(
+              assert,
+              verticalArcPath(transition, place, { targetCircular: true }),
+              [transition],
+            );
+          }
+        }
+      }
+    }
+    assert.true(
+      checked > 300,
+      'the sweep actually exercised many combinations',
+    );
+  });
+
+  test('orthogonalPath (block diagram / ER routing) never crosses either box, swept across many placements and sizes', function (assert) {
+    // orthogonalPath has no obstacle-avoidance for *other* boxes in the
+    // view (documented, accepted limitation) -- but it must never cut
+    // through the interior of the two boxes it's actually connecting,
+    // regardless of their relative position or size. Zero prior test
+    // coverage of this function before this sweep.
+    function overlapsBoxes(a, b) {
+      return (
+        a.x < b.x + b.width &&
+        b.x < a.x + a.width &&
+        a.y < b.y + b.height &&
+        b.y < a.y + a.height
+      );
+    }
+
+    const a = { x: 0, y: 0, width: 60, height: 60 };
+    const sizes = [
+      [60, 60],
+      [120, 60],
+      [200, 40],
+      [40, 200],
+    ];
+
+    let checked = 0;
+    for (const [w, h] of sizes) {
+      for (let dx = -300; dx <= 300; dx += 75) {
+        for (let dy = -300; dy <= 300; dy += 75) {
+          const b = { x: dx, y: dy, width: w, height: h };
+          if (overlapsBoxes(a, b)) continue;
+          checked += 1;
+          assertPathClearOfBoxes(assert, orthogonalPath(a, b), [a, b]);
+        }
+      }
+    }
+    assert.true(checked > 200, 'the sweep actually exercised many placements');
   });
 });

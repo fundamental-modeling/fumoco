@@ -186,7 +186,9 @@ function pointInBox(point, box) {
 // attic/src/fmc/render.py's `_orthogonal_path` for the fancier version
 // this is deliberately not porting yet (candidate-path scoring against
 // every other box in the view); add it if crossings become a real problem.
-function orthogonalPath(a, b) {
+// Exported (like verticalArcPath) purely so the swept regression test can
+// call it directly.
+export function orthogonalPath(a, b) {
   const ax0 = a.x,
     ay0 = a.y,
     ax1 = a.x + a.width,

@@ -600,7 +600,42 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
   - An **ER arc** (entity_set<->relation) keeps using `orthogonalPath` --
     an ER diagram has no fixed reading direction (see `spec/index.html`'s
     ER section), so the shortest-route logic that access edges already
-    use is the right fit, not a forced vertical flow.
+    use is the right fit, not a forced vertical flow. `orthogonalPath` is
+    also what block-diagram access edges and channels route through, so
+    it's the actual routing function for the block-diagram side of the
+    app as well as ER, despite living in this Petri-net-heavy section of
+    the file.
+
+**Swept regression tests** (`tests/unit/components/canvas-view-test.js`):
+after the five Petri-routing bugs above were each found by a one-off
+hand-traced example, the user asked for a standing guard instead of
+waiting for the next report, plus "any other sweeping tests" including
+for block diagrams. Three exist now:
+  - `verticalArcPath` swept across many place/transition *positions*
+    (the guard that caught bug five above).
+  - `verticalArcPath` swept across many place/transition *sizes* too
+    (tiny places, very wide/narrow transitions) -- came back clean, a
+    standing guard against the diagonal stub's fixed margins
+    (`ARC_DIAGONAL_STUB` vs. `EDGE_CORNER_RADIUS`) breaking at extreme
+    proportions, not a fix for a found bug.
+  - `orthogonalPath` swept across many placements and sizes -- this
+    function (block-diagram access/channel edges and ER arcs) had zero
+    prior test coverage of any kind before this. Also came back clean.
+    `orthogonalPath` is now `export`ed (it wasn't previously) purely so
+    the test can call it directly, the same reason `verticalArcPath`
+    already was.
+
+Each sweep excludes placements where the two boxes' bounding boxes
+already overlap (not a real diagram layout, and not a property either
+function claims to handle) and checks, for every remaining placement,
+that no segment of the returned path crosses into either box's interior
+(touching a boundary at an endpoint is fine; entering past it isn't). Grid
+density is kept modest in-suite (the full run happens in a real browser
+via testem, where too many assertions in one test risks the runner's own
+timeout) -- a finer standalone sweep (plain Node, no browser) is what
+actually found bug five and confirmed zero crossings at higher
+resolution afterward; see `implementation_plan.org`'s entry for this
+section for the exact counts.
 - `connector-tool.js`'s new `ConnectorKind.ARC` covers both diagram
   types' arcs with one rule (`source`/`target` both accept
   place/transition/entity_set/relation) -- the specific pairing is
