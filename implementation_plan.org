@@ -303,18 +303,19 @@ active view's =diagramType= is =petri=; "+ View" gained a diagram-type
 select. Arcs are directed, carry a weight (default 1, shown as a label
 only when != 1), drawn via the shared =FmcModel.arcs=/=addArc= mechanism
 (see Milestone C below) rather than a Petri-specific one. Not yet built:
-NOP transitions, swimlanes, multi-token/infinite-capacity place styling,
-recursion elements, the standard-construct stencils tracked separately
-under Milestone A's visualization-guidance items — all deliberately out
-of scope for this pass per "primitive support is okay for now".
+swimlanes, multi-token/infinite-capacity place styling, recursion
+elements, the standard-construct stencils tracked separately under
+Milestone A's visualization-guidance items — all deliberately out of
+scope for this pass per "primitive support is okay for now" (NOP
+transitions are now DONE, see below).
 
 Reference measurements from a screenshot the user analyzed (em units,
 text height = 1.0em as the reference): place diameter ~1.33em; start-
 place's filled inner circle ~0.6-0.67em (used for the isStart marker
 below); transition box height ~2.4em, width ~4.5em; a NOP-transition bar
-~0.67em tall, ~12.0em wide. The NOP-bar dimensions are noted here for
-whenever that element gets built; the other two ratios are now both
-applied -- see the isStart entry below for the inner circle.
+~0.67em tall, ~12.0em wide (used for the NOP transition entry below).
+Both ratios are now applied -- see the isStart entry below for the inner
+circle.
 
 For the place/transition size ratio, an initial attempt anchored the
 place's *existing* 60px diameter and scaled the transition up to match
@@ -500,6 +501,28 @@ circle diameter ~0.6-0.67em -- a ratio of ~0.45-0.5, applied here as
 =Math.min(box.width, box.height) * 0.47= for the inner circle's
 diameter, so it scales with the place's own size rather than being a
 fixed pixel value.
+
+A new place is created unlabeled (=null= label, palette's =addPlace=)
+rather than "New place" -- consistent with how a partition is already
+created unlabeled, and matching a place's usual role as an unnamed
+marking-holder rather than a named entity.
+
+** DONE NOP (no-operation) transitions
+=Element.isNop= (transition-only, default =false=, toggled via the
+properties panel's "NOP transition" checkbox) marks a transition with no
+real action, used purely for routing/synchronization -- the standard
+Petri-net convention for this is a wide, thin, unlabeled bar rather than
+an ordinary transition box; `buildShape` skips the label entirely when
+set (text wouldn't read meaningfully on a bar this thin anyway) but
+keeps the ordinary white-fill/black-outline styling -- distinguished by
+proportion, not by a solid fill (an initial attempt used a solid black
+bar, corrected after the user pointed out a NOP bar is not filled).
+Palette's dedicated "NOP transition" button (=addNopTransition=) creates
+one pre-sized to the measured reference screenshot's ratio (bar ~0.67em
+tall, ~12.0em wide, against the ~2.4em transition height that's 60px
+here -- scale ~25px/em): 300x17. Routing (=verticalArcPath=) treats it
+identically to any other transition -- =isNop= only affects rendering,
+not the bipartite rule or arc geometry.
 
 ** DONE Editor enforces the place/transition bipartite rule
 The same way it enforces agent/storage today -- =FmcModel.addArc=

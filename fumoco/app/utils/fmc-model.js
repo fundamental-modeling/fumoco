@@ -77,11 +77,17 @@ export class Element {
   // location-only fields.
   @tracked tokens;
   // place only -- marks it as the net's starting place, drawn with a
-  // short unconnected stub arrow pointing into it (the standard
-  // automaton/Petri net "entry point" marker) -- distinct from just
-  // having tokens, since a place can hold a nonzero marking without
-  // being where the net's control flow is considered to begin.
+  // small filled black circle concentric with the place (a visible white
+  // gap to the place's own outline) -- distinct from just having tokens,
+  // since a place can hold a nonzero marking without being where the
+  // net's control flow is considered to begin.
   @tracked isStart;
+  // transition only -- marks it as a NOP (no-operation) transition,
+  // drawn as a solid filled bar instead of the ordinary white-filled
+  // outlined box, with no label -- the standard Petri-net notation for a
+  // transition with no real action, used purely for routing/
+  // synchronization.
+  @tracked isNop;
 
   constructor(
     id,
@@ -93,6 +99,7 @@ export class Element {
       channel = null,
       tokens = 0,
       isStart = false,
+      isNop = false,
     } = {},
   ) {
     this.id = id;
@@ -103,6 +110,7 @@ export class Element {
     this.channel = channel;
     this.tokens = tokens;
     this.isStart = isStart;
+    this.isNop = isNop;
   }
 }
 
@@ -593,6 +601,7 @@ export class FmcModel {
             channel: element.channel ? { ...element.channel } : null,
             tokens: element.tokens,
             isStart: element.isStart,
+            isNop: element.isNop,
           },
         ]),
       ),
@@ -632,6 +641,7 @@ export class FmcModel {
           channel: element.channel ? { ...element.channel } : null,
           tokens: element.tokens ?? 0,
           isStart: element.isStart ?? false,
+          isNop: element.isNop ?? false,
         }),
       );
     }

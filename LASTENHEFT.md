@@ -243,6 +243,10 @@ implementation notes here — that's the other two documents' job.
 - As a modeler, I want to mark a place as the net's starting place, shown
   with a small filled black circle concentric with the place, with a
   visible white gap to the place's own outline.
+- As a modeler, I want a NOP (no-operation) transition -- a wide, thin,
+  unlabeled bar for routing/synchronization with no real action -- and I
+  don't want a new place named by default, since it's usually just an
+  unnamed marking-holder.
 - As a modeler, I want to open a Fumoco model file directly in VS Code
   and get the same editing experience as the standalone app.
 

@@ -87,6 +87,10 @@ export default class PropertiesPanel extends Component {
     return this.selectedElement?.type === 'place';
   }
 
+  get showsNopOption() {
+    return this.selectedElement?.type === 'transition';
+  }
+
   @action
   updateLabel(event) {
     const element = this.selectedElement;
@@ -121,6 +125,15 @@ export default class PropertiesPanel extends Component {
     if (!element) return;
     this.modelStore.mutate(() => {
       element.isStart = event.target.checked;
+    });
+  }
+
+  @action
+  toggleNop(event) {
+    const element = this.selectedElement;
+    if (!element) return;
+    this.modelStore.mutate(() => {
+      element.isNop = event.target.checked;
     });
   }
 
@@ -228,6 +241,16 @@ export default class PropertiesPanel extends Component {
               {{on "change" this.toggleStart}}
             />
             Start place
+          </label>
+        {{/if}}
+        {{#if this.showsNopOption}}
+          <label class="properties-panel-field properties-panel-checkbox">
+            <input
+              type="checkbox"
+              checked={{this.selectedElement.isNop}}
+              {{on "change" this.toggleNop}}
+            />
+            NOP transition
           </label>
         {{/if}}
         <div class="properties-panel-field">

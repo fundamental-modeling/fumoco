@@ -673,6 +673,29 @@ section for the exact counts.
   against that. The isStart inner-circle sizing (`0.47 *
   Math.min(box.width, box.height)`) is already relative to the place's
   own size, so it scales down automatically with no separate change.
+  `addPlace` also now creates a place with `null` label instead of "New
+  place", matching `addPartition`'s already-unlabeled default -- a place
+  is usually just an unnamed marking-holder.
+- `Element.isNop` (transition-only, default `false`) marks a NOP
+  (no-operation) transition -- one with no real action, used purely for
+  routing/synchronization -- toggled via the properties panel's "NOP
+  transition" checkbox (`showsNopOption`/`toggleNop`, mirroring
+  `isStart`'s pattern). `buildShape` skips the label entirely when set
+  (`isNopTransition = element.type === TRANSITION && element.isNop`) but
+  keeps the ordinary white-fill/black-outline rectangle styling --
+  distinguished by its proportions, not a solid fill (an initial attempt
+  filled it solid black; the user corrected that a NOP bar is not
+  filled). `addNopTransition` in `palette.gjs` (a dedicated button,
+  shown alongside "Place"/"Transition" in a `petri` view) creates one
+  pre-sized to 300x17 -- from the same reference screenshot (NOP bar
+  ~0.67em tall, ~12.0em wide, against the ~2.4em/60px transition height,
+  scale ~25px/em). `verticalArcPath` treats a NOP transition identically
+  to any other transition for routing purposes; `isNop` only changes how
+  it's drawn, not the bipartite rule or arc geometry. `palette.gjs`'s
+  `addElement` helper gained an `...elementOpts` rest param (spread into
+  `FmcModel.addElement`'s own opts) so `isNop: true` -- and any future
+  per-element flag -- can be passed through without a bespoke parameter
+  for each one.
 - ER cardinality: an entity_set<->relation arc's `cardinality` field
   (`null` or `'one'`, toggled via the arc's right-click menu,
   `FmcModel.updateArcCardinality`) draws a small filled triangle a short
@@ -724,8 +747,8 @@ section for the exact counts.
   (sized to contain the relation) and sets `view.nestedUnder` so it's
   displayed nested there immediately, not just related in the model.
 
-**Known gaps, tracked as future work, not bugs**: no NOP transitions, no
-swimlanes, no recursion elements, no standard-construct stencils
+**Known gaps, tracked as future work, not bugs**: no swimlanes, no
+recursion elements, no standard-construct stencils
 (sequence/case/loop/concurrency) for Petri nets; no role labels or n-ary
 relations beyond what a generic arc already allows, for ER diagrams; no
 export; no validation extension (`FmcModel.validate` still only checks

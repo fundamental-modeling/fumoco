@@ -501,6 +501,18 @@ module('Unit | Utility | fmc-model', function () {
       const restored = FmcModel.fromJSON(model.toJSON());
       assert.true(restored.elements.get(place).isStart);
     });
+
+    test('a transition element defaults isNop to false, settable via addElement, and round-trips', function (assert) {
+      const model = new FmcModel();
+      const transition = model.addElement(ElementType.TRANSITION, {
+        isNop: true,
+      });
+
+      assert.true(model.elements.get(transition).isNop);
+
+      const restored = FmcModel.fromJSON(model.toJSON());
+      assert.true(restored.elements.get(transition).isNop);
+    });
   });
 
   module('legacy JSON migration (pre-rename autosaves/files)', function () {

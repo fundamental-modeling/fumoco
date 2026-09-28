@@ -43,10 +43,10 @@ export default class Palette extends Component {
       : `Click the ${rule.sourceLabel}…`;
   }
 
-  addElement(type, label, { width = 120, height = 60 } = {}) {
+  addElement(type, label, { width = 120, height = 60, ...elementOpts } = {}) {
     const view = this.modelStore.activeView;
     this.modelStore.mutate((model) => {
-      const id = model.addElement(type, { label });
+      const id = model.addElement(type, { label, ...elementOpts });
       if (view) {
         const { x, y } = nextFreeBoxPosition(view, width, height);
         view.included.push(id);
@@ -80,12 +80,26 @@ export default class Palette extends Component {
     // diameter) once the transition box itself went back to its original
     // 120x60 (the 200x110 transition read too large next to the label
     // text) -- 60 * (1.33/2.4) ~= 33.
-    this.addElement(ElementType.PLACE, 'New place', { width: 33, height: 33 });
+    this.addElement(ElementType.PLACE, null, { width: 33, height: 33 });
   }
 
   @action
   addTransition() {
     this.addElement(ElementType.TRANSITION, 'New transition');
+  }
+
+  @action
+  addNopTransition() {
+    // A wide, thin unlabeled bar -- FMC's notation for a transition with
+    // no real action, used purely for routing/synchronization. Sized
+    // from the same measured reference screenshot as the place/
+    // transition ratio (NOP bar ~0.67em tall, ~12.0em wide, against the
+    // ~2.4em transition height that's 60px here -- scale ~25px/em).
+    this.addElement(ElementType.TRANSITION, null, {
+      width: 300,
+      height: 17,
+      isNop: true,
+    });
   }
 
   @action
@@ -123,6 +137,8 @@ export default class Palette extends Component {
           type="button"
           {{on "click" this.addTransition}}
         >Transition</button>
+        <button type="button" {{on "click" this.addNopTransition}}>NOP
+          transition</button>
       {{else if (eq this.diagramType "er")}}
         <button type="button" {{on "click" this.addEntitySet}}>Entity set</button>
         <button type="button" {{on "click" this.addRelation}}>Relation</button>

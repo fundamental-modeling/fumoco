@@ -1641,6 +1641,8 @@ export default class CanvasView extends Component {
     const isPlace = element.type === ElementType.PLACE;
     const isEntitySet = element.type === ElementType.ENTITY_SET;
     const isPartition = element.type === ElementType.PARTITION;
+    const isNopTransition =
+      element.type === ElementType.TRANSITION && element.isNop;
     // A channel's place, a Petri net place, or an ER entity set all use
     // the same trick: cornerRadius = half the *smaller* box dimension.
     // For a square box that reads as a perfect circle (channel/place);
@@ -1741,7 +1743,9 @@ export default class CanvasView extends Component {
         fontStyle: isChannel && element.channel.shorthand ? 'bold' : 'normal',
       });
     }
-    group.add(label);
+    // A NOP transition carries no label -- it's a solid bar, and any text
+    // on top of a black fill wouldn't read anyway.
+    if (!isNopTransition) group.add(label);
 
     group.on('click', (event) => {
       event.cancelBubble = true;
