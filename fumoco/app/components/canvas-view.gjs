@@ -1683,24 +1683,21 @@ export default class CanvasView extends Component {
       group.add(this.buildStickFigure(box));
     }
 
-    // A start place gets a short, unconnected stub arrow pointing into
-    // its left side -- the standard automaton/Petri net "entry point"
-    // marker, distinct from just holding tokens (a place can have a
-    // nonzero marking without being where the net's flow begins).
+    // A start place is marked by a small filled black circle concentric
+    // with the place, with a visible white gap to the place's own
+    // outline -- not a stub arrow (that was wrong; FMC's actual
+    // convention, per a measured reference screenshot: the inner circle
+    // reads at roughly 0.45-0.5x the place's own diameter, leaving most
+    // of the place's radius as the gap). Distinct from just holding
+    // tokens (a place can have a nonzero marking without being where the
+    // net's flow begins).
     if (isPlace && element.isStart) {
-      const midY = box.height / 2;
       group.add(
-        new Konva.Line({
-          points: arrowHeadPoints({ x: 0, y: midY }, { x: -18, y: midY }, 7),
-          closed: true,
+        new Konva.Circle({
+          x: box.width / 2,
+          y: box.height / 2,
+          radius: (Math.min(box.width, box.height) * 0.47) / 2,
           fill: '#000000',
-        }),
-      );
-      group.add(
-        new Konva.Line({
-          points: [-18, midY, -4, midY],
-          stroke: '#000000',
-          strokeWidth: 2,
         }),
       );
     }

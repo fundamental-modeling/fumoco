@@ -241,7 +241,8 @@ implementation notes here — that's the other two documents' job.
   all the way around — and a diagonal arc should actually leave from a
   place's circle, not the corner of its invisible bounding box.
 - As a modeler, I want to mark a place as the net's starting place, shown
-  with the standard short unconnected arrow pointing into it.
+  with a small filled black circle concentric with the place, with a
+  visible white gap to the place's own outline.
 - As a modeler, I want to open a Fumoco model file directly in VS Code
   and get the same editing experience as the standalone app.
 

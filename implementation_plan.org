@@ -308,6 +308,14 @@ recursion elements, the standard-construct stencils tracked separately
 under Milestone A's visualization-guidance items — all deliberately out
 of scope for this pass per "primitive support is okay for now".
 
+Reference measurements from a screenshot the user analyzed (em units,
+text height = 1.0em as the reference): place diameter ~1.33em; start-
+place's filled inner circle ~0.6-0.67em (used for the isStart marker
+below); transition box height ~2.4em, width ~4.5em; a NOP-transition bar
+~0.67em tall, ~12.0em wide. Only the place/inner-circle ratio has been
+applied so far (see the isStart entry below); the transition proportions
+and NOP-bar dimensions are noted here for whenever those get built.
+
 Follow-up fix: a Petri arc almost always exits its source's bottom
 (south) and enters its target's top (north), perpendicular to that edge,
 via a dedicated =verticalArcPath= rather than the generic shortest-route
@@ -467,10 +475,20 @@ directly.
 
 ** DONE Petri net starting-place notation
 A place's new =isStart= flag (toggled via the properties panel) draws a
-short, unconnected stub arrow pointing into its left side -- the
-standard automaton/Petri-net "entry point" marker, distinct from just
-holding tokens (a place can have a nonzero marking without being where
-the net's flow is considered to begin).
+small filled black circle concentric with the place, with a visible
+white gap to the place's own outline -- distinct from just holding
+tokens (a place can have a nonzero marking without being where the
+net's flow is considered to begin).
+
+Corrected after an initial wrong attempt (a short, unconnected stub
+arrow pointing into the place's left side, which isn't FMC's actual
+convention): the real notation is the concentric-circle marker above.
+Sized from a measured reference screenshot (analyzed by the user, in em
+units relative to text height): place diameter ~1.33em, filled inner
+circle diameter ~0.6-0.67em -- a ratio of ~0.45-0.5, applied here as
+=Math.min(box.width, box.height) * 0.47= for the inner circle's
+diameter, so it scales with the place's own size rather than being a
+fixed pixel value.
 
 ** DONE Editor enforces the place/transition bipartite rule
 The same way it enforces agent/storage today -- =FmcModel.addArc=

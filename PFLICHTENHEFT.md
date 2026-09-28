@@ -651,11 +651,17 @@ section for the exact counts.
   `FmcModel.createView`.
 - `Element.isStart` (place-only, default `false`) marks a Petri net's
   starting place, toggled via the properties panel. `buildShape` draws a
-  short, unconnected stub arrow (a filled triangle plus a short line, no
-  `Konva` node beyond the group itself) pointing into the place's left
-  side when set -- the standard automaton/Petri-net "entry point" marker,
-  independent of `tokens` (a place can hold a nonzero marking without
-  being where the net's flow is considered to begin).
+  small filled black `Konva.Circle` concentric with the place when set,
+  with a visible white gap to the place's own outline -- independent of
+  `tokens` (a place can hold a nonzero marking without being where the
+  net's flow is considered to begin). Sized as `Math.min(box.width,
+  box.height) * 0.47` for the inner circle's diameter, so it scales with
+  the place rather than a fixed pixel value -- the ratio comes from a
+  measured reference screenshot (place diameter ~1.33em, filled inner
+  circle ~0.6-0.67em, i.e. ~0.45-0.5x). An earlier version instead drew a
+  short, unconnected stub arrow pointing into the place's left side; that
+  wasn't FMC's actual convention and was replaced outright, not kept
+  alongside the correct marker.
 - ER cardinality: an entity_set<->relation arc's `cardinality` field
   (`null` or `'one'`, toggled via the arc's right-click menu,
   `FmcModel.updateArcCardinality`) draws a small filled triangle a short
