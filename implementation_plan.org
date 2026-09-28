@@ -391,6 +391,22 @@ connects to that lane directly with a single plain segment. Down to
 exactly 4 points now (diagonal stub, one bend onto the lane, one bend
 into the straight port) instead of 6.
 
+Fixed a second bug in the *forward* case, also caught by tracing a
+hand-provided example ("Reg test 3"): a plumb-line shortcut had just been
+added there too (drop a straight vertical line instead of forcing the
+entry to the target's own center, whenever the source's exit x already
+lands safely on the target's edge) -- but the first version applied it
+unconditionally, including when the *target* was a place. A place's only
+valid attachment point is its own circle pole (center-x); landing
+anywhere else along its bounding box's flat top edge doesn't read as
+"arriving at the circle" at all, corner margin or not. Fixed by treating
+a circular end's own center as non-negotiable and only ever letting a
+*rectangular* end's attachment point shift to meet the other side --
+when the source is a transition and the target a place, it's the
+transition's exit that shifts to line up with the place's fixed pole
+(not the reverse), still only when that shift lands safely inside the
+transition's own edge.
+
 ** DONE Petri net starting-place notation
 A place's new =isStart= flag (toggled via the properties panel) draws a
 short, unconnected stub arrow pointing into its left side -- the

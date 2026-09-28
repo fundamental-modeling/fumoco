@@ -418,4 +418,83 @@ module('Unit | Component | canvas-view (nesting geometry)', function () {
       assert.true(isAxisAligned, `segment ${i} should be axis-aligned`);
     }
   });
+
+  // Human-provided regression tests: real box layouts the user pasted in
+  // from the running app after spotting a routing defect, traced by hand
+  // against the actual algorithm rather than invented from the code.
+
+  test('Reg test 1 (human-provided): a place with straight arcs above/below and a reciprocal loop-back pair beside it', function (assert) {
+    const P = { x: 130, y: 170, width: 60, height: 60 };
+    const A = { x: 100, y: 10, width: 120, height: 60 }; // above P
+    const C = { x: 100, y: 370, width: 120, height: 60 }; // below P
+    const B = { x: 350, y: 170, width: 120, height: 60 }; // beside P
+
+    // A -> P and P -> C both share x-center 160 with their neighbor, so
+    // each is the plain forward case collapsed to a straight line.
+    assert.deepEqual(verticalArcPath(A, P, { targetCircular: true }), [
+      { x: 160, y: 70 },
+      { x: 160, y: 170 },
+    ]);
+    assert.deepEqual(verticalArcPath(P, C, { sourceCircular: true }), [
+      { x: 160, y: 230 },
+      { x: 160, y: 370 },
+    ]);
+
+    const k = Math.SQRT1_2;
+    // P -> B: leaves P's circle to the NE, bends onto a lane above both
+    // boxes, then straight down into B's plain north port.
+    const pToB = verticalArcPath(P, B, { sourceCircular: true });
+    assert.deepEqual(pToB, [
+      { x: 160 + 30 * k, y: 200 - 30 * k },
+      { x: 160 + 30 * k + 28, y: 200 - 30 * k - 28 },
+      { x: 410, y: 200 - 30 * k - 28 },
+      { x: 410, y: 170 },
+    ]);
+    // B -> P (the reciprocal arc): straight south out of B, then into
+    // P's circle from the SE -- never the same corner/port as P -> B.
+    const bToP = verticalArcPath(B, P, { targetCircular: true });
+    assert.deepEqual(bToP, [
+      { x: 410, y: 230 },
+      { x: 410, y: 200 + 30 * k + 28 },
+      { x: 160 + 30 * k + 28, y: 200 + 30 * k + 28 },
+      { x: 160 + 30 * k, y: 200 + 30 * k },
+    ]);
+    // The two never share an anchor on either box.
+    assert.notDeepEqual(pToB[0], bToP.at(-1));
+    assert.notDeepEqual(pToB.at(-1), bToP[0]);
+  });
+
+  test('Reg test 2 (human-provided): a straight plumb line beats a forced bend to the target center when it lands clear of the corners', function (assert) {
+    const P = { x: 130, y: 170, width: 60, height: 60 };
+    // C's own x-center (170) differs from P's (160), but P is a place,
+    // so its exit is fixed at its own circle pole (160) regardless --
+    // and that x still lands inside C's top edge, clear of both corners
+    // by more than EDGE_CORNER_RADIUS, so C's (flexible, rectangular)
+    // entry can shift to meet it with a straight vertical line.
+    const C = { x: 110, y: 280, width: 120, height: 60 };
+
+    const path = verticalArcPath(P, C, { sourceCircular: true });
+
+    assert.deepEqual(path, [
+      { x: 160, y: 230 },
+      { x: 160, y: 280 },
+    ]);
+  });
+
+  test('Reg test 3 (human-provided): a circular target keeps its own pole fixed -- the flexible (rectangular) source shifts to meet it, not the other way around', function (assert) {
+    const A = { x: 110, y: 10, width: 120, height: 60 };
+    // P is a place: its entry point must always be its own circle pole
+    // (x=160, the true "top" of the circle), never wherever A's own
+    // center (170) happens to land. Since 160 still falls safely inside
+    // A's own top edge (clear of both corners), A's exit shifts to meet
+    // it instead -- a straight line at x=160, not A's own center.
+    const P = { x: 130, y: 170, width: 60, height: 60 };
+
+    const path = verticalArcPath(A, P, { targetCircular: true });
+
+    assert.deepEqual(path, [
+      { x: 160, y: 70 },
+      { x: 160, y: 170 },
+    ]);
+  });
 });

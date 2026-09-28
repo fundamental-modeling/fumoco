@@ -442,9 +442,20 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
     a single bidirectional edge, which a Petri arc must never be; fixed
     ports make forward and reverse arcs take visibly different paths
     instead. When the target's top is at or below the source's bottom, a
-    single horizontal leg at their midpoint connects the two (already
-    guaranteed clear of both boxes, since it sits below the source's
-    bottom and above the target's top by construction).
+    circular end (a place) has exactly one valid attachment point on that
+    side -- its own pole (center-x), the actual "top"/"bottom" of the
+    circle, not just anywhere along its bounding box's flat edge -- and
+    can't shift to line up with the other end; a rectangular end (a
+    transition) can attach anywhere along its flat edge, so it's free to
+    shift and meet the other end's x with a single straight vertical
+    line, *if* that lands safely inside its own edge (inboard of each
+    corner by `EDGE_CORNER_RADIUS`, the same radius every bend in this
+    path already rounds to, so a "straight" line never reads as clipping
+    the corner). When both ends are rectangular, the source's own center
+    is preferred as the line's x. Only when even that doesn't fit does it
+    fall back to each end's own center and a horizontal leg at their
+    midpoint (already guaranteed clear of both boxes, since it sits below
+    the source's bottom and above the target's top by construction).
 
     When the target *isn't* below the source, two distinct shapes apply,
     chosen by whether the boxes' x-ranges actually overlap:
@@ -520,6 +531,20 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
     lane with a single plain segment, no bend of its own. Exactly 4
     points now (diagonal stub, bend onto the lane, bend into the straight
     port) instead of 6.
+
+    A second bug turned up in the *forward* case's plumb-line shortcut,
+    caught the same way (tracing a hand-provided example, "Reg test 3"):
+    the first version applied it unconditionally, so when the target was
+    a place, the line's x came from the source's own center regardless
+    of the place's actual pole -- landing the arrow somewhere on the
+    place's flat bounding-box edge instead of the true top/bottom of its
+    circle, which doesn't read as "arriving at the circle" at all, corner
+    margin or not. Fixed by making a circular end's own center
+    non-negotiable and only ever letting a rectangular end's attachment
+    point shift to meet the other side: `fixedX` is the circular end's
+    center when either end is circular (or the source's center when
+    neither is), and only the *other*, rectangular box (`flexBox`) is
+    checked for whether that x fits inside it.
   - An **ER arc** (entity_set<->relation) keeps using `orthogonalPath` --
     an ER diagram has no fixed reading direction (see `spec/index.html`'s
     ER section), so the shortest-route logic that access edges already

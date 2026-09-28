@@ -294,14 +294,10 @@ function diagonalBoundaryPoint(box, isCircular, signX, signY) {
   };
 }
 
-// `targetCircular` isn't read here: a Petri arc is always place<->
-// transition (the bipartite rule), so exactly one end is ever circular,
-// and `sourceCircular` alone already says which -- callers still pass
-// both, matching `drawArc`'s own options shape.
 export function verticalArcPath(
   sourceBox,
   targetBox,
-  { sourceCircular = false } = {},
+  { sourceCircular = false, targetCircular = false } = {},
 ) {
   const sourceBottom = sourceBox.y + sourceBox.height;
   const sourceCenterX = sourceBox.x + sourceBox.width / 2;
@@ -313,6 +309,35 @@ export function verticalArcPath(
   // guaranteed clear of both boxes, since it's below the source's own
   // bottom edge and above the target's own top edge by construction.
   if (targetBox.y >= sourceBottom) {
+    // A circular end (a place) has exactly one valid attachment point on
+    // this side -- its own pole (center-x), the true "top"/"bottom" of
+    // the circle -- and can't shift to line up with the other end; a
+    // rectangular end (a transition), by contrast, can attach anywhere
+    // along its flat edge, so it's free to shift and meet the other
+    // end's x if that lands safely inside its own edge (inboard of each
+    // corner by EDGE_CORNER_RADIUS, the same radius every bend in this
+    // path already rounds to, so a "straight" line never reads as
+    // clipping the corner). When both ends are rectangular, the source's
+    // own center is preferred as the line's x (arbitrary but consistent
+    // with which port the diagram reads as "primary"); if that can't be
+    // met either, both ends fall back to their own centers and the path
+    // bends between them.
+    const fixedX = sourceCircular
+      ? sourceCenterX
+      : targetCircular
+        ? targetCenterX
+        : sourceCenterX;
+    const flexBox = sourceCircular ? targetBox : sourceBox;
+    const fitsFlexBox =
+      !(sourceCircular && targetCircular) &&
+      fixedX >= flexBox.x + EDGE_CORNER_RADIUS &&
+      fixedX <= flexBox.x + flexBox.width - EDGE_CORNER_RADIUS;
+    if (fitsFlexBox) {
+      return [
+        { x: fixedX, y: sourceBottom },
+        { x: fixedX, y: targetBox.y },
+      ];
+    }
     const exit = { x: sourceCenterX, y: sourceBottom };
     const enter = { x: targetCenterX, y: targetBox.y };
     if (exit.x === enter.x) return [exit, enter];
