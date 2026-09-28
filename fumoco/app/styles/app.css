@@ -352,9 +352,40 @@ body {
   margin: 0 4px;
 }
 
-.canvas-view {
+.canvas-view-wrapper {
+  position: relative;
   flex: 1;
+  min-height: 0;
+}
+
+.canvas-view {
+  position: absolute;
+  inset: 0;
   background: #fafafa;
   background-image: radial-gradient(#e0e0e0 1px, transparent 1px);
   background-size: 10px 10px;
+}
+
+.canvas-export-toolbar {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+}
+
+/* stylelint-disable-next-line no-descending-specificity -- unrelated
+   component (canvas overlay vs. tree panel); see the same pattern above
+   for .canvas-context-menu button. */
+.canvas-export-toolbar button {
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* stylelint-disable-next-line no-descending-specificity -- see above */
+.canvas-export-toolbar button:hover {
+  background: #f2f2f2;
 }

@@ -606,6 +606,11 @@ export default class CanvasView extends Component {
     this.transformer = new Konva.Transformer({
       boundBoxFunc: (oldBox, newBox) =>
         newBox.width < MIN_SIZE || newBox.height < MIN_SIZE ? oldBox : newBox,
+      // Boxes stay axis-aligned -- rotation isn't persisted anywhere
+      // (buildShape never reads back a rotation), so the handle Konva
+      // shows by default did nothing but confuse users into thinking
+      // rotation was a supported gesture.
+      rotateEnabled: false,
     });
     this.stage.add(this.shapeLayer);
     this.stage.add(this.guideLayer);
@@ -1323,6 +1328,80 @@ export default class CanvasView extends Component {
     this.transformer.getLayer()?.batchDraw();
   }
 
+  // The bounding box over every element actually shown in this view
+  // (post-nesting-fit, via computeEffectiveBoxes) -- what "export the
+  // whole diagram" has to mean, since the canvas itself is an infinite
+  // pannable surface with no fixed extent of its own.
+  contentBounds(view) {
+    const boxes = [
+      ...computeEffectiveBoxes(this.modelStore.model, view).values(),
+    ];
+    if (!boxes.length) return null;
+    const minX = Math.min(...boxes.map((b) => b.x));
+    const minY = Math.min(...boxes.map((b) => b.y));
+    const maxX = Math.max(...boxes.map((b) => b.x + b.width));
+    const maxY = Math.max(...boxes.map((b) => b.y + b.height));
+    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+  }
+
+  // PNG export (SVG is a separate, much larger task -- a hand-written
+  // serializer independent of Konva's own canvas rendering, tracked as
+  // its own follow-up rather than half-built alongside this).
+  @action
+  exportPng() {
+    const view = this.modelStore.activeView;
+    if (!this.stage || !view) return;
+    const bounds = this.contentBounds(view);
+    if (!bounds) return;
+    const margin = 20;
+    const width = bounds.width + margin * 2;
+    const height = bounds.height + margin * 2;
+
+    // Export must cover the whole diagram, not just whatever's currently
+    // scrolled into view -- temporarily resize/reposition the stage to
+    // fit the full content, render, then restore. Synchronous start to
+    // finish (toDataURL doesn't yield), so this never paints on screen.
+    const originalPos = { x: this.stage.x(), y: this.stage.y() };
+    const originalSize = {
+      width: this.stage.width(),
+      height: this.stage.height(),
+    };
+    this.transformer.nodes([]); // hide selection handles for the export
+    this.stage.position({ x: -bounds.x + margin, y: -bounds.y + margin });
+    this.stage.size({ width, height });
+
+    // The stage itself has no background -- shapes render on
+    // transparency -- so a plain white page needs its own rect, behind
+    // everything, removed again right after.
+    const background = new Konva.Rect({
+      x: 0,
+      y: 0,
+      width,
+      height,
+      fill: '#ffffff',
+      listening: false,
+    });
+    this.shapeLayer.add(background);
+    background.moveToBottom();
+    this.stage.batchDraw();
+
+    const dataUrl = this.stage.toDataURL({
+      pixelRatio: 2,
+      mimeType: 'image/png',
+    });
+
+    background.destroy();
+    this.stage.position(originalPos);
+    this.stage.size(originalSize);
+    this.attachTransformer();
+    this.stage.batchDraw();
+
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = `${(view.name || 'fumoco-view').replace(/[^a-z0-9_-]+/gi, '_')}.png`;
+    link.click();
+  }
+
   promptRename(id) {
     const element = this.modelStore.model.elements.get(id);
     if (!element) return;
@@ -1980,14 +2059,19 @@ export default class CanvasView extends Component {
   }
 
   <template>
-    <div
-      class="canvas-view"
-      {{this.setupStage}}
-      {{this.syncShapes}}
-      {{this.syncSelection}}
-      {{this.syncEdgeSelection}}
-      {{this.syncConnectorEligibility}}
-    ></div>
+    <div class="canvas-view-wrapper">
+      <div
+        class="canvas-view"
+        {{this.setupStage}}
+        {{this.syncShapes}}
+        {{this.syncSelection}}
+        {{this.syncEdgeSelection}}
+        {{this.syncConnectorEligibility}}
+      ></div>
+      <div class="canvas-export-toolbar">
+        <button type="button" {{on "click" this.exportPng}}>Export PNG</button>
+      </div>
+    </div>
     {{#if this.contextMenu}}
       <ul
         class="canvas-context-menu"

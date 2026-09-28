@@ -109,7 +109,28 @@ in the same view still renders as a single box at one position, and
 element being drawn once per container. Full "draw once per occurrence"
 needs the instance-based view schema (see the open item below).
 
-** TODO Export a view as PNG and as SVG
+** DONE Export a view as PNG
+An "Export PNG" button overlays the canvas (top-right, =canvas-view.gjs=)
+and exports the whole diagram, not just whatever's currently scrolled
+into view: the content bounds come from =computeEffectiveBoxes= over the
+active view, the stage is temporarily resized/repositioned to fit that
+(plus a margin) with a white background rect behind everything (the
+stage itself has no background of its own), rendered via
+=stage.toDataURL({ pixelRatio: 2 })=, then everything is restored --
+synchronous start to finish, so it never paints on screen. Not yet
+visually verified in a live browser (no Claude-in-Chrome connection
+available this session) -- confirmed via code review and the existing
+test suite only.
+
+** TODO Export a view as SVG
+Split out from the PNG item above, which is now done -- SVG needs a
+genuinely separate implementation, not just another =stage.export=
+call: Konva has no built-in vector SVG export, so per the original plan
+this needs a hand-written serializer that walks the same view model
+=buildShape=/=drawArc= already render from and emits
+=<rect>=/=<path>=/=<text>= directly (a JS sibling to
+=attic/src/fmc/render.py='s drawing logic). Deferred rather than
+half-built alongside the PNG work.
 
 ** TODO Delete a connector, not just an element
 E.g. by selecting it on the canvas.
@@ -192,10 +213,12 @@ or delete it directly from the list.
 
 ** OPEN A diagram (view) carries title, created-at, updated-at, author, and contributor fields
 
-** TODO Box size only ever changes via the 8 resize handles, never any other gesture
-Should already hold given the current interaction model; recorded as an
-explicit requirement to guard against a future regression, same spirit
-as the rotation-handle removal below.
+** DONE Box size only ever changes via the 8 resize handles, never any other gesture
+Already held given the current interaction model (dragging only ever
+translates x/y via =group.draggable=, never touches width/height) --
+confirmed, not changed, once the rotation handle below was disabled too
+(=rotateEnabled: false= means Konva's =Transformer= now exposes exactly
+the 8 corner/edge anchors and nothing else).
 
 ** DONE A container's label never renders smaller than its children's labels
 Was actually backwards (container label was 12px vs. a leaf's 15px) until
@@ -203,11 +226,11 @@ fixed — same fontSize as a leaf now, just top-left-positioned and gray so
 it still reads as a container label. A real complaint about the old
 Python auto-layouter too, not a new one.
 
-** TODO Remove the non-functional rotation handle from the Transformer
+** DONE Remove the non-functional rotation handle from the Transformer
 Rotation isn't persisted (=buildShape='s =transformend= only reads
 scale, not rotation) and isn't wanted at all — axis-aligned only.
-Disable outright (=rotateEnabled: false=) rather than implementing
-working rotation.
+Disabled outright (=rotateEnabled: false= on the shared =Konva.Transformer=
+in =canvas-view.gjs=) rather than implementing working rotation.
 
 ** DONE A freshly-added or newly-shown element always draws on top
 =buildDrawOrder= (in =canvas-view.gjs=) replaced the old "every depth-0

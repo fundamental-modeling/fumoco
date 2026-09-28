@@ -12,7 +12,10 @@ folded in here too.
   based Embroider build. No backend, no ember-data — a single
   `model-store` service holds the in-memory model.
 - **Canvas rendering**: Konva.js, chosen so drag/resize/hit-testing don't
-  have to be hand-rolled (`Konva.Transformer` for resize handles).
+  have to be hand-rolled (`Konva.Transformer` for resize handles, shared
+  across every shape type, `rotateEnabled: false` since boxes stay
+  axis-aligned and rotation was never persisted -- exactly the 8 corner/
+  edge anchors, no rotation handle).
 - **Reactivity**: `tracked-built-ins`' `TrackedMap`/`TrackedArray`
   (backed by Ember's own `@ember/reactive/collections`) for the model's
   dynamic-keyed state (`elements`, `views`, `boxes`).
@@ -751,9 +754,52 @@ section for the exact counts.
 recursion elements, no standard-construct stencils
 (sequence/case/loop/concurrency) for Petri nets; no role labels or n-ary
 relations beyond what a generic arc already allows, for ER diagrams; no
-export; no validation extension (`FmcModel.validate` still only checks
+SVG export (PNG export applies to every diagram type -- see "Export"
+below); no validation extension (`FmcModel.validate` still only checks
 block-diagram Access-arity laws). All explicitly out of scope for this
 pass.
+
+## Export (`canvas-view.gjs`: `exportPng`, `contentBounds`)
+
+An "Export PNG" button overlays the canvas (`.canvas-export-toolbar`,
+top-right, inside a new `.canvas-view-wrapper` -- needed because the
+`.canvas-view` div itself is Konva's own stage container, and Konva
+takes it over on creation, so a sibling overlay button can't live inside
+it without risking being clobbered). Works for every diagram type, since
+it operates on the Konva stage directly, not anything diagram-specific.
+
+Exporting "the whole diagram" needs its own definition, since the canvas
+is an infinite pannable surface with no fixed extent: `contentBounds(view)`
+takes the bounding box over every box in `computeEffectiveBoxes(model,
+view)` (post-nesting-fit), which is what "the diagram" actually means
+here. `exportPng` then:
+1. Records the stage's current position/size (to restore after).
+2. Clears the `Transformer`'s selected nodes (hides resize handles for
+   the export) -- restored via the existing `attachTransformer()`.
+3. Repositions/resizes the stage to exactly fit `contentBounds` plus a
+   margin -- this is what makes the export cover the full diagram
+   regardless of what's currently scrolled into view, not just whatever
+   the viewport happens to show.
+4. Adds a temporary white `Konva.Rect` behind everything (the stage
+   itself has no background of its own -- shapes render on
+   transparency), since a transparent-background PNG isn't a usable
+   deliverable.
+5. Calls `stage.toDataURL({ pixelRatio: 2, mimeType: 'image/png' })`.
+6. Destroys the background rect, restores the original stage position/
+   size and the transformer's selection, and triggers a download via a
+   throwaway `<a>` element.
+
+All of steps 1-6 run synchronously in one call stack -- `toDataURL` never
+yields -- so the temporary resize/background never actually paints to
+the screen; there's no visible flash despite resizing the live stage.
+
+**SVG export is a separate, larger task, deliberately not built here**:
+Konva has no built-in vector SVG export, so per the original plan it
+needs a hand-written serializer walking the same view model
+`buildShape`/`drawArc` already render from, emitting
+`<rect>`/`<path>`/`<text>` directly (a JS sibling to
+`attic/src/fmc/render.py`'s drawing logic) -- tracked as its own
+`implementation_plan.org` entry rather than half-built alongside PNG.
 
 ## Canvas viewport (pan)
 
