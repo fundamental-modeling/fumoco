@@ -80,7 +80,16 @@ export default class Palette extends Component {
 
   @action
   addTransition() {
-    this.addElement(ElementType.TRANSITION, 'New transition');
+    // Sized relative to the place's 60px diameter using the em ratios
+    // measured from a reference screenshot (transition height ~2.4em,
+    // width ~4.5em, place diameter ~1.33em -> ~108x203px), rounded to a
+    // cleaner 110x200 -- noticeably larger than the generic 120x60
+    // default, matching how much taller/wider a transition reads next to
+    // a place in the actual notation.
+    this.addElement(ElementType.TRANSITION, 'New transition', {
+      width: 200,
+      height: 110,
+    });
   }
 
   @action
