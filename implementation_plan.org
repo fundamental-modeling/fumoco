@@ -207,10 +207,9 @@ Already works: a background click (stage mouseup with no marquee) calls
 view's fields when nothing is selected. Verified by code trace
 2026-09-29.
 
-** TODO Model tree row: rename/delete buttons on the same line as the title, right-aligned
-Decided 2026-09-29: always visible, compact icon buttons; the title
-truncates with an ellipsis instead of the button wrapping (currently
-=width: 100%=).
+** DONE Model tree row: rename/delete buttons on the same line as the title, right-aligned
+Confirmed done (2026-09-29): compact icon buttons sit right-aligned on
+the title's line.
 
 ** DONE Select an arrow; properties panel lets its access kind be changed
 Click an edge's path on the canvas or a row under the tree's new "Arrows"
@@ -312,11 +311,16 @@ Derived from screening the Visualization Guidelines (2026-09-27, see
 automatic -- default routing stays as-is. Edges entering the same side
 of a box with bundling enabled share their final segment.
 
-** TODO New boxes default to a per-type size, plus a "reset size" action
-Decided 2026-09-29: each element type gets a fixed default size
-(currently everything is 120x60); plus a context-menu/toolbar action that
-resets the selected boxes to their type's default. No automatic nudging
-of existing boxes.
+** DONE New boxes default to a per-type size, plus a "reset size" action
+=defaultBoxSize= (=utils/box-layout.js=) is the single source for every
+"place this element" call site (palette, model tree, arrow rows) and for
+the element context menu's "Reset size" (back to the type default,
+keeping the box's center; a container's manual size is dropped so it
+auto-fits again). An empty relation is ~1em x 3em (45x15 at the 15px
+canvas font); =MIN_SIZE= dropped to 10 so it (and the 17px NOP bar)
+stays resizable. A reified relation's entity set auto-fits as a circle
+twice the relation's longer side across (~6em around a default
+relation), growing with it.
 
 ** DONE Node line weight reads heavier than edge line weight
 Nodes now stroke at =NODE_STROKE_WIDTH= (3, 4 when selected); edges stay
@@ -692,6 +696,11 @@ participate in further relations of its own." Reachable via a relation's
 right-click menu ("Reify into entity set").
 
 * Milestone D — VS Code extension
+
+** OPEN Manual 90-degree turn for a relation (backlog, not prioritized)
+Relations currently turn automatically between vertically stacked
+entity sets (see above). A manual override only if automatic turns out
+not to be enough.
 
 ** TODO Open a Fumoco model file directly in VS Code
 Same editing experience as the standalone app.

@@ -725,3 +725,22 @@ module('Unit | Component | canvas-view (turned ER relations)', function () {
     );
   });
 });
+
+module('Unit | Component | canvas-view (reified relation circle)', function () {
+  test('an entity set around one relation is a circle twice its longer side', function (assert) {
+    const model = new FmcModel();
+    const relation = model.addElement(ElementType.RELATION);
+    const entitySet = model.reifyRelation(relation);
+    const view = model.views.get(model.createView('v', 'er'));
+    view.included.push(relation, entitySet);
+    view.nestedUnder.set(relation, entitySet);
+    view.boxes.set(relation, { x: 100, y: 100, width: 45, height: 15 });
+    // center (122.5, 107.5), diameter 90
+    assert.deepEqual(computeEffectiveBoxes(model, view).get(entitySet), {
+      x: 77.5,
+      y: 62.5,
+      width: 90,
+      height: 90,
+    });
+  });
+});

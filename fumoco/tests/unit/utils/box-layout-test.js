@@ -1,5 +1,6 @@
 import { module, test } from 'qunit';
-import { nextFreeBoxPosition } from 'fumoco/utils/box-layout';
+import { defaultBoxSize, nextFreeBoxPosition } from 'fumoco/utils/box-layout';
+import { ElementType } from 'fumoco/utils/fmc-model';
 
 module('Unit | Utility | box-layout', function () {
   test('places the first box at the base offset', function (assert) {
@@ -47,5 +48,24 @@ module('Unit | Utility | box-layout', function () {
         box.y < position.y + 60;
       assert.false(overlaps, `should not overlap box at (${box.x}, ${box.y})`);
     }
+  });
+
+  test('defaultBoxSize: relation ~1em x 3em, NOP bar, channel, fallback', function (assert) {
+    assert.deepEqual(defaultBoxSize({ type: ElementType.RELATION }), {
+      width: 45,
+      height: 15,
+    });
+    assert.deepEqual(
+      defaultBoxSize({ type: ElementType.TRANSITION, isNop: true }),
+      { width: 300, height: 17 },
+    );
+    assert.deepEqual(
+      defaultBoxSize({ type: ElementType.LOCATION, channel: {} }),
+      { width: 28, height: 28 },
+    );
+    assert.deepEqual(defaultBoxSize({ type: ElementType.AGENT }), {
+      width: 120,
+      height: 60,
+    });
   });
 });

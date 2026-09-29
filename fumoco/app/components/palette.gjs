@@ -6,7 +6,7 @@ import { fn } from '@ember/helper';
 import eq from 'fumoco/helpers/eq';
 import { ElementType } from 'fumoco/utils/fmc-model';
 import { ConnectorKind, connectorRule } from 'fumoco/services/connector-tool';
-import { nextFreeBoxPosition } from 'fumoco/utils/box-layout';
+import { defaultBoxSize, nextFreeBoxPosition } from 'fumoco/utils/box-layout';
 
 const BLOCK_CONNECTOR_BUTTONS = [
   { kind: ConnectorKind.READ, label: 'Read' },
@@ -43,14 +43,15 @@ export default class Palette extends Component {
       : `Click the ${rule.sourceLabel}…`;
   }
 
-  addElement(type, label, { width = 120, height = 60, ...elementOpts } = {}) {
+  addElement(type, label, elementOpts = {}) {
     const view = this.modelStore.activeView;
     this.modelStore.mutate((model) => {
       const id = model.addElement(type, { label, ...elementOpts });
       if (view) {
-        const { x, y } = nextFreeBoxPosition(view, width, height);
+        const size = defaultBoxSize(model.elements.get(id));
+        const { x, y } = nextFreeBoxPosition(view, size.width, size.height);
         view.included.push(id);
-        view.boxes.set(id, { x, y, width, height });
+        view.boxes.set(id, { x, y, ...size });
       }
     });
   }
@@ -72,15 +73,7 @@ export default class Palette extends Component {
 
   @action
   addPlace() {
-    // Square box so the channel/place circle-rendering trick in
-    // buildShape (cornerRadius = half the box) reads as an actual circle
-    // rather than an ellipse. Sized down from the plain 60px default to
-    // keep the transition-height/place-diameter ratio from the measured
-    // reference screenshot (~2.4em transition height / ~1.33em place
-    // diameter) once the transition box itself went back to its original
-    // 120x60 (the 200x110 transition read too large next to the label
-    // text) -- 60 * (1.33/2.4) ~= 33.
-    this.addElement(ElementType.PLACE, null, { width: 33, height: 33 });
+    this.addElement(ElementType.PLACE, null);
   }
 
   @action
@@ -90,16 +83,8 @@ export default class Palette extends Component {
 
   @action
   addNopTransition() {
-    // A wide, thin unlabeled bar -- FMC's notation for a transition with
-    // no real action, used purely for routing/synchronization. Sized
-    // from the same measured reference screenshot as the place/
-    // transition ratio (NOP bar ~0.67em tall, ~12.0em wide, against the
-    // ~2.4em transition height that's 60px here -- scale ~25px/em).
-    this.addElement(ElementType.TRANSITION, null, {
-      width: 300,
-      height: 17,
-      isNop: true,
-    });
+    // No label: a thin bar used purely for routing/synchronization.
+    this.addElement(ElementType.TRANSITION, null, { isNop: true });
   }
 
   @action
@@ -114,9 +99,7 @@ export default class Palette extends Component {
 
   @action
   addPartition() {
-    // Small and roughly square, like a place -- a triangle glyph, not a
-    // label-sized box.
-    this.addElement(ElementType.PARTITION, null, { width: 60, height: 50 });
+    this.addElement(ElementType.PARTITION, null);
   }
 
   @action

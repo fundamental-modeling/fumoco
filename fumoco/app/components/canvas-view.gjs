@@ -15,7 +15,7 @@ import {
   isRoundedElementType,
 } from 'fumoco/utils/fmc-model';
 import { ConnectorKind, connectorRule } from 'fumoco/services/connector-tool';
-import { nextFreeBoxPosition } from 'fumoco/utils/box-layout';
+import { defaultBoxSize } from 'fumoco/utils/box-layout';
 
 const GRID = 10;
 // Advisory page: a default PowerPoint slide, landscape (13.33in x 7.5in
@@ -26,7 +26,7 @@ const PAGE_HEIGHT = 610;
 const ZOOM_STEP = 1.25;
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 4;
-const MIN_SIZE = 20;
+const MIN_SIZE = 10; // below the 15px-high default relation
 const MARQUEE_THRESHOLD = 3; // px of movement before a stage mousedown counts as a drag, not a click
 const NESTING_PADDING = 30;
 // A node's outline should read visibly heavier than an edge's so the two
@@ -136,6 +136,16 @@ export function nestingDepth(model, view, id, includedSet, cache) {
 // no error, just stops trusting a box that no longer makes sense. Computed
 // deepest-first so a grandparent's fit already sees its parent's
 // (already-fit) box.
+function circleAround(box) {
+  const d = 2 * Math.max(box.width, box.height);
+  return {
+    x: box.x + box.width / 2 - d / 2,
+    y: box.y + box.height / 2 - d / 2,
+    width: d,
+    height: d,
+  };
+}
+
 // The same box turned 90 degrees about its center (width/height swapped).
 export function swapBoxAxes({ x, y, width, height }) {
   return {
@@ -210,12 +220,20 @@ export function computeEffectiveBoxes(model, view) {
     const minY = Math.min(...childBoxes.map((b) => b.y));
     const maxX = Math.max(...childBoxes.map((b) => b.x + b.width));
     const maxY = Math.max(...childBoxes.map((b) => b.y + b.height));
-    const autoFit = {
-      x: minX - NESTING_PADDING,
-      y: minY - NESTING_PADDING,
-      width: maxX - minX + 2 * NESTING_PADDING,
-      height: maxY - minY + 2 * NESTING_PADDING,
-    };
+    const onlyChild = childBoxes.length === 1 && displayChildren.get(id)[0];
+    // A reified relation (an entity set around exactly one relation) is
+    // a circle twice the relation's longer side across -- ~6em around a
+    // default 3em relation, growing with it.
+    const autoFit =
+      model.elements.get(id)?.type === ElementType.ENTITY_SET &&
+      model.elements.get(onlyChild)?.type === ElementType.RELATION
+        ? circleAround(childBoxes[0])
+        : {
+            x: minX - NESTING_PADDING,
+            y: minY - NESTING_PADDING,
+            width: maxX - minX + 2 * NESTING_PADDING,
+            height: maxY - minY + 2 * NESTING_PADDING,
+          };
     const stored = view.boxes.get(id);
     effective.set(
       id,
@@ -1839,6 +1857,36 @@ export default class CanvasView extends Component {
     this.selection.clear();
   }
 
+  // Back to each selected box's type default, keeping its center. A
+  // container's manual size is dropped, so it auto-fits again.
+  resetSelectionSize() {
+    const view = this.modelStore.activeView;
+    if (!view) return;
+    const model = this.modelStore.model;
+    const containers = new Set(
+      [...buildDisplayChildIndex(model, view)]
+        .filter(([, children]) => children.length)
+        .map(([id]) => id),
+    );
+    this.modelStore.mutate(() => {
+      for (const id of this.selection.selectedIds) {
+        const box = view.boxes.get(id);
+        if (!box) continue;
+        if (containers.has(id)) {
+          view.boxes.delete(id);
+          continue;
+        }
+        const { width, height } = defaultBoxSize(model.elements.get(id));
+        view.boxes.set(id, {
+          x: snapToGrid(box.x + box.width / 2 - width / 2),
+          y: snapToGrid(box.y + box.height / 2 - height / 2),
+          width,
+          height,
+        });
+      }
+    });
+  }
+
   selectAll() {
     const view = this.modelStore.activeView;
     if (!view) return;
@@ -1989,6 +2037,7 @@ export default class CanvasView extends Component {
     const items = [
       { label: 'Rename', action: () => this.promptRename(id) },
       ...this.clipboardMenuItems(point, { withCutCopy: true }),
+      { label: 'Reset size', action: () => this.resetSelectionSize() },
     ];
     if (element?.type === ElementType.RELATION) {
       items.push({
@@ -2019,10 +2068,9 @@ export default class CanvasView extends Component {
     this.modelStore.mutate((model) => {
       const entitySetId = model.reifyRelation(relationId);
       if (view) {
-        const relationBox = view.boxes.get(relationId);
-        const { x, y } = relationBox ?? nextFreeBoxPosition(view);
+        // No stored box: the entity set auto-fits around the relation as
+        // a circle (see computeEffectiveBoxes).
         view.included.push(entitySetId);
-        view.boxes.set(entitySetId, { x, y, width: 160, height: 120 });
         view.nestedUnder.set(relationId, entitySetId);
       }
       this.selection.select(entitySetId);

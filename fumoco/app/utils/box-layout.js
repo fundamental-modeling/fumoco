@@ -1,3 +1,26 @@
+import { ElementType } from 'fumoco/utils/fmc-model';
+
+// Default box size per element type (px; the canvas font is 15px, so
+// 1em = 15). Used for new boxes and by "Reset size".
+const DEFAULT_SIZES = {
+  // Square, so buildShape's cornerRadius trick reads as a circle. Keeps
+  // the measured place-diameter/transition-height ratio (~1.33em/2.4em).
+  [ElementType.PLACE]: { width: 33, height: 33 },
+  // ~1em high, 3em wide: an unnamed relation just carries its arrow.
+  [ElementType.RELATION]: { width: 45, height: 15 },
+  // A triangle glyph, not a label-sized box.
+  [ElementType.PARTITION]: { width: 60, height: 50 },
+};
+
+export function defaultBoxSize(element) {
+  if (element.channel) return { width: 28, height: 28 };
+  // A wide, thin bar (measured: ~0.67em x 12em against a 2.4em transition).
+  if (element.type === ElementType.TRANSITION && element.isNop) {
+    return { width: 300, height: 17 };
+  }
+  return DEFAULT_SIZES[element.type] ?? { width: 120, height: 60 };
+}
+
 // Where to place a newly-added-to-a-view box so it doesn't land on top of
 // one already there. Used by every "place this element in the active
 // view" call site (palette, model tree, arrow rows) instead of each
