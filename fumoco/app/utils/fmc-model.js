@@ -83,11 +83,15 @@ export class Element {
   // net's control flow is considered to begin.
   @tracked isStart;
   // transition only -- marks it as a NOP (no-operation) transition,
-  // drawn as a solid filled bar instead of the ordinary white-filled
-  // outlined box, with no label -- the standard Petri-net notation for a
-  // transition with no real action, used purely for routing/
-  // synchronization.
+  // drawn as a wide, thin, unlabeled bar (white fill, like any box) --
+  // the standard Petri-net notation for a transition with no real
+  // action, used purely for routing/synchronization.
   @tracked isNop;
+  // Opt-in fill color (one of BOX_FILLS), null = plain white.
+  @tracked fill;
+  // "N similar boxes": drawn as a stack of copies, one exemplar standing
+  // for several instances when the exact count doesn't matter.
+  @tracked multiple;
 
   constructor(
     id,
@@ -100,6 +104,8 @@ export class Element {
       tokens = 0,
       isStart = false,
       isNop = false,
+      fill = null,
+      multiple = false,
     } = {},
   ) {
     this.id = id;
@@ -111,8 +117,19 @@ export class Element {
     this.tokens = tokens;
     this.isStart = isStart;
     this.isNop = isNop;
+    this.fill = fill;
+    this.multiple = multiple;
   }
 }
+
+// The muted, low-saturation fills a box can opt into (null = white).
+export const BOX_FILLS = [
+  '#e8eef5', // blue-gray
+  '#e9f2e6', // sage
+  '#f6f0dc', // sand
+  '#f5e6e3', // rose
+  '#ece8f3', // lavender
+];
 
 function makeId() {
   // randomUUID only exists in secure contexts (https/localhost); served
@@ -652,6 +669,8 @@ export class FmcModel {
             tokens: element.tokens,
             isStart: element.isStart,
             isNop: element.isNop,
+            fill: element.fill,
+            multiple: element.multiple,
           },
         ]),
       ),
@@ -696,6 +715,8 @@ export class FmcModel {
           tokens: element.tokens ?? 0,
           isStart: element.isStart ?? false,
           isNop: element.isNop ?? false,
+          fill: element.fill ?? null,
+          multiple: element.multiple ?? false,
         }),
       );
     }

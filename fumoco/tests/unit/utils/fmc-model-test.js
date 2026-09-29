@@ -197,6 +197,23 @@ module('Unit | Utility | fmc-model', function () {
     assert.strictEqual(legacy.views.get(viewId).updatedAt, null);
   });
 
+  test('toJSON/fromJSON round-trips fill and multiple, defaulting when absent', function (assert) {
+    const model = new FmcModel();
+    const id = model.addElement(ElementType.AGENT, {
+      fill: '#e8eef5',
+      multiple: true,
+    });
+    const restored = FmcModel.fromJSON(model.toJSON()).elements.get(id);
+    assert.strictEqual(restored.fill, '#e8eef5');
+    assert.true(restored.multiple);
+
+    const legacy = FmcModel.fromJSON({
+      elements: { a: { type: ElementType.AGENT, parents: [] } },
+    }).elements.get('a');
+    assert.strictEqual(legacy.fill, null);
+    assert.false(legacy.multiple);
+  });
+
   test("a view's nestedUnder display choices round-trip, including an explicit un-nest (null)", function (assert) {
     const model = new FmcModel();
     const container = model.addElement(ElementType.AGENT);

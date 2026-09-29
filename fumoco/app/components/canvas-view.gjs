@@ -34,6 +34,7 @@ const NESTING_PADDING = 30;
 // edges and nodes"); edges stay at their existing strokeWidth: 2.
 const NODE_STROKE_WIDTH = 3;
 const NODE_STROKE_WIDTH_SELECTED = 4;
+const MULTIPLE_OFFSET = 8; // px between the stacked copies of a "multiple" box
 // Self-hosted via @fontsource/barlow (app.js) so it works offline too --
 // matching the FMC diagrams this app is modeled after. `sans-serif`
 // fallback covers the brief window before the webfont finishes loading
@@ -1447,7 +1448,7 @@ export default class CanvasView extends Component {
           ? 1
           : 0.25,
       );
-      const rect = node.findOne('Rect');
+      const rect = node.findOne('.fumoco-body');
       if (!rect) continue;
       const selected = this.selection.isSelected(id);
       rect.stroke(selected ? '#0078ff' : '#000000');
@@ -1917,6 +1918,8 @@ export default class CanvasView extends Component {
           tokens: element.tokens,
           isStart: element.isStart,
           isNop: element.isNop,
+          fill: element.fill,
+          multiple: element.multiple,
           box: toStoredBox(boxes.get(id)),
         };
       }),
@@ -2294,14 +2297,22 @@ export default class CanvasView extends Component {
           strokeWidth: NODE_STROKE_WIDTH,
         })
       : new Konva.Rect({
+          name: 'fumoco-body',
           width: box.width,
           height: box.height,
-          fill: '#ffffff',
+          fill: element.fill ?? '#ffffff',
           stroke: '#000000',
           strokeWidth: NODE_STROKE_WIDTH,
           cornerRadius,
           dash: isLocation && element.dashed ? [6, 4] : undefined,
         });
+    // "N similar boxes": two copies stacked behind, offset down-right.
+    if (element.multiple) {
+      for (const offset of [2 * MULTIPLE_OFFSET, MULTIPLE_OFFSET]) {
+        const copy = rect.clone({ name: '', x: offset, y: offset });
+        group.add(copy);
+      }
+    }
     group.add(rect);
 
     if (element.type === ElementType.HUMAN_AGENT) {

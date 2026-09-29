@@ -326,15 +326,16 @@ relation), growing with it.
 Nodes now stroke at =NODE_STROKE_WIDTH= (3, 4 when selected); edges stay
 at =strokeWidth: 2=.
 
-** TODO "N similar boxes" marker: stacked-box style on one element
-Decided 2026-09-29: a per-element =multiple= flag draws the box with
-offset copies stacked behind it (FMC's usual many-instances notation).
-No separate ellipsis element.
+** DONE "N similar boxes" marker: stacked-box style on one element
+=Element.multiple= (properties panel checkbox, agents/storages): the box
+is drawn with two copies stacked behind it, offset 8px down-right. The
+Transformer's handles enclose the whole stack (a resize scales it
+slightly inexactly by the stack offset) -- fine for now.
 
-** TODO Opt-in box fill color from a small muted palette
-An automatic container fill (=#f2f2f2=) was tried and reverted: default
-stays plain white. Decided 2026-09-29: the properties panel offers white
-(default) plus ~5 low-saturation fills, for any box, not just containers.
+** DONE Opt-in box fill color from a small muted palette
+=Element.fill= (null = white) from =BOX_FILLS= (five low-saturation
+colors), picked via swatches in the properties panel, for any box but
+a partition triangle. Copied with the element.
 
 ** DONE Warn (don't block) when deleting an access edge would leave a channel/storage under FMC's minimum arity
 Resolved via a general "Validate model" action (=FmcModel.validate()=,

@@ -113,6 +113,25 @@ body {
   gap: 6px;
 }
 
+.properties-panel-swatches {
+  display: flex;
+  gap: 6px;
+}
+
+.properties-panel-swatch {
+  width: 22px;
+  height: 22px;
+  border: 1px solid #999;
+  border-radius: 4px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.properties-panel-swatch.is-selected {
+  outline: 2px solid #0078ff;
+  outline-offset: 1px;
+}
+
 .properties-panel-empty {
   color: #888;
   font-size: 13px;

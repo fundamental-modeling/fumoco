@@ -3,7 +3,8 @@ import { action } from '@ember/object';
 import { service } from '@ember/service';
 import { on } from '@ember/modifier';
 import { fn } from '@ember/helper';
-import { FmcModelError, formatDate } from 'fumoco/utils/fmc-model';
+import { modifier } from 'ember-modifier';
+import { BOX_FILLS, FmcModelError, formatDate } from 'fumoco/utils/fmc-model';
 
 export default class PropertiesPanel extends Component {
   @service modelStore;
@@ -129,6 +130,53 @@ export default class PropertiesPanel extends Component {
   get showsNopOption() {
     return this.selectedElement?.type === 'transition';
   }
+
+  // "N similar boxes" is block-diagram notation (agents, storages).
+  get showsMultipleOption() {
+    const element = this.selectedElement;
+    return (
+      ['agent', 'human_agent', 'location'].includes(element?.type) &&
+      !element.channel
+    );
+  }
+
+  get showsFillOption() {
+    return this.selectedElement && this.selectedElement.type !== 'partition';
+  }
+
+  get fillOptions() {
+    const current = this.selectedElement?.fill ?? null;
+    return [null, ...BOX_FILLS].map((color) => ({
+      color,
+      swatch: color ?? '#ffffff',
+      label: color ? `Fill ${color}` : 'No fill (white)',
+      selected: color === current,
+    }));
+  }
+
+  @action
+  toggleMultiple(event) {
+    const element = this.selectedElement;
+    if (!element) return;
+    this.modelStore.mutate(() => {
+      element.multiple = event.target.checked;
+    });
+  }
+
+  @action
+  setFill(color) {
+    const element = this.selectedElement;
+    if (!element) return;
+    this.modelStore.mutate(() => {
+      element.fill = color;
+    });
+  }
+
+  // Swatch buttons get their color imperatively (no inline style
+  // attribute -- ember-template-lint's no-inline-styles).
+  swatchColor = modifier((element, [color]) => {
+    element.style.background = color;
+  });
 
   @action
   updateLabel(event) {
@@ -309,6 +357,35 @@ export default class PropertiesPanel extends Component {
             />
             NOP transition
           </label>
+        {{/if}}
+        {{#if this.showsMultipleOption}}
+          <label class="properties-panel-field properties-panel-checkbox">
+            <input
+              type="checkbox"
+              checked={{this.selectedElement.multiple}}
+              {{on "change" this.toggleMultiple}}
+            />
+            Multiple instances (stacked)
+          </label>
+        {{/if}}
+        {{#if this.showsFillOption}}
+          <div class="properties-panel-field">
+            <span class="properties-panel-subhead">Fill</span>
+            <div class="properties-panel-swatches">
+              {{#each this.fillOptions as |option|}}
+                <button
+                  type="button"
+                  class="properties-panel-swatch
+                    {{if option.selected 'is-selected'}}"
+                  title={{option.label}}
+                  aria-label={{option.label}}
+                  aria-pressed={{if option.selected "true" "false"}}
+                  {{this.swatchColor option.swatch}}
+                  {{on "click" (fn this.setFill option.color)}}
+                ></button>
+              {{/each}}
+            </div>
+          </div>
         {{/if}}
         {{#if this.relationArcs.length}}
           <div class="properties-panel-field">
