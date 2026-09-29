@@ -264,6 +264,12 @@ body {
   background: #f0f0f0;
 }
 
+.canvas-context-menu-shortcut {
+  float: right;
+  margin-left: 24px;
+  color: #888;
+}
+
 .model-tree-list {
   list-style: none;
   margin: 0;

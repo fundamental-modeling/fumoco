@@ -350,6 +350,17 @@ content that fits exports to exactly one portrait slide. Turns orange
 with a "Diagram exceeds a portrait slide" note when the content
 outgrows it. Advisory only; drawn on the guide layer, never exported.
 
+** DONE Select all / cut / copy / paste by keyboard, on the whole selection
+Cmd (Mac) or Ctrl (elsewhere; either works everywhere) + A/X/C/V.
+Copy/cut take the whole selection: elements with their boxes plus every
+access edge/arc running between two copied elements (nesting isn't
+copied). Paste recreates them as a group -- centered on the click point
+from the context menu, or offset 20px further per paste from the
+keyboard -- and selects them. Cut = copy + delete from model. Element
+and background context menus list Cut/Copy/Paste (and Select all) with
+their shortcut hints; right-clicking inside a multi-selection keeps it.
+In-app clipboard only, not the system clipboard.
+
 ** DONE Right-click context menu (delete/copy/cut/paste, waypoint removal)
 Per-target menus on =canvas-view.gjs=: a box (rename/copy/cut/delete-
 from-view/delete-from-model), an arrow (insert waypoint here/delete

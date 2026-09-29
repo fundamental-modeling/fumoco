@@ -40,6 +40,12 @@ const NODE_STROKE_WIDTH_SELECTED = 4;
 // (font-display: swap) and any glyph Barlow itself doesn't cover.
 const CANVAS_FONT_FAMILY = 'Barlow, sans-serif';
 
+// Menu hint for a Cmd (Mac) / Ctrl (everything else) shortcut.
+const IS_MAC = /Mac|iPhone|iPad/.test(globalThis.navigator?.platform ?? '');
+function shortcut(key) {
+  return IS_MAC ? `\u2318${key}` : `Ctrl+${key}`;
+}
+
 function snapToGrid(value) {
   return Math.round(value / GRID) * GRID;
 }
@@ -780,7 +786,26 @@ export default class CanvasView extends Component {
     window.addEventListener('resize', resize);
 
     const keydown = (event) => {
-      if (document.activeElement?.tagName === 'INPUT') return;
+      if (
+        ['INPUT', 'TEXTAREA', 'SELECT'].includes(
+          document.activeElement?.tagName,
+        )
+      )
+        return;
+      // Cmd on a Mac, Ctrl elsewhere -- either is accepted everywhere.
+      if (event.metaKey || event.ctrlKey) {
+        const command = {
+          a: () => this.selectAll(),
+          c: () => this.copySelection(),
+          x: () => this.cutSelection(),
+          v: () => this.pasteClipboard(null),
+        }[event.key.toLowerCase()];
+        if (command && this.modelStore.activeView) {
+          event.preventDefault();
+          command();
+          return;
+        }
+      }
       if (event.key === 'Escape' && this.contextMenu) {
         this.contextMenu = null;
         return;
@@ -1814,44 +1839,98 @@ export default class CanvasView extends Component {
     this.selection.clear();
   }
 
-  copyElement(id) {
-    const element = this.modelStore.model.elements.get(id);
-    if (!element) return;
+  selectAll() {
+    const view = this.modelStore.activeView;
+    if (!view) return;
+    this.selection.clear();
+    for (const id of view.included) this.selection.toggle(id);
+  }
+
+  // Copies the selected elements (with their boxes, as stored) and every
+  // access edge / arc running between two of them. Nesting isn't copied.
+  copySelection() {
+    const view = this.modelStore.activeView;
+    const model = this.modelStore.model;
+    const ids = this.selection.selectedIds.filter((id) =>
+      view?.included.includes(id),
+    );
+    if (!ids.length) return;
+    const copied = new Set(ids);
+    const boxes = computeEffectiveBoxes(model, view);
     this.clipboard = {
-      type: element.type,
-      label: element.label,
-      dashed: element.dashed,
-      channel: element.channel ? { ...element.channel } : null,
+      elements: ids.map((id) => {
+        const element = model.elements.get(id);
+        return {
+          id,
+          type: element.type,
+          label: element.label,
+          dashed: element.dashed,
+          channel: element.channel ? { ...element.channel } : null,
+          tokens: element.tokens,
+          isStart: element.isStart,
+          isNop: element.isNop,
+          box: toStoredBox(boxes.get(id)),
+        };
+      }),
+      accesses: model.accesses
+        .filter((a) => copied.has(a.agent) && copied.has(a.location))
+        .map((a) => ({ ...a })),
+      arcs: model.arcs
+        .filter((a) => copied.has(a.source) && copied.has(a.target))
+        .map((a) => ({ ...a })),
+      pastes: 0,
     };
   }
 
-  cutElement(id) {
-    this.copyElement(id);
-    this.modelStore.mutate((model) => model.removeElement(id));
-    this.selection.clear();
+  cutSelection() {
+    this.copySelection();
+    if (this.clipboard) this.deleteSelectionFromModel();
   }
 
+  // Pastes the clipboard as fresh elements, connections included: centered
+  // on `point` (context menu), or -- from the keyboard, point = null --
+  // offset 20px further from the originals with each paste. The pasted
+  // elements become the selection.
   pasteClipboard(point) {
-    if (!this.clipboard) return;
+    const clip = this.clipboard;
     const view = this.modelStore.activeView;
-    if (!view) return;
-    const width = 120;
-    const height = 60;
+    if (!clip || !view) return;
+    const boxes = clip.elements.map((e) => e.box);
+    let dx;
+    let dy;
+    if (point) {
+      const minX = Math.min(...boxes.map((b) => b.x));
+      const minY = Math.min(...boxes.map((b) => b.y));
+      const maxX = Math.max(...boxes.map((b) => b.x + b.width));
+      const maxY = Math.max(...boxes.map((b) => b.y + b.height));
+      dx = snapToGrid(point.x - (minX + maxX) / 2);
+      dy = snapToGrid(point.y - (minY + maxY) / 2);
+    } else {
+      clip.pastes += 1;
+      dx = dy = GRID * 2 * clip.pastes;
+    }
+    const newIds = new Map();
     this.modelStore.mutate((model) => {
-      const id = model.addElement(this.clipboard.type, {
-        label: this.clipboard.label,
-        dashed: this.clipboard.dashed,
-        channel: this.clipboard.channel,
-      });
-      view.included.push(id);
-      view.boxes.set(id, {
-        x: point.x - width / 2,
-        y: point.y - height / 2,
-        width,
-        height,
-      });
-      this.selection.select(id);
+      for (const { id, box, ...props } of clip.elements) {
+        const newId = model.addElement(props.type, {
+          ...props,
+          channel: props.channel ? { ...props.channel } : null,
+        });
+        newIds.set(id, newId);
+        view.included.push(newId);
+        view.boxes.set(newId, { ...box, x: box.x + dx, y: box.y + dy });
+      }
+      for (const a of clip.accesses) {
+        model.addAccess(newIds.get(a.agent), a.kind, newIds.get(a.location));
+      }
+      for (const a of clip.arcs) {
+        model.addArc(newIds.get(a.source), newIds.get(a.target), a.weight, {
+          cardinality: a.cardinality,
+        });
+      }
     });
+    this.selection.clear();
+    for (const newId of newIds.values()) this.selection.toggle(newId);
   }
 
   // Runs a context-menu item's action then always closes the menu --
@@ -1878,12 +1957,38 @@ export default class CanvasView extends Component {
     this.contextMenu = { x: domEvent.clientX, y: domEvent.clientY, items };
   }
 
-  elementMenuItems(id) {
+  // Cut/copy/paste entries shared by the element and background menus.
+  clipboardMenuItems(point, { withCutCopy }) {
+    const items = [];
+    if (withCutCopy) {
+      items.push(
+        {
+          label: 'Cut',
+          shortcut: shortcut('X'),
+          action: () => this.cutSelection(),
+        },
+        {
+          label: 'Copy',
+          shortcut: shortcut('C'),
+          action: () => this.copySelection(),
+        },
+      );
+    }
+    if (this.clipboard) {
+      items.push({
+        label: 'Paste',
+        shortcut: shortcut('V'),
+        action: () => this.pasteClipboard(point),
+      });
+    }
+    return items;
+  }
+
+  elementMenuItems(id, point) {
     const element = this.modelStore.model.elements.get(id);
     const items = [
       { label: 'Rename', action: () => this.promptRename(id) },
-      { label: 'Copy', action: () => this.copyElement(id) },
-      { label: 'Cut', action: () => this.cutElement(id) },
+      ...this.clipboardMenuItems(point, { withCutCopy: true }),
     ];
     if (element?.type === ElementType.RELATION) {
       items.push({
@@ -1950,8 +2055,14 @@ export default class CanvasView extends Component {
   }
 
   backgroundMenuItems(point) {
-    if (!this.clipboard) return [];
-    return [{ label: 'Paste', action: () => this.pasteClipboard(point) }];
+    return [
+      ...this.clipboardMenuItems(point, { withCutCopy: false }),
+      {
+        label: 'Select all',
+        shortcut: shortcut('A'),
+        action: () => this.selectAll(),
+      },
+    ];
   }
 
   handleConnectorClick(id) {
@@ -2237,8 +2348,18 @@ export default class CanvasView extends Component {
     group.on('contextmenu', (event) => {
       event.evt.preventDefault();
       event.cancelBubble = true;
-      this.selection.select(element.id);
-      this.openContextMenu(event.evt, this.elementMenuItems(element.id));
+      // Right-clicking inside a multi-selection keeps it, so Cut/Copy
+      // act on all of it; anywhere else selects just this element.
+      if (!this.selection.isSelected(element.id)) {
+        this.selection.select(element.id);
+      }
+      this.openContextMenu(
+        event.evt,
+        this.elementMenuItems(
+          element.id,
+          this.stage.getRelativePointerPosition(),
+        ),
+      );
     });
 
     if (nested) {
@@ -2491,7 +2612,9 @@ export default class CanvasView extends Component {
             <button
               type="button"
               {{on "click" (fn this.runMenuItem item.action)}}
-            >{{item.label}}</button>
+            >{{item.label}}{{#if item.shortcut}}<span
+                  class="canvas-context-menu-shortcut"
+                >{{item.shortcut}}</span>{{/if}}</button>
           </li>
         {{/each}}
       </ul>
