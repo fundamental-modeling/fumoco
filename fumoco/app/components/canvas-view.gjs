@@ -820,6 +820,10 @@ export default class CanvasView extends Component {
     document.fonts?.ready?.then(() => {
       if (!this.isDestroyed) this.shapeLayer?.batchDraw();
     });
+    // Bold is only used by the export header (and shorthand channel
+    // labels), so the browser wouldn't fetch it until then -- too late
+    // for a synchronous export, which would come out in the fallback.
+    document.fonts?.load?.('bold 18px Barlow');
 
     this.marqueeRect = new Konva.Rect({
       fill: 'rgba(0, 120, 255, 0.1)',
@@ -2801,15 +2805,20 @@ export default class CanvasView extends Component {
         fill: '#666666',
       });
     } else {
+      // A human agent's stick figure occupies the box's left ~32px; the
+      // label centers in the space to its right instead of running into it.
+      const inset = element.type === ElementType.HUMAN_AGENT ? 32 : 0;
       label = new Konva.Text({
         text: labelText,
-        width: box.width,
+        x: inset,
+        width: box.width - inset,
         height: box.height,
         align: 'center',
         verticalAlign: 'middle',
         fontSize: 15,
         fontFamily: CANVAS_FONT_FAMILY,
-        padding: 8,
+        // a 28px channel circle can't spare 8px a side for "R▶"
+        padding: isChannel ? 1 : 8,
         // A shorthand channel's label glyph (e.g. "R▶") is what carries
         // direction, in place of arrowheads -- bold makes that glyph the
         // thing your eye catches, matching the FMC convention.
