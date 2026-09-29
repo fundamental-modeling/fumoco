@@ -2471,11 +2471,12 @@ export default class CanvasView extends Component {
     } else {
       group.on('dragend', () => {
         this.modelStore.mutate(() => {
+          const previousBox = view.boxes.get(element.id);
           view.boxes.set(
             element.id,
             toStoredBox({ ...box, x: group.x(), y: group.y() }),
           );
-          this.updateContainmentAfterDrag(element.id, view);
+          this.updateContainmentAfterDrag(element.id, view, previousBox);
         });
         // Don't wait on/depend on the tracked-collection update rebuilding
         // the whole shape layer -- refresh edges directly, right here, so
@@ -2530,8 +2531,10 @@ export default class CanvasView extends Component {
     return result;
   }
 
-  // After a leaf element's own drag commits its new box: if it's no longer
-  // inside the box of the container it was *displayed* nested under, that
+  // After a leaf element's own drag commits its new box: once it no longer
+  // overlaps the box of the container it was *displayed* nested under at
+  // all (full clearance -- that box measured *without* this child, since
+  // an auto-fit container otherwise just grows to follow it), that
   // display choice is cleared for this view only (view.nestedUnder = null)
   // -- the world-model containment (Element.parents) is deliberately left
   // untouched; dragging something out of view is not the same as deciding
@@ -2543,7 +2546,7 @@ export default class CanvasView extends Component {
   // out only ever changes the view. Only for the dragged element itself,
   // not its descendants -- a container being dragged uses
   // collectDescendantNodes instead and never changes containment.
-  updateContainmentAfterDrag(elementId, view) {
+  updateContainmentAfterDrag(elementId, view, previousBox) {
     const model = this.modelStore.model;
     const element = model.elements.get(elementId);
     const box = view.boxes.get(elementId);
@@ -2552,10 +2555,12 @@ export default class CanvasView extends Component {
     const includedSet = new Set(view.included);
     const effectiveBoxes = computeEffectiveBoxes(model, view);
     const currentParent = displayParentOf(model, view, elementId, includedSet);
-    const currentParentBox =
-      currentParent == null ? null : effectiveBoxes.get(currentParent);
+    const parentBoxWithoutChild =
+      currentParent == null
+        ? null
+        : this.containerBoxWithout(view, currentParent, elementId, previousBox);
     const stillInsideCurrentParent =
-      currentParentBox && pointInBox(center, currentParentBox);
+      parentBoxWithoutChild && rectsIntersect(box, parentBoxWithoutChild);
 
     let bestCandidateId = null;
     let bestArea = Infinity;
@@ -2581,7 +2586,40 @@ export default class CanvasView extends Component {
       }
     } else if (currentParent != null && !stillInsideCurrentParent) {
       view.nestedUnder.set(elementId, null);
+      // Its last child gone, a parent without a manual size would have
+      // no box left at all -- give it the one it was measured with.
+      if (!view.boxes.has(currentParent)) {
+        view.boxes.set(currentParent, parentBoxWithoutChild);
+      }
     }
+  }
+
+  // `containerId`'s box as if `childId` weren't displayed nested in it:
+  // auto-fit around its other children, else its manual size, else a
+  // default-size box where it was before the child moved (its auto-fit
+  // around the child's `previousBox`).
+  containerBoxWithout(view, containerId, childId, previousBox) {
+    const model = this.modelStore.model;
+    const probe = {
+      included: view.included,
+      boxes: view.boxes,
+      nestedUnder: new Map([...view.nestedUnder, [childId, null]]),
+    };
+    const box = computeEffectiveBoxes(model, probe).get(containerId);
+    if (box) return toStoredBox(box);
+    const before = {
+      ...probe,
+      nestedUnder: view.nestedUnder,
+      boxes: new Map([...view.boxes, [childId, previousBox]]),
+    };
+    const current =
+      previousBox && computeEffectiveBoxes(model, before).get(containerId);
+    if (!current) return null;
+    return {
+      x: current.x,
+      y: current.y,
+      ...defaultBoxSize(model.elements.get(containerId)),
+    };
   }
 
   buildStickFigure(box) {

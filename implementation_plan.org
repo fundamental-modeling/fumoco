@@ -195,11 +195,14 @@ to contain the container's current children (per =computeEffectiveBoxes='
 new =boxContains= check); shrinking/moving children past that falls back
 to auto-fit again, silently, same as an invalid drag-nest.
 
-** TODO Dragging a nested box out of its parent should place it visibly outside the parent's box
-Decided 2026-09-29: require full clearance -- a box only un-nests once it
-no longer overlaps the parent's rendered rectangle at all; any drop that
-still overlaps keeps it nested. Replaces the current center-point-in-box
-check.
+** DONE Dragging a nested box out of its parent should place it visibly outside the parent's box
+Full clearance: a dragged child un-nests (view only, =nestedUnder = null=)
+once its box no longer overlaps its parent's box at all; any overlap
+keeps it nested. The parent's box is measured *without* the child
+(=containerBoxWithout=) -- previously the check used the parent's
+auto-fit box, which had already grown to follow the child, so dragging
+out of an auto-fit parent never un-nested at all. A parent losing its
+last child keeps a default-size box where it was.
 
 ** DONE Clicking the empty canvas background shows the view's own properties
 Already works: a background click (stage mouseup with no marquee) calls
