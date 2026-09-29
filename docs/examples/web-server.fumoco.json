@@ -1,0 +1,195 @@
+{
+  "elements": {
+    "visitor": {
+      "type": "human_agent",
+      "label": "Visitor",
+      "parents": []
+    },
+    "browser": {
+      "type": "agent",
+      "label": "Web browser",
+      "parents": []
+    },
+    "server": {
+      "type": "agent",
+      "label": "HTTP server",
+      "parents": [],
+      "multiple": true
+    },
+    "docs": {
+      "type": "location",
+      "label": "Documents",
+      "parents": []
+    },
+    "config": {
+      "type": "location",
+      "label": "Configuration",
+      "parents": []
+    },
+    "log": {
+      "type": "location",
+      "label": "Access log",
+      "parents": [],
+      "fill": "#e8eef5"
+    },
+    "admin": {
+      "type": "human_agent",
+      "label": "Administrator",
+      "parents": []
+    },
+    "c1": {
+      "type": "location",
+      "label": "R▶",
+      "parents": [],
+      "channel": {
+        "shorthand": true
+      }
+    },
+    "c2": {
+      "type": "location",
+      "label": null,
+      "parents": [],
+      "channel": {
+        "shorthand": false
+      }
+    }
+  },
+  "accesses": [
+    {
+      "id": "a1",
+      "agent": "visitor",
+      "kind": "write",
+      "location": "c2"
+    },
+    {
+      "id": "a2",
+      "agent": "browser",
+      "kind": "read",
+      "location": "c2"
+    },
+    {
+      "id": "a3",
+      "agent": "browser",
+      "kind": "write",
+      "location": "c1"
+    },
+    {
+      "id": "a4",
+      "agent": "server",
+      "kind": "read",
+      "location": "c1"
+    },
+    {
+      "id": "a5",
+      "agent": "server",
+      "kind": "read",
+      "location": "docs"
+    },
+    {
+      "id": "a6",
+      "agent": "server",
+      "kind": "read",
+      "location": "config"
+    },
+    {
+      "id": "a7",
+      "agent": "server",
+      "kind": "write",
+      "location": "log"
+    },
+    {
+      "id": "a8",
+      "agent": "admin",
+      "kind": "modify",
+      "location": "config",
+      "lens": true
+    },
+    {
+      "id": "a9",
+      "agent": "admin",
+      "kind": "read",
+      "location": "log"
+    }
+  ],
+  "arcs": [],
+  "views": {
+    "v": {
+      "name": "Web server — compositional structure",
+      "diagramType": "block",
+      "author": "Fumoco examples",
+      "createdAt": "2026-09-29T08:00:00Z",
+      "updatedAt": "2026-09-29T20:00:00Z",
+      "included": [
+        "visitor",
+        "c2",
+        "browser",
+        "c1",
+        "server",
+        "docs",
+        "config",
+        "log",
+        "admin"
+      ],
+      "boxes": {
+        "visitor": {
+          "x": 40,
+          "y": 40,
+          "width": 160,
+          "height": 60
+        },
+        "c2": {
+          "x": 106,
+          "y": 146,
+          "width": 28,
+          "height": 28
+        },
+        "browser": {
+          "x": 40,
+          "y": 220,
+          "width": 160,
+          "height": 60
+        },
+        "c1": {
+          "x": 256,
+          "y": 236,
+          "width": 28,
+          "height": 28
+        },
+        "server": {
+          "x": 340,
+          "y": 220,
+          "width": 160,
+          "height": 60
+        },
+        "docs": {
+          "x": 340,
+          "y": 360,
+          "width": 160,
+          "height": 60
+        },
+        "config": {
+          "x": 340,
+          "y": 40,
+          "width": 160,
+          "height": 60
+        },
+        "log": {
+          "x": 640,
+          "y": 220,
+          "width": 160,
+          "height": 60
+        },
+        "admin": {
+          "x": 640,
+          "y": 40,
+          "width": 160,
+          "height": 60
+        }
+      },
+      "nestedUnder": {},
+      "edgeWaypoints": {},
+      "guides": [],
+      "edgeBundles": {}
+    }
+  }
+}

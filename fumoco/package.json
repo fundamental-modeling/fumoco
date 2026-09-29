@@ -2,7 +2,7 @@
   "name": "fumoco",
   "version": "0.1.0",
   "private": true,
-  "description": "Small description for fumoco goes here",
+  "description": "A browser-based editor for FMC (Fundamental Modeling Concepts) diagrams",
   "repository": "",
   "license": "MIT",
   "author": "",

@@ -1,0 +1,198 @@
+{
+  "elements": {
+    "person": {
+      "type": "entity_set",
+      "label": "Person",
+      "parents": []
+    },
+    "city": {
+      "type": "entity_set",
+      "label": "City",
+      "parents": []
+    },
+    "passport": {
+      "type": "entity_set",
+      "label": "Passport",
+      "parents": []
+    },
+    "company": {
+      "type": "entity_set",
+      "label": "Company",
+      "parents": []
+    },
+    "role": {
+      "type": "entity_set",
+      "label": "Role",
+      "parents": []
+    },
+    "employment": {
+      "type": "entity_set",
+      "label": null,
+      "parents": []
+    },
+    "livesIn": {
+      "type": "relation",
+      "label": null,
+      "parents": []
+    },
+    "holds": {
+      "type": "relation",
+      "label": null,
+      "parents": []
+    },
+    "worksAs": {
+      "type": "relation",
+      "label": null,
+      "parents": []
+    },
+    "employs": {
+      "type": "relation",
+      "label": null,
+      "parents": [
+        "employment"
+      ]
+    }
+  },
+  "accesses": [],
+  "arcs": [
+    {
+      "id": "r1",
+      "source": "person",
+      "target": "livesIn",
+      "weight": 1,
+      "cardinality": null
+    },
+    {
+      "id": "r2",
+      "source": "livesIn",
+      "target": "city",
+      "weight": 1,
+      "cardinality": "one"
+    },
+    {
+      "id": "r3",
+      "source": "person",
+      "target": "holds",
+      "weight": 1,
+      "cardinality": "one"
+    },
+    {
+      "id": "r4",
+      "source": "holds",
+      "target": "passport",
+      "weight": 1,
+      "cardinality": "one"
+    },
+    {
+      "id": "r5",
+      "source": "person",
+      "target": "employs",
+      "weight": 1,
+      "cardinality": null
+    },
+    {
+      "id": "r6",
+      "source": "employs",
+      "target": "company",
+      "weight": 1,
+      "cardinality": null
+    },
+    {
+      "id": "r7",
+      "source": "employment",
+      "target": "worksAs",
+      "weight": 1,
+      "cardinality": null
+    },
+    {
+      "id": "r8",
+      "source": "worksAs",
+      "target": "role",
+      "weight": 1,
+      "cardinality": "one"
+    }
+  ],
+  "views": {
+    "v": {
+      "name": "Residents — value range structure",
+      "diagramType": "er",
+      "author": "Fumoco examples",
+      "createdAt": "2026-09-29T08:00:00Z",
+      "updatedAt": "2026-09-29T20:00:00Z",
+      "included": [
+        "person",
+        "city",
+        "passport",
+        "company",
+        "role",
+        "employment",
+        "livesIn",
+        "holds",
+        "worksAs",
+        "employs"
+      ],
+      "boxes": {
+        "person": {
+          "x": 40,
+          "y": 200,
+          "width": 120,
+          "height": 60
+        },
+        "livesIn": {
+          "x": 260,
+          "y": 223,
+          "width": 45,
+          "height": 15
+        },
+        "city": {
+          "x": 400,
+          "y": 200,
+          "width": 120,
+          "height": 60
+        },
+        "holds": {
+          "x": 77,
+          "y": 360,
+          "width": 45,
+          "height": 15
+        },
+        "passport": {
+          "x": 40,
+          "y": 460,
+          "width": 120,
+          "height": 60
+        },
+        "employs": {
+          "x": 78,
+          "y": 93,
+          "width": 45,
+          "height": 15
+        },
+        "company": {
+          "x": 40,
+          "y": -80,
+          "width": 120,
+          "height": 60
+        },
+        "worksAs": {
+          "x": 260,
+          "y": 93,
+          "width": 45,
+          "height": 15
+        },
+        "role": {
+          "x": 400,
+          "y": 70,
+          "width": 120,
+          "height": 60
+        }
+      },
+      "nestedUnder": {
+        "employs": "employment"
+      },
+      "edgeWaypoints": {},
+      "guides": [],
+      "edgeBundles": {}
+    }
+  }
+}
