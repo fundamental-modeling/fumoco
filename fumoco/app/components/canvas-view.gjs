@@ -16,6 +16,7 @@ import {
 } from 'fumoco/utils/fmc-model';
 import { ConnectorKind, connectorRule } from 'fumoco/services/connector-tool';
 import { defaultBoxSize } from 'fumoco/utils/box-layout';
+import config from 'fumoco/config/environment';
 
 const GRID = 10;
 // Advisory page: a default PowerPoint slide, landscape (13.33in x 7.5in
@@ -1902,12 +1903,25 @@ export default class CanvasView extends Component {
       x: content.x,
       y: content.y - headerGap - headerSize.height,
     });
+    // "Fumoco vX.Y.Z", right-aligned on the title line.
+    const credit = new Konva.Text({
+      text: `Fumoco v${config.APP.version}`,
+      fontSize: 12,
+      fontFamily: CANVAS_FONT_FAMILY,
+      fill: '#999999',
+    });
     const bounds = {
       x: content.x,
       y: header.y(),
-      width: Math.max(content.width, headerSize.width),
+      width: Math.max(
+        content.width,
+        headerSize.width,
+        header.findOne('Text').width() + 24 + credit.width(),
+      ),
       height: content.height + headerGap + headerSize.height,
     };
+    credit.position({ x: bounds.width - credit.width(), y: 4 });
+    header.add(credit);
     header.add(
       new Konva.Line({
         points: [

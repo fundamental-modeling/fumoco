@@ -134,6 +134,11 @@ glyph, channel, dashed location, rounded edges and arrowheads all come
 out as vector =<path>=/=<text>=. Text references Barlow by name
 (not embedded), so a viewer without it falls back to sans-serif.
 
+** DONE "Fumoco vX.Y.Z" in the palette footer and on exports
+The version comes from =package.json= (=config.APP.version=); shown in a
+small footer at the bottom of the right-hand palette and right-aligned
+on the title line of every PNG/SVG export header.
+
 ** DONE Exports carry a header and are never transparent
 Every PNG/SVG export gets a header above the diagram -- view title,
 author, contributors, created and last-modified dates, separated by a

@@ -52,6 +52,14 @@ body {
   gap: 4px;
 }
 
+.palette-footer {
+  margin-top: auto;
+  padding-top: 8px;
+  font-size: 11px;
+  color: #999;
+  text-align: center;
+}
+
 .palette h3 {
   margin: 12px 0 4px;
   font-size: 12px;

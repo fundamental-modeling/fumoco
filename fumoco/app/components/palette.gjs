@@ -4,6 +4,7 @@ import { service } from '@ember/service';
 import { on } from '@ember/modifier';
 import { fn } from '@ember/helper';
 import eq from 'fumoco/helpers/eq';
+import config from 'fumoco/config/environment';
 import { ElementType } from 'fumoco/utils/fmc-model';
 import { ConnectorKind, connectorRule } from 'fumoco/services/connector-tool';
 import { defaultBoxSize, nextFreeBoxPosition } from 'fumoco/utils/box-layout';
@@ -23,6 +24,8 @@ const ARC_CONNECTOR_BUTTONS = [{ kind: ConnectorKind.ARC, label: 'Arc' }];
 export default class Palette extends Component {
   @service modelStore;
   @service connectorTool;
+
+  version = config.APP.version;
 
   get diagramType() {
     return this.modelStore.activeView?.diagramType ?? 'block';
@@ -144,6 +147,7 @@ export default class Palette extends Component {
       {{#if this.hint}}
         <p class="palette-hint">{{this.hint}}</p>
       {{/if}}
+      <footer class="palette-footer">Fumoco v{{this.version}}</footer>
     </div>
   </template>
 }
