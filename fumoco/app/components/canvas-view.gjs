@@ -11,6 +11,7 @@ import { TrackedArray } from 'tracked-built-ins';
 import {
   ElementType,
   FmcModelError,
+  formatDate,
   isRoundedElementType,
 } from 'fumoco/utils/fmc-model';
 import { ConnectorKind, connectorRule } from 'fumoco/services/connector-tool';
@@ -1436,17 +1437,75 @@ export default class CanvasView extends Component {
     return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
   }
 
+  // Title, authors and dates above an exported diagram, separated from
+  // it by a thin rule. Built at the origin; the caller positions it.
+  buildExportHeader(view) {
+    const header = new Konva.Group({ listening: false });
+    const lines = [
+      { text: view.name || 'Untitled view', fontSize: 18, fontStyle: 'bold' },
+      {
+        text: `Author: ${view.author || '—'} · Contributors: ${view.contributors || '—'}`,
+      },
+      {
+        text: `Created: ${formatDate(view.createdAt)} · Last modified: ${formatDate(view.updatedAt)}`,
+      },
+    ];
+    let y = 0;
+    for (const { text, fontSize = 12, fontStyle = 'normal' } of lines) {
+      header.add(
+        new Konva.Text({
+          y,
+          text,
+          fontSize,
+          fontStyle,
+          fontFamily: CANVAS_FONT_FAMILY,
+          fill: fontSize === 12 ? '#555555' : '#000000',
+        }),
+      );
+      y += fontSize + 6;
+    }
+    return header;
+  }
+
   // Export covers the whole diagram, not just whatever's currently
   // scrolled into view: temporarily resize/reposition the stage to fit
-  // the full content (plus a white page behind it -- the stage itself
-  // has no background), run `render(width, height)`, then restore.
-  // Synchronous start to finish, so it never paints on screen.
+  // the full content plus a header (buildExportHeader), on a white page
+  // behind everything -- the stage itself has no background, and an
+  // export must never come out transparent. Runs `render(width,
+  // height)`, then restores. Synchronous start to finish, so it never
+  // paints on screen.
   withExportStage(render) {
     const view = this.modelStore.activeView;
     if (!this.stage || !view) return null;
-    const bounds = this.contentBounds(view);
-    if (!bounds) return null;
+    const content = this.contentBounds(view);
+    if (!content) return null;
     const margin = 20;
+    const headerGap = 16;
+    const header = this.buildExportHeader(view);
+    const headerSize = header.getClientRect({ skipTransform: true });
+    header.position({
+      x: content.x,
+      y: content.y - headerGap - headerSize.height,
+    });
+    const bounds = {
+      x: content.x,
+      y: header.y(),
+      width: Math.max(content.width, headerSize.width),
+      height: content.height + headerGap + headerSize.height,
+    };
+    header.add(
+      new Konva.Line({
+        points: [
+          0,
+          headerSize.height + headerGap / 2,
+          bounds.width,
+          headerSize.height + headerGap / 2,
+        ],
+        stroke: '#cccccc',
+        strokeWidth: 1,
+      }),
+    );
+    this.shapeLayer.add(header);
     const width = bounds.width + margin * 2;
     const height = bounds.height + margin * 2;
 
@@ -1474,6 +1533,7 @@ export default class CanvasView extends Component {
       return render(width, height);
     } finally {
       background.destroy();
+      header.destroy();
       this.stage.position(originalPos);
       this.stage.size(originalSize);
       this.attachTransformer();

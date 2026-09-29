@@ -134,6 +134,13 @@ glyph, channel, dashed location, rounded edges and arrowheads all come
 out as vector =<path>=/=<text>=. Text references Barlow by name
 (not embedded), so a viewer without it falls back to sans-serif.
 
+** DONE Exports carry a header and are never transparent
+Every PNG/SVG export gets a header above the diagram -- view title,
+author, contributors, created and last-modified dates, separated by a
+thin rule (=buildExportHeader=) -- and a white page behind the whole
+exported area, header included. Verified: the exported PNG's alpha is
+255 everywhere.
+
 ** DONE Delete a connector, not just an element
 Selecting an access edge on the canvas (click) already worked
 (=selection.selectedEdgeId=) and the right-click "Delete connector" menu

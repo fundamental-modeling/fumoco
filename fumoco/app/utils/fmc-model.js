@@ -227,6 +227,13 @@ function migrateLegacyJSON(json) {
   return { ...json, elements, accesses, views, channels: undefined };
 }
 
+// A view's createdAt/updatedAt ISO string for display ('—' if unset).
+export function formatDate(iso) {
+  if (!iso) return '—';
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString();
+}
+
 export class View {
   id;
   @tracked name;

@@ -3,7 +3,7 @@ import { action } from '@ember/object';
 import { service } from '@ember/service';
 import { on } from '@ember/modifier';
 import { fn } from '@ember/helper';
-import { FmcModelError } from 'fumoco/utils/fmc-model';
+import { FmcModelError, formatDate } from 'fumoco/utils/fmc-model';
 
 export default class PropertiesPanel extends Component {
   @service modelStore;
@@ -16,18 +16,12 @@ export default class PropertiesPanel extends Component {
 
   // Views loaded from a file saved before this metadata existed have
   // `null` timestamps -- shown as "-" rather than a fabricated date.
-  formatDate(iso) {
-    if (!iso) return '—';
-    const date = new Date(iso);
-    return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString();
-  }
-
   get viewCreatedAt() {
-    return this.formatDate(this.modelStore.activeView?.createdAt);
+    return formatDate(this.modelStore.activeView?.createdAt);
   }
 
   get viewUpdatedAt() {
-    return this.formatDate(this.modelStore.activeView?.updatedAt);
+    return formatDate(this.modelStore.activeView?.updatedAt);
   }
 
   get selectedAccess() {
