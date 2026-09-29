@@ -768,6 +768,7 @@ export default class CanvasView extends Component {
       this.stage.x(this.stage.x() - dx);
       this.stage.y(this.stage.y() - dy);
       this.syncGridBackground();
+      this.syncScrollbars();
       this.stage.batchDraw();
     });
 
@@ -826,6 +827,7 @@ export default class CanvasView extends Component {
     const resize = () => {
       this.stage.width(element.clientWidth);
       this.stage.height(element.clientHeight);
+      this.syncScrollbars();
     };
     window.addEventListener('resize', resize);
 
@@ -968,6 +970,7 @@ export default class CanvasView extends Component {
       this.attachTransformer();
       this.refreshNodeStyling();
       this.refreshEdgeStyling();
+      this.syncScrollbars();
     });
   });
 
@@ -1752,6 +1755,7 @@ export default class CanvasView extends Component {
     });
     this.zoom = zoom;
     this.syncGridBackground();
+    this.syncScrollbars();
     this.stage.batchDraw();
   }
 
@@ -1769,6 +1773,74 @@ export default class CanvasView extends Component {
 
   get zoomLabel() {
     return `${Math.round(this.zoom * 100)}%`;
+  }
+
+  // Native scrollbars over a virtual extent: each bar is a thin overflow
+  // strip whose spacer is the extent's size in screen px -- the diagram's
+  // bounds plus one viewport of slack (half each side), always covering
+  // the current viewport. Scrolling a bar pans the stage; panning or
+  // zooming any other way moves the bars.
+  scrollbar = modifier((element, [axis]) => {
+    this.scrollbars[axis] = element;
+    const onScroll = () => {
+      const extent = this.scrollExtent;
+      if (!extent || !this.stage) return;
+      const scale = this.stage.scaleX();
+      const offset = axis === 'x' ? element.scrollLeft : element.scrollTop;
+      const next = -(extent[axis] * scale + offset);
+      if (Math.abs(next - this.stage[axis]()) < 1) return; // our own sync
+      this.stage[axis](next);
+      this.syncGridBackground();
+      this.stage.batchDraw();
+    };
+    element.addEventListener('scroll', onScroll);
+    queueMicrotask(() => this.syncScrollbars());
+    return () => {
+      element.removeEventListener('scroll', onScroll);
+      delete this.scrollbars[axis];
+    };
+  });
+
+  scrollbars = {};
+
+  syncScrollbars() {
+    if (!this.stage) return;
+    const scale = this.stage.scaleX();
+    const viewport = {
+      x: -this.stage.x() / scale,
+      y: -this.stage.y() / scale,
+      width: this.stage.width() / scale,
+      height: this.stage.height() / scale,
+    };
+    const view = this.modelStore.activeView;
+    const content = view && this.contentBounds(view);
+    const areas = [viewport];
+    if (content) {
+      areas.push({
+        x: content.x - viewport.width / 2,
+        y: content.y - viewport.height / 2,
+        width: content.width + viewport.width,
+        height: content.height + viewport.height,
+      });
+    }
+    const x = Math.min(...areas.map((a) => a.x));
+    const y = Math.min(...areas.map((a) => a.y));
+    const extent = {
+      x,
+      y,
+      width: Math.max(...areas.map((a) => a.x + a.width)) - x,
+      height: Math.max(...areas.map((a) => a.y + a.height)) - y,
+    };
+    this.scrollExtent = extent;
+    const { x: barX, y: barY } = this.scrollbars;
+    if (barX) {
+      barX.firstElementChild.style.width = `${extent.width * scale}px`;
+      barX.scrollLeft = (viewport.x - extent.x) * scale;
+    }
+    if (barY) {
+      barY.firstElementChild.style.height = `${extent.height * scale}px`;
+      barY.scrollTop = (viewport.y - extent.y) * scale;
+    }
   }
 
   // The dotted grid is a CSS background on the container; keep it
@@ -2818,6 +2890,12 @@ export default class CanvasView extends Component {
         aria-hidden="true"
         {{this.guideStrip "x"}}
       ></div>
+      <div class="canvas-scrollbar canvas-scrollbar-x" {{this.scrollbar "x"}}>
+        <div class="canvas-scrollbar-extent"></div>
+      </div>
+      <div class="canvas-scrollbar canvas-scrollbar-y" {{this.scrollbar "y"}}>
+        <div class="canvas-scrollbar-extent"></div>
+      </div>
       <div class="canvas-export-toolbar">
         <button type="button" {{on "click" this.exportPng}}>Export PNG</button>
         <button type="button" {{on "click" this.exportSvg}}>Export SVG</button>
