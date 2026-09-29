@@ -903,6 +903,13 @@ note when the content outgrows it. On the guide layer; never exported.
   transparent, clickable body with no outline except while selected.
   Not part of any bipartite graph: no connector accepts it, no label is
   drawn, no fill option.
+- **Swimlane divider**: `ElementType.DIVIDER`, in every palette, default
+  10x300 -- a dashed 2px line through the middle of the box along its
+  longer side (`dividerLine`), so it can run vertically or horizontally
+  and its length is set with the resize handles. Always drawn behind
+  everything else, so a place on a lane border covers it. Like the
+  ellipsis a glyph (`isGlyphType`): transparent body, outline only while
+  selected, no connections/label/fill, and nothing nests inside it.
 - **Multiple instances**: `Element.multiple` draws two copies of the
   body stacked 8px apart down-right behind it. The body rect is named
   `.fumoco-body` so selection styling finds it rather than a copy.

@@ -13,6 +13,8 @@ const DEFAULT_SIZES = {
   [ElementType.HUMAN_AGENT]: { width: 45, height: 60 },
   // Three dots, ~3em x 1em.
   [ElementType.ELLIPSIS]: { width: 45, height: 15 },
+  // A tall, thin (but still grabbable) strip; the line runs along it.
+  [ElementType.DIVIDER]: { width: 10, height: 300 },
   // A triangle glyph, not a label-sized box.
   [ElementType.PARTITION]: { width: 60, height: 50 },
 };

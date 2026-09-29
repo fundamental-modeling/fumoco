@@ -43,7 +43,7 @@ parts. There is no auto-layout solver.
 - Modify edges between facing boxes can be drawn as a lens of two curved
   arrows.
 - "Multiple instances" boxes drawn as a stack, an ellipsis (…) for
-  "A1 … An" enumerations, and a small palette of
+  "A1 … An" enumerations, swimlane dividers, and a small palette of
   muted fill colors.
 - Zoom (25%–400%), always-visible scrollbars, and a landscape-slide page
   frame that warns when a diagram outgrows one slide.

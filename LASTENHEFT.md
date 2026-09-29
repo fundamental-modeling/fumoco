@@ -195,6 +195,8 @@ implementation notes here — that's the other two documents' job.
   every instance when the exact count doesn't matter.
 - As a modeler, I want an ellipsis symbol ("…") in all three diagram
   types, to enumerate elements as "A1 … An".
+- As a modeler, I want swimlane dividers in all three diagram types, to
+  separate the areas of competence of different agents.
 - As a modeler, I want a grouping/structuring box's fill to stay plain
   white by default, the same as any other box, and only turn muted/
   colored (from a small muted palette) when I explicitly set that myself

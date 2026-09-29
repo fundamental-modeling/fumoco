@@ -12,6 +12,7 @@ import {
   ElementType,
   FmcModelError,
   formatDate,
+  isGlyphType,
   isRoundedElementType,
 } from 'fumoco/utils/fmc-model';
 import { ConnectorKind, connectorRule } from 'fumoco/services/connector-tool';
@@ -693,6 +694,14 @@ export function ellipsisDots({ width, height }) {
   });
 }
 
+// A swimlane divider's dashed line, in box-local coordinates: through the
+// middle of the box, along its longer side (vertical by default).
+export function dividerLine({ width, height }) {
+  return width > height
+    ? [0, height / 2, width, height / 2]
+    : [width / 2, 0, width / 2, height];
+}
+
 // Which way a channel carries information: from the agent(s) writing it
 // to the agent(s) reading it, along the dominant axis. `axis` is 'x' or
 // 'y'; `sign` is +1 (right/down) or -1 (left/up), or 0 when there's no
@@ -1143,6 +1152,9 @@ export default class CanvasView extends Component {
       });
       this.nodesById.set(id, node);
       this.shapeLayer.add(node);
+      // Swimlane dividers stay behind everything: a place on the border
+      // between two lanes covers the line, not the other way around.
+      if (element.type === ElementType.DIVIDER) node.moveToBottom();
     }
     this.buildEdges(view, effectiveBoxes);
     this.buildArcs(view, effectiveBoxes);
@@ -1819,9 +1831,8 @@ export default class CanvasView extends Component {
       const rect = node.findOne('.fumoco-body');
       if (!rect) continue;
       const selected = this.selection.isSelected(id);
-      // an ellipsis has no outline of its own -- only while selected
-      const unselected =
-        element?.type === ElementType.ELLIPSIS ? null : '#000000';
+      // a glyph (ellipsis, divider) has no outline -- only while selected
+      const unselected = isGlyphType(element?.type) ? null : '#000000';
       rect.stroke(selected ? '#0078ff' : unselected);
       rect.strokeWidth(
         selected ? NODE_STROKE_WIDTH_SELECTED : NODE_STROKE_WIDTH,
@@ -2848,7 +2859,7 @@ export default class CanvasView extends Component {
     const isPlace = element.type === ElementType.PLACE;
     const isEntitySet = element.type === ElementType.ENTITY_SET;
     const isPartition = element.type === ElementType.PARTITION;
-    const isEllipsis = element.type === ElementType.ELLIPSIS;
+    const isGlyph = isGlyphType(element.type);
     const isNopTransition =
       element.type === ElementType.TRANSITION && element.isNop;
     // A channel's place, a Petri net place, or an ER entity set all use
@@ -2882,10 +2893,10 @@ export default class CanvasView extends Component {
           name: 'fumoco-body',
           width: box.width,
           height: box.height,
-          // an ellipsis is just its dots: a transparent (still clickable)
+          // a glyph is just its drawing: a transparent (still clickable)
           // body with no outline
-          fill: isEllipsis ? 'rgba(0,0,0,0)' : (element.fill ?? '#ffffff'),
-          stroke: isEllipsis ? null : '#000000',
+          fill: isGlyph ? 'rgba(0,0,0,0)' : (element.fill ?? '#ffffff'),
+          stroke: isGlyph ? null : '#000000',
           strokeWidth: NODE_STROKE_WIDTH,
           cornerRadius,
           dash: isLocation && element.dashed ? [6, 4] : undefined,
@@ -2899,10 +2910,20 @@ export default class CanvasView extends Component {
     }
     group.add(rect);
 
-    if (isEllipsis) {
+    if (element.type === ElementType.ELLIPSIS) {
       for (const dot of ellipsisDots(box)) {
         group.add(new Konva.Circle({ ...dot, fill: '#000000' }));
       }
+    }
+    if (element.type === ElementType.DIVIDER) {
+      group.add(
+        new Konva.Line({
+          points: dividerLine(box),
+          stroke: '#000000',
+          strokeWidth: 2,
+          dash: [8, 6],
+        }),
+      );
     }
 
     if (element.type === ElementType.HUMAN_AGENT) {
@@ -3010,7 +3031,7 @@ export default class CanvasView extends Component {
     }
     // A NOP transition carries no label -- it's a solid bar, and any text
     // on top of a black fill wouldn't read anyway.
-    if (label && !isNopTransition && !isEllipsis) group.add(label);
+    if (label && !isNopTransition && !isGlyph) group.add(label);
 
     group.on('click', (event) => {
       event.cancelBubble = true;
@@ -3209,6 +3230,7 @@ export default class CanvasView extends Component {
       if (id === elementId || id === currentParent) continue;
       const candidateBox = effectiveBoxes.get(id);
       if (!candidateBox || !pointInBox(center, candidateBox)) continue;
+      if (isGlyphType(model.elements.get(id)?.type)) continue; // nothing nests in a glyph
       const area = candidateBox.width * candidateBox.height;
       if (area < bestArea) {
         bestArea = area;

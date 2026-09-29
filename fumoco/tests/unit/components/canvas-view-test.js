@@ -6,6 +6,7 @@ import {
   bundledSideToward,
   computeEffectiveBoxes,
   displayParentOf,
+  dividerLine,
   ellipsisDots,
   lensEnds,
   nestingDepth,
@@ -989,5 +990,12 @@ module('Unit | Component | canvas-view (ellipsis)', function () {
       ],
       'a tall ellipsis runs vertically',
     );
+  });
+});
+
+module('Unit | Component | canvas-view (swimlane divider)', function () {
+  test('the dashed line runs through the middle along the longer side', function (assert) {
+    assert.deepEqual(dividerLine({ width: 10, height: 300 }), [5, 0, 5, 300]);
+    assert.deepEqual(dividerLine({ width: 300, height: 10 }), [0, 5, 300, 5]);
   });
 });

@@ -4,7 +4,12 @@ import { service } from '@ember/service';
 import { on } from '@ember/modifier';
 import { fn } from '@ember/helper';
 import { modifier } from 'ember-modifier';
-import { BOX_FILLS, FmcModelError, formatDate } from 'fumoco/utils/fmc-model';
+import {
+  BOX_FILLS,
+  FmcModelError,
+  formatDate,
+  isGlyphType,
+} from 'fumoco/utils/fmc-model';
 
 export default class PropertiesPanel extends Component {
   @service modelStore;
@@ -193,7 +198,8 @@ export default class PropertiesPanel extends Component {
   get showsFillOption() {
     return (
       this.selectedElement &&
-      !['partition', 'ellipsis'].includes(this.selectedElement.type)
+      this.selectedElement.type !== 'partition' &&
+      !isGlyphType(this.selectedElement.type)
     );
   }
 

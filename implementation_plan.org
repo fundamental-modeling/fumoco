@@ -368,6 +368,12 @@ relation), growing with it.
 Nodes now stroke at =NODE_STROKE_WIDTH= (3, 4 when selected); edges stay
 at =strokeWidth: 2=.
 
+** DONE Swimlane dividers in all three diagram types
+Per the FMC Petri net stencil: a dashed line (vertical or horizontal,
+along the element's longer side), always drawn behind everything else;
+palette button in block, Petri net and ER views. Lane names aren't part
+of it -- there's no free-text element yet.
+
 ** DONE Ellipsis ("…") element in all three diagram types
 For "A1 … An" enumeration: three dots along the box's longer side (so it
 can stand vertically too), no outline, no connections; palette button in

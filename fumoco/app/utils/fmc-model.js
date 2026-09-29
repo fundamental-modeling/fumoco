@@ -45,7 +45,16 @@ export const ElementType = Object.freeze({
   // similar elements without drawing each one. Not part of the bipartite
   // graph -- nothing connects to it.
   ELLIPSIS: 'ellipsis',
+  // A swimlane divider: a dashed line separating the areas of competence
+  // of different agents (FMC Petri net stencil), in any diagram type.
+  DIVIDER: 'divider',
 });
+
+// Drawn glyphs rather than graph nodes: no connections, no label, no
+// fill, nothing nests inside them.
+export function isGlyphType(type) {
+  return type === ElementType.ELLIPSIS || type === ElementType.DIVIDER;
+}
 
 // The "rounded" bipartite kind in each diagram type (agent/transition/
 // relation are the "angular" counterpart in each pair) -- shared by

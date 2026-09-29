@@ -106,6 +106,11 @@ export default class Palette extends Component {
   }
 
   @action
+  addDivider() {
+    this.addElement(ElementType.DIVIDER, null);
+  }
+
+  @action
   addPartition() {
     this.addElement(ElementType.PARTITION, null);
   }
@@ -143,6 +148,11 @@ export default class Palette extends Component {
         title="Ellipsis (…) between exemplars: A1 … An"
         {{on "click" this.addEllipsis}}
       >Ellipsis …</button>
+      <button
+        type="button"
+        title="Swimlane divider: separates the areas of competence of agents"
+        {{on "click" this.addDivider}}
+      >Swimlane divider</button>
 
       <h3>Connectors</h3>
       {{#each this.connectorButtons as |option|}}
