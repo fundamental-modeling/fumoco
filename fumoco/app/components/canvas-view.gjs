@@ -1472,7 +1472,7 @@ export default class CanvasView extends Component {
     const waypoints = [...(view.edgeWaypoints.get(access.id) ?? [])];
     const lens =
       access.kind === 'modify' &&
-      access.lens &&
+      access.lens !== false &&
       !isChannel &&
       !waypoints.length &&
       lensEnds(agentBox, locationBox);
@@ -2504,12 +2504,13 @@ export default class CanvasView extends Component {
       access?.kind === 'modify'
         ? [
             {
-              label: access.lens
-                ? 'Draw as straight line'
-                : 'Draw as two curved arrows',
+              label:
+                access.lens !== false
+                  ? 'Draw as straight line'
+                  : 'Draw as two curved arrows',
               action: () =>
                 this.modelStore.mutate((model) =>
-                  model.setAccessLens(edgeId, !access.lens),
+                  model.setAccessLens(edgeId, access.lens === false),
                 ),
             },
           ]

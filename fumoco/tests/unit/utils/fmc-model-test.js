@@ -238,9 +238,10 @@ module('Unit | Utility | fmc-model', function () {
       const model = new FmcModel();
       const agent = model.addElement(ElementType.AGENT);
       const location = model.addElement(ElementType.LOCATION);
+      const other = model.addElement(ElementType.LOCATION);
 
       const edge1 = model.addAccess(agent, 'read', location);
-      const edge2 = model.addAccess(agent, 'write', location);
+      const edge2 = model.addAccess(agent, 'write', other);
 
       assert.ok(edge1.id);
       assert.ok(edge2.id);
@@ -266,8 +267,9 @@ module('Unit | Utility | fmc-model', function () {
       const model = new FmcModel();
       const agent = model.addElement(ElementType.AGENT);
       const location = model.addElement(ElementType.LOCATION);
+      const other = model.addElement(ElementType.LOCATION);
       const edge1 = model.addAccess(agent, 'read', location);
-      const edge2 = model.addAccess(agent, 'write', location);
+      const edge2 = model.addAccess(agent, 'write', other);
       const viewId = model.createView('v');
       const view = model.views.get(viewId);
       view.edgeWaypoints.set(edge1.id, [{ x: 10, y: 10 }]);
@@ -732,5 +734,60 @@ module('Unit | Utility | fmc-model', function () {
       assert.strictEqual(model.accesses.length, 0);
       assert.false(model.elements.has(placeId));
     });
+  });
+});
+
+module('Unit | Utility | fmc-model (one access edge per pair)', function () {
+  function pair() {
+    const model = new FmcModel();
+    const agent = model.addElement(ElementType.AGENT);
+    const location = model.addElement(ElementType.LOCATION);
+    return { model, agent, location };
+  }
+
+  test('read + write between the same pair merge into one modify edge', function (assert) {
+    const { model, agent, location } = pair();
+    const read = model.addAccess(agent, 'read', location);
+    const merged = model.addAccess(agent, 'write', location);
+    assert.strictEqual(model.accesses.length, 1);
+    assert.strictEqual(
+      merged.id,
+      read.id,
+      'keeps the first edge (and its waypoints)',
+    );
+    assert.strictEqual(model.accesses[0].kind, 'modify');
+  });
+
+  test('adding a direction the edge already has changes nothing', function (assert) {
+    const { model, agent, location } = pair();
+    model.addAccess(agent, 'modify', location);
+    model.addAccess(agent, 'read', location);
+    model.addAccess(agent, 'write', location);
+    assert.strictEqual(model.accesses.length, 1);
+    assert.strictEqual(model.accesses[0].kind, 'modify');
+  });
+
+  test('files with a separate read and write edge load as one modify edge', function (assert) {
+    const model = FmcModel.fromJSON({
+      elements: {
+        a: { type: ElementType.AGENT, parents: [] },
+        s: { type: ElementType.LOCATION, parents: [] },
+      },
+      accesses: [
+        { id: 'r', agent: 'a', kind: 'read', location: 's' },
+        { id: 'w', agent: 'a', kind: 'write', location: 's' },
+      ],
+      views: {
+        v: {
+          name: 'v',
+          edgeWaypoints: { r: [{ x: 1, y: 2 }], w: [{ x: 3, y: 4 }] },
+        },
+      },
+    });
+    assert.deepEqual(
+      model.accesses.map((a) => [a.id, a.kind]),
+      [['r', 'modify']],
+    );
+    assert.deepEqual([...model.views.get('v').edgeWaypoints.keys()], ['r']);
   });
 });

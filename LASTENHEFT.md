@@ -136,7 +136,10 @@ implementation notes here — that's the other two documents' job.
 - As a modeler, I want a read/write (modify) arrow drawable in two
   variants: a straight `<->` line, or two arrows `<-` `->` curved into a
   lens — the latter where the two boxes face each other (overlapping
-  parallel sides).
+  parallel sides), and the default.
+- As a modeler, I don't want read + write between the same agent and
+  location tracked differently from modify — modify *is* read + write, so
+  adding the other direction to an existing arrow turns it into modify.
 
 ## Nesting / containment
 

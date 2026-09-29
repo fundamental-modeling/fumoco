@@ -926,7 +926,14 @@ parallel to the trunk to the junction's level, then across into it
 side is drawn afterwards, with the arrowhead only if every merged edge
 points into the box.
 
-**Lens**: a modify edge with `lens: true` (`FmcModel.setAccessLens`),
+**One edge per pair**: `FmcModel.addAccess` keeps at most one access edge
+per agent/location pair -- adding the other direction merges into the
+existing edge (`mergeAccessKinds`: read + write = modify), keeping its id
+and waypoints. `fromJSON` folds duplicates in older files the same way
+and drops the merged-away edges' waypoints. `kind` stays the file format.
+
+**Lens** (the default -- `lens` unset counts as true; `lens: false` via
+`FmcModel.setAccessLens` means straight): a modify edge
 between boxes that face each other (`lensEnds`: parallel sides with a
 gap and an overlapping extent), is drawn as two quadratic curves between
 the middle of that overlap on each facing side, bowing opposite ways,

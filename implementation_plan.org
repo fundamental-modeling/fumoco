@@ -226,9 +226,15 @@ view's fields when nothing is selected. Verified by code trace
 Confirmed done (2026-09-29): compact icon buttons sit right-aligned on
 the title's line.
 
+** DONE One access edge per agent/location pair: read + write = modify
+=addAccess= merges a second direction into the existing edge (read +
+write -> modify) instead of adding a second edge, via the connector tool,
+paste, and file loading (=fromJSON= folds duplicates in older files).
+
 ** DONE Modify (read/write) edges drawable as a lens of two curved arrows
-Per edge (=access.lens=, via the connector's properties panel or its
-right-click menu): instead of one straight =<->= line, two curves bowing
+Per edge, lens by default (=access.lens !== false=; switch to straight via
+the connector's properties panel or its right-click menu): instead of
+one straight =<->= line, two curves bowing
 opposite ways between the boxes' facing sides, one arrowhead each. Only
 where the two boxes face each other -- parallel sides with a gap and an
 overlapping extent (=lensEnds=); drawn from the middle of that overlap.

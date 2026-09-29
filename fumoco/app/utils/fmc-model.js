@@ -149,6 +149,12 @@ function makeId() {
 // an edge can be an addressable entity in its own right (selected on the
 // canvas, listed in the model tree, given routing waypoints in a view)
 // rather than only ever being matched by its endpoints.
+// read + write = modify; anything combined with itself or with modify
+// stays as it is.
+export function mergeAccessKinds(a, b) {
+  return a === b ? a : 'modify';
+}
+
 export function makeAccessEdge(agentId, kind, locationId) {
   return { id: makeId(), agent: agentId, kind, location: locationId };
 }
@@ -524,9 +530,25 @@ export class FmcModel {
 
   // ---- bipartite edges ----
 
+  // At most one access edge per agent/location pair: modify *is* read +
+  // write, so adding the other direction to an existing edge merges into
+  // it (read + write -> modify) instead of creating a second edge. Returns
+  // the (new or merged) edge.
   addAccess(agentId, kind, locationId) {
     this._require(agentId, ElementType.AGENT, ElementType.HUMAN_AGENT);
     this._require(locationId, ElementType.LOCATION);
+    const index = this.accesses.findIndex(
+      (a) => a.agent === agentId && a.location === locationId,
+    );
+    if (index !== -1) {
+      const existing = this.accesses[index];
+      const merged = {
+        ...existing,
+        kind: mergeAccessKinds(existing.kind, kind),
+      };
+      if (merged.kind !== existing.kind) this.accesses.splice(index, 1, merged);
+      return merged;
+    }
     const edge = makeAccessEdge(agentId, kind, locationId);
     this.accesses.push(edge);
     return edge;
@@ -541,8 +563,9 @@ export class FmcModel {
     this.accesses.splice(index, 1, { ...this.accesses[index], kind });
   }
 
-  // Modify access only: draw as two curved arrows forming a lens instead
-  // of one straight double-headed line (see canvas-view's lensEnds).
+  // Modify access only: whether to draw it as two curved arrows forming a
+  // lens (the default -- `lens` unset counts as true) or as one straight
+  // double-headed line (see canvas-view's lensEnds).
   setAccessLens(id, lens) {
     const index = this.accesses.findIndex((a) => a.id === id);
     if (index === -1) return;
@@ -740,8 +763,20 @@ export class FmcModel {
     for (const access of json.accesses ?? []) {
       // `id: makeId()` first, then spread `access` over it, so an already-
       // current export's own id wins and only a legacy/missing one gets a
-      // fresh one assigned here.
-      model.accesses.push({ id: makeId(), ...access });
+      // fresh one assigned here. A second edge for the same agent/location
+      // pair (files saved before edges were merged) folds into the first.
+      const index = model.accesses.findIndex(
+        (a) => a.agent === access.agent && a.location === access.location,
+      );
+      if (index === -1) {
+        model.accesses.push({ id: makeId(), ...access });
+      } else {
+        const existing = model.accesses[index];
+        model.accesses.splice(index, 1, {
+          ...existing,
+          kind: mergeAccessKinds(existing.kind, access.kind),
+        });
+      }
     }
     for (const arc of json.arcs ?? []) {
       model.arcs.push({ id: makeId(), ...arc });
@@ -760,7 +795,9 @@ export class FmcModel {
         view.nestedUnder ?? {},
       ))
         v.nestedUnder.set(elementId, parentId);
+      const accessIds = new Set(model.accesses.map((a) => a.id));
       for (const [edgeId, points] of Object.entries(view.edgeWaypoints ?? {})) {
+        if (!accessIds.has(edgeId)) continue; // merged away on load
         v.edgeWaypoints.set(
           edgeId,
           new TrackedArray(points.map((p) => ({ ...p }))),

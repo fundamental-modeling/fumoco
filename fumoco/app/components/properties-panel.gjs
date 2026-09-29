@@ -127,6 +127,10 @@ export default class PropertiesPanel extends Component {
     );
   }
 
+  get selectedAccessLens() {
+    return this.selectedAccess?.lens !== false; // lens is the default
+  }
+
   get showsLensOption() {
     return (
       this.selectedAccess?.kind === 'modify' &&
@@ -543,7 +547,7 @@ export default class PropertiesPanel extends Component {
           <label class="properties-panel-field properties-panel-checkbox">
             <input
               type="checkbox"
-              checked={{this.selectedAccess.lens}}
+              checked={{this.selectedAccessLens}}
               {{on "change" this.toggleLens}}
             />
             Two curved arrows (lens) where the boxes face each other
