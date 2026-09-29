@@ -156,6 +156,36 @@ export default class PropertiesPanel extends Component {
     );
   }
 
+  // Edge trees: which sides' incoming edges merge into a shared trunk.
+  get bundleSides() {
+    const element = this.selectedElement;
+    const view = this.modelStore.activeView;
+    if (!view || !['agent', 'human_agent', 'location'].includes(element?.type))
+      return [];
+    const bundled = view.edgeBundles.get(element.id) ?? [];
+    return [
+      ['n', 'Top'],
+      ['e', 'Right'],
+      ['s', 'Bottom'],
+      ['w', 'Left'],
+    ].map(([side, label]) => ({ side, label, on: bundled.includes(side) }));
+  }
+
+  @action
+  toggleBundle(side, event) {
+    const element = this.selectedElement;
+    const view = this.modelStore.activeView;
+    if (!element || !view) return;
+    const current = view.edgeBundles.get(element.id) ?? [];
+    const next = event.target.checked
+      ? [...current, side]
+      : current.filter((s) => s !== side);
+    this.modelStore.mutate(() => {
+      if (next.length) view.edgeBundles.set(element.id, next);
+      else view.edgeBundles.delete(element.id);
+    });
+  }
+
   get showsFillOption() {
     return this.selectedElement && this.selectedElement.type !== 'partition';
   }
@@ -383,6 +413,23 @@ export default class PropertiesPanel extends Component {
             />
             Multiple instances (stacked)
           </label>
+        {{/if}}
+        {{#if this.bundleSides.length}}
+          <div class="properties-panel-field">
+            <span class="properties-panel-subhead">Merge edges into a trunk</span>
+            <div class="properties-panel-swatches">
+              {{#each this.bundleSides as |entry|}}
+                <label class="properties-panel-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={{entry.on}}
+                    {{on "change" (fn this.toggleBundle entry.side)}}
+                  />
+                  {{entry.label}}
+                </label>
+              {{/each}}
+            </div>
+          </div>
         {{/if}}
         {{#if this.showsFillOption}}
           <div class="properties-panel-field">

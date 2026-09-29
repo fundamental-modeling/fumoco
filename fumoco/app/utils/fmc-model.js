@@ -279,6 +279,9 @@ export class View {
   // (horizontal line at y = pos), pos } in diagram units. Replaced, not
   // mutated, on edit so the TrackedArray sees it.
   guides = new TrackedArray();
+  // Edge trees: element id -> sides ('n'|'e'|'s'|'w') whose incoming
+  // access edges merge into one shared trunk. Opt-in, per view.
+  edgeBundles = new TrackedMap();
   // Metadata shown in the properties panel when nothing else is selected
   // -- `name` already serves as the view's own "title". `createdAt` is
   // set once and never changes; `updatedAt` is bumped by model-store's
@@ -708,6 +711,7 @@ export class FmcModel {
               ]),
             ),
             guides: view.guides.map((g) => ({ ...g })),
+            edgeBundles: Object.fromEntries(view.edgeBundles),
           },
         ]),
       ),
@@ -763,6 +767,8 @@ export class FmcModel {
         );
       }
       for (const guide of view.guides ?? []) v.guides.push({ ...guide });
+      for (const [elementId, sides] of Object.entries(view.edgeBundles ?? {}))
+        v.edgeBundles.set(elementId, [...sides]);
       model.views.set(id, v);
     }
     return model;

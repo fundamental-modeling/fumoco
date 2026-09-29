@@ -329,11 +329,18 @@ possibly rendering underneath an unrelated container's nested content.
 stepping outward until it finds a spot that doesn't overlap any box
 already in the view.
 
-** TODO Edges converging on the same box side merge into a shared trunk ("edge trees"), opt-in
+** DONE Edges converging on the same box side merge into a shared trunk ("edge trees"), opt-in
 Derived from screening the Visualization Guidelines (2026-09-27, see
-=spec/SOURCES.md=). Decided 2026-09-29: opt-in per box side, never
-automatic -- default routing stays as-is. Edges entering the same side
-of a box with bundling enabled share their final segment.
+=spec/SOURCES.md=). Opt-in per element and side, per view
+(=View.edgeBundles=; "Merge edges into a trunk" checkboxes in the
+properties panel of an agent/storage). Every access edge whose other end
+(the other box, or the nearest waypoint) lies beyond a bundled side
+(=bundledSideToward=) branches into that side's junction, 24px out from
+its midpoint (=trunkPoints=): it leaves its own box on the side facing
+the junction, runs parallel to the trunk to the junction's level, then
+joins it (=branchPath=). One trunk per bundled side carries the rest of
+the way, with the arrowhead only if every merged edge points into the
+box. Block-diagram access edges only; Petri/ER arcs don't bundle.
 
 ** DONE New boxes default to a per-type size, plus a "reset size" action
 =defaultBoxSize= (=utils/box-layout.js=) is the single source for every

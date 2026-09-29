@@ -1,6 +1,8 @@
 import { module, test } from 'qunit';
 import {
   buildDrawOrder,
+  branchPath,
+  bundledSideToward,
   computeEffectiveBoxes,
   displayParentOf,
   lensEnds,
@@ -8,6 +10,7 @@ import {
   orthogonalPath,
   snapBox,
   swapBoxAxes,
+  trunkPoints,
   verticalArcPath,
 } from 'fumoco/components/canvas-view';
 import { ElementType, FmcModel } from 'fumoco/utils/fmc-model';
@@ -794,5 +797,45 @@ module('Unit | Component | canvas-view (lens edges)', function () {
     const a = { x: 0, y: 0, width: 100, height: 60 };
     const b = { x: 200, y: 100, width: 100, height: 60 };
     assert.strictEqual(lensEnds(a, b), null);
+  });
+});
+
+module('Unit | Component | canvas-view (edge trees)', function () {
+  const box = { x: 100, y: 100, width: 120, height: 60 };
+
+  test('bundledSideToward picks a bundled side the other box lies beyond', function (assert) {
+    const aboveLeft = { x: 0, y: 0, width: 60, height: 30 };
+    assert.strictEqual(bundledSideToward(box, ['n'], aboveLeft), 'n');
+    assert.strictEqual(bundledSideToward(box, ['s'], aboveLeft), null);
+    const beside = { x: 300, y: 110, width: 60, height: 30 };
+    assert.strictEqual(bundledSideToward(box, ['n', 'e'], beside), 'e');
+  });
+
+  test('branchPath: down to the junction level, then across into it', function (assert) {
+    const parser = { x: 40, y: 60, width: 120, height: 60 };
+    assert.deepEqual(branchPath(parser, { x: 300, y: 256 }, 'n'), [
+      { x: 100, y: 120 },
+      { x: 100, y: 256 },
+      { x: 300, y: 256 },
+    ]);
+  });
+
+  test('branchPath: straight in when the box sits over the junction', function (assert) {
+    const checker = { x: 240, y: 60, width: 120, height: 60 };
+    assert.deepEqual(branchPath(checker, { x: 300, y: 256 }, 'n'), [
+      { x: 300, y: 120 },
+      { x: 300, y: 256 },
+    ]);
+  });
+
+  test('trunkPoints: side midpoint and a junction 24px out', function (assert) {
+    assert.deepEqual(trunkPoints(box, 'n'), {
+      mid: { x: 160, y: 100 },
+      junction: { x: 160, y: 76 },
+    });
+    assert.deepEqual(trunkPoints(box, 'e'), {
+      mid: { x: 220, y: 130 },
+      junction: { x: 244, y: 130 },
+    });
   });
 });

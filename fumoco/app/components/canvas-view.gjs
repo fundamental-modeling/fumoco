@@ -630,6 +630,64 @@ export function verticalArcPath(
 }
 
 const EDGE_CORNER_RADIUS = 10;
+const TRUNK_LENGTH = 24; // px from a bundled side to where its edges merge
+
+// The bundled side of `box` (if any) that `other`'s center lies beyond --
+// every edge coming from above a box with a bundled top merges there,
+// whichever side its own route would have picked.
+export function bundledSideToward(box, sides, other) {
+  const cx = other.x + other.width / 2;
+  const cy = other.y + other.height / 2;
+  const beyond = {
+    n: cy < box.y,
+    s: cy > box.y + box.height,
+    w: cx < box.x,
+    e: cx > box.x + box.width,
+  };
+  return sides.find((side) => beyond[side]) ?? null;
+}
+
+// A branch of an edge tree: from `box` to a trunk's `junction` on a
+// top/bottom (`side` n/s) or left/right (e/w) bundled side. Leaves `box`
+// on its side facing the junction, runs parallel to the trunk to the
+// junction's level, then joins it from across -- or straight in when
+// `box` sits squarely over the junction.
+export function branchPath(box, junction, side) {
+  const vertical = side === 'n' || side === 's';
+  const [along, across] = vertical ? ['y', 'x'] : ['x', 'y'];
+  const size = vertical ? 'height' : 'width';
+  const breadth = vertical ? 'width' : 'height';
+  const exit =
+    junction[along] < box[along] ? box[along] : box[along] + box[size];
+  const point = (a, c) => (vertical ? { x: c, y: a } : { x: a, y: c });
+  if (
+    junction[across] >= box[across] &&
+    junction[across] <= box[across] + box[breadth]
+  ) {
+    return [point(exit, junction[across]), { ...junction }];
+  }
+  const center = box[across] + box[breadth] / 2;
+  return [point(exit, center), point(junction[along], center), { ...junction }];
+}
+
+// A side's midpoint, and the junction TRUNK_LENGTH out from it where a
+// bundled side's edges merge.
+export function trunkPoints(box, side) {
+  const mid = {
+    n: { x: box.x + box.width / 2, y: box.y },
+    s: { x: box.x + box.width / 2, y: box.y + box.height },
+    w: { x: box.x, y: box.y + box.height / 2 },
+    e: { x: box.x + box.width, y: box.y + box.height / 2 },
+  }[side];
+  const out = { n: [0, -1], s: [0, 1], w: [-1, 0], e: [1, 0] }[side];
+  return {
+    mid,
+    junction: {
+      x: mid.x + out[0] * TRUNK_LENGTH,
+      y: mid.y + out[1] * TRUNK_LENGTH,
+    },
+  };
+}
 
 // A user-added routing waypoint is just a point the edge must pass
 // through -- representing it as a zero-size box lets orthogonalPath route
@@ -637,20 +695,6 @@ const EDGE_CORNER_RADIUS = 10;
 // between two real boxes, with no separate point-to-point routing logic.
 function pointBox(point) {
   return { x: point.x, y: point.y, width: 0, height: 0 };
-}
-
-// Chains orthogonalPath across every consecutive pair of anchors (real
-// boxes and/or waypoint point-boxes) into one continuous route. Each
-// segment's start point is the same as the previous segment's end point
-// (both are the shared anchor's boundary/position), so every segment
-// after the first drops its own first point to avoid duplicating it.
-function buildRoutedPath(anchors) {
-  let points = [];
-  for (let i = 0; i < anchors.length - 1; i++) {
-    const segment = orthogonalPath(anchors[i], anchors[i + 1]);
-    points = points.length ? [...points, ...segment.slice(1)] : segment;
-  }
-  return points;
 }
 
 function pointToSegmentDistance(p, a, b) {
@@ -1020,6 +1064,7 @@ export default class CanvasView extends Component {
 
   buildEdges(view, effectiveBoxes) {
     const included = new Set(view.included);
+    const trunks = new Map(); // `${elementId}:${side}` -> { mid, junction, heads }
     const model = this.modelStore.model;
     for (const access of model.accesses) {
       if (!included.has(access.agent) || !included.has(access.location))
@@ -1028,7 +1073,38 @@ export default class CanvasView extends Component {
       const locationBox = effectiveBoxes.get(access.location);
       if (!agentBox || !locationBox) continue;
       const locationElement = model.elements.get(access.location);
-      this.drawAccessEdge(access, agentBox, locationBox, locationElement, view);
+      this.drawAccessEdge(
+        access,
+        agentBox,
+        locationBox,
+        locationElement,
+        view,
+        trunks,
+      );
+    }
+    // One shared trunk per bundled side, arrowhead into the box only when
+    // every merged edge points into it.
+    for (const { mid, junction, heads } of trunks.values()) {
+      this.shapeLayer.add(
+        new Konva.Line({
+          points: [junction.x, junction.y, mid.x, mid.y],
+          stroke: '#000000',
+          strokeWidth: 2,
+          name: 'fumoco-edge',
+          listening: false,
+        }),
+      );
+      if (heads.every(Boolean)) {
+        this.shapeLayer.add(
+          new Konva.Line({
+            points: arrowHeadPoints(mid, junction),
+            closed: true,
+            fill: '#000000',
+            name: 'fumoco-edge',
+            listening: false,
+          }),
+        );
+      }
     }
   }
 
@@ -1379,7 +1455,14 @@ export default class CanvasView extends Component {
   // draws; `orderedWaypoints` below re-orders them to match whichever end
   // is actually `from`/`to` for this access kind (read draws
   // location-to-agent) before chaining them into the path.
-  drawAccessEdge(access, agentBox, locationBox, locationElement, view) {
+  drawAccessEdge(
+    access,
+    agentBox,
+    locationBox,
+    locationElement,
+    view,
+    trunks = new Map(),
+  ) {
     const isChannel = !!locationElement?.channel;
     const suppressArrow = locationElement?.channel?.shorthand === true;
     const waypoints = [...(view.edgeWaypoints.get(access.id) ?? [])];
@@ -1393,28 +1476,65 @@ export default class CanvasView extends Component {
       this.drawLensEdge(access.id, lens, view);
       return;
     }
-    if (access.kind === 'modify') {
-      const path = buildRoutedPath([
-        agentBox,
-        ...waypoints.map(pointBox),
-        locationBox,
-      ]);
-      this.addRoutedEdge(path, {
-        ...(isChannel ? {} : { arrowStart: true, arrowEnd: true }),
-        edgeId: access.id,
-        view,
-      });
-      return;
+    const modify = access.kind === 'modify';
+    const read = access.kind === 'read';
+    const ends = read
+      ? [
+          { id: access.location, box: locationBox, head: false },
+          { id: access.agent, box: agentBox, head: !suppressArrow },
+        ]
+      : [
+          { id: access.agent, box: agentBox, head: modify && !isChannel },
+          {
+            id: access.location,
+            box: locationBox,
+            head: modify ? !isChannel : !suppressArrow,
+          },
+        ];
+    const anchors = [
+      ends[0].box,
+      ...(read ? waypoints.reverse() : waypoints).map(pointBox),
+      ends[1].box,
+    ];
+    // Edge trees: an end whose other side lies beyond one of its box's
+    // bundled sides branches off that side's junction instead (see
+    // branchPath); the shared trunk (buildEdges) carries it the rest of
+    // the way, and its arrowhead.
+    const branches = ends.map((end, i) => {
+      const neighbour = anchors[i === 0 ? 1 : anchors.length - 2];
+      const side = bundledSideToward(
+        end.box,
+        view.edgeBundles.get(end.id) ?? [],
+        neighbour,
+      );
+      if (!side) return null;
+      const key = `${end.id}:${side}`;
+      if (!trunks.has(key)) {
+        trunks.set(key, { ...trunkPoints(end.box, side), heads: [] });
+      }
+      trunks.get(key).heads.push(end.head);
+      end.head = false;
+      return { side, junction: trunks.get(key).junction };
+    });
+    let path = [];
+    for (let i = 0; i < anchors.length - 1; i++) {
+      const [start, end] = [
+        i === 0 && branches[0],
+        i === anchors.length - 2 && branches[1],
+      ];
+      const segment =
+        start && end
+          ? orthogonalPath(pointBox(start.junction), pointBox(end.junction))
+          : start
+            ? branchPath(anchors[i + 1], start.junction, start.side).reverse()
+            : end
+              ? branchPath(anchors[i], end.junction, end.side)
+              : orthogonalPath(anchors[i], anchors[i + 1]);
+      path = path.length ? [...path, ...segment.slice(1)] : segment;
     }
-    const [from, to] =
-      access.kind === 'read'
-        ? [locationBox, agentBox]
-        : [agentBox, locationBox];
-    const orderedWaypoints =
-      access.kind === 'read' ? waypoints.reverse() : waypoints;
-    const path = buildRoutedPath([from, ...orderedWaypoints.map(pointBox), to]);
     this.addRoutedEdge(path, {
-      arrowEnd: !suppressArrow,
+      arrowStart: ends[0].head,
+      arrowEnd: ends[1].head,
       edgeId: access.id,
       view,
     });
