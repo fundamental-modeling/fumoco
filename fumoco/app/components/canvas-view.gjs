@@ -967,24 +967,49 @@ export default class CanvasView extends Component {
               const tail = { x: (back.x + tip.x) / 2, y: (back.y + tip.y) / 2 };
               return [tail, tip, true, false];
             });
+    // Heads per the FMC reference: nearly triangular with a slight
+    // concave dent at the back; the shaft is as fine as the arcs and
+    // stops inside the dent so it never blunts the tip.
+    const HEAD_LENGTH = 10;
+    const HEAD_HALF_WIDTH = 4.5;
+    const HEAD_DENT = 2;
+    const along = (p, u, d) => ({ x: p.x + u.x * d, y: p.y + u.y * d });
     for (const [from, to, headAtTo, headAtFrom] of segments) {
+      const u = unit(from, to);
+      const back = { x: -u.x, y: -u.y };
+      const heads = [
+        [to, back, headAtTo],
+        [from, u, headAtFrom],
+      ].filter(([, , show]) => show);
+      const shaftStart = headAtFrom
+        ? along(from, u, HEAD_LENGTH - HEAD_DENT)
+        : from;
+      const shaftEnd = headAtTo ? along(to, back, HEAD_LENGTH - HEAD_DENT) : to;
       this.shapeLayer.add(
         new Konva.Line({
-          points: [from.x, from.y, to.x, to.y],
+          points: [shaftStart.x, shaftStart.y, shaftEnd.x, shaftEnd.y],
           stroke: '#000000',
-          strokeWidth: 3,
+          strokeWidth: 2,
           name: 'fumoco-edge',
           listening: false,
         }),
       );
-      for (const [tip, tail, show] of [
-        [to, from, headAtTo],
-        [from, to, headAtFrom],
-      ]) {
-        if (!show) continue;
+      for (const [tip, inward] of heads) {
+        const base = along(tip, inward, HEAD_LENGTH);
+        const dent = along(tip, inward, HEAD_LENGTH - HEAD_DENT);
+        const normal = { x: -inward.y, y: inward.x };
         this.shapeLayer.add(
           new Konva.Line({
-            points: arrowHeadPoints(tip, tail, 9),
+            points: [
+              tip.x,
+              tip.y,
+              base.x + normal.x * HEAD_HALF_WIDTH,
+              base.y + normal.y * HEAD_HALF_WIDTH,
+              dent.x,
+              dent.y,
+              base.x - normal.x * HEAD_HALF_WIDTH,
+              base.y - normal.y * HEAD_HALF_WIDTH,
+            ],
             closed: true,
             fill: '#000000',
             name: 'fumoco-edge',

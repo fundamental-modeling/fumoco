@@ -621,7 +621,8 @@ different from an ordinary location box.
 ** DONE ER cardinality arrows (1:n / n:1 / 1:1)
 Entity-set<->relation arcs are undirected (no arrowhead). Each arc's
 =cardinality= (=null= or ='one'=) marks that entity set as a "1" side;
-the relation box then carries one small thick arrow inside it pointing
+the relation box then carries one small arrow inside it (shaft as fine as
+the arcs, stopping inside a slightly concave-dented head) pointing
 toward each "1" side -- =->=, =<-=, or =<->= (1:1) for a binary relation,
 a short arrow from the center per "1" side for an n-ary one; offset
 beside/below the label when the relation is named. Set per entity set in
