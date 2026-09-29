@@ -238,6 +238,14 @@ triangles stay `listening: false`, purely decorative):
 - Click selects the edge (`selection.selectEdge`, mutually exclusive with
   element selection — see `selection.js`); the selected edge's stroke
   turns blue via `refreshEdgeStyling`, mirroring a selected node's border.
+- Delete/Backspace with an edge selected deletes it (`deleteSelectedEdge`,
+  checked ahead of the element-deletion branches in the same `keydown`
+  handler) — matching the right-click menu's existing "Delete connector"
+  action, which this was missing until now: clicking an edge to select it
+  already worked, but neither delete key did anything with it selected,
+  since the handler only ever read `selection.selectedIds` (elements).
+  An edge has no view-vs-model split the way an element does (it only
+  exists in the model at all), so either key removes it outright.
 - Double-click inserts a waypoint at the click position
   (`insertWaypoint`), positioned among any existing waypoints by
   `nearestWaypointInsertIndex` — whichever straight segment (agent center

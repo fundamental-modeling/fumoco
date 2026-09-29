@@ -718,10 +718,15 @@ export default class CanvasView extends Component {
       // elements stay in the model (and the tree), just not shown here.
       // Backspace deletes them from the model entirely (same as the
       // tree's own delete button), since diagramming tools commonly draw
-      // that same distinction between the two keys.
+      // that same distinction between the two keys. A selected *edge*
+      // has no such view-vs-model split (an access edge only exists in
+      // the model at all, same as the right-click menu's single "Delete
+      // connector" action), so either key deletes it outright.
       if (event.key === 'Delete') {
+        if (this.deleteSelectedEdge()) return;
         this.removeSelectionFromView();
       } else if (event.key === 'Backspace') {
+        if (this.deleteSelectedEdge()) return;
         this.deleteSelectionFromModel();
       }
     };
@@ -1413,6 +1418,18 @@ export default class CanvasView extends Component {
     this.modelStore.mutate(() => {
       element.label = next.trim() || null;
     });
+  }
+
+  // Deletes the selected access edge (if any), matching the right-click
+  // menu's "Delete connector" action -- returns true when it handled the
+  // key, so the keydown handler can skip the element-selection path
+  // instead of also acting on whatever elements happen to be selected.
+  deleteSelectedEdge() {
+    const edgeId = this.selection.selectedEdgeId;
+    if (!edgeId) return false;
+    this.modelStore.mutate((model) => model.removeAccess(edgeId));
+    this.selection.clear();
+    return true;
   }
 
   removeSelectionFromView() {

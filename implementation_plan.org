@@ -132,8 +132,19 @@ this needs a hand-written serializer that walks the same view model
 =attic/src/fmc/render.py='s drawing logic). Deferred rather than
 half-built alongside the PNG work.
 
-** TODO Delete a connector, not just an element
-E.g. by selecting it on the canvas.
+** DONE Delete a connector, not just an element
+Selecting an access edge on the canvas (click) already worked
+(=selection.selectedEdgeId=) and the right-click "Delete connector" menu
+item already existed -- but pressing Delete/Backspace with an edge
+selected did nothing, since the keydown handler only ever acted on
+=selection.selectedIds= (elements). Fixed with a =deleteSelectedEdge=
+check ahead of the existing element-deletion branches: an edge has no
+view-vs-model split the way an element does (an access edge only exists
+in the model at all), so either key deletes it outright, matching the
+context menu's single action. Petri/ER arcs still have no click-to-
+select at all (deliberately, per "primitive support" -- right-click
+delete is their only path), so this only covers block-diagram access
+edges for now.
 
 ** DONE Channel places become ordinary location elements, not a separate concept
 "Channel" is now a rendering style a location can have (=Element.channel=:
