@@ -612,12 +612,14 @@ than a plain location's smaller fixed 12px rounding, so it reads visibly
 different from an ordinary location box.
 
 ** DONE ER cardinality arrows (1:n / n:1 / 1:1)
-An entity_set<->relation arc's =cardinality= field (=null= or ='one'=,
-toggled via the arc's right-click menu) draws a small filled arrow a bit
-inside the relation's own box, pointing further inward -- FMC's "arrow
-inside the relation symbol" convention (=spec/index.html='s Cardinality
-and roles section), distinct from the main edge's own arrowhead.
-
+Entity-set<->relation arcs are undirected (no arrowhead). Each arc's
+=cardinality= (=null= or ='one'=) marks that entity set as a "1" side;
+the relation box then carries one small thick arrow inside it pointing
+toward each "1" side -- =->=, =<-=, or =<->= (1:1) for a binary relation,
+a short arrow from the center per "1" side for an n-ary one; offset
+beside/below the label when the relation is named. Set per entity set in
+the relation's properties panel ("Cardinality" checkboxes), or via the
+arc's right-click menu. New relations are unnamed by default.
 ** DONE ER independent (orthogonal) partitioning, drawn as a triangle node
 Superseded an earlier, incorrect first attempt (a =kind: 'inheritance'=
 arc connecting two entity sets directly with a hollow-triangle

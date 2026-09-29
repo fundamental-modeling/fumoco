@@ -103,6 +103,35 @@ export default class PropertiesPanel extends Component {
     return this.selectedElement?.type === 'place';
   }
 
+  // A relation's ER arcs, each with its entity set -- ticking "1" marks
+  // that entity set as the relation's functional ("1") side, drawn as
+  // the arrow inside the relation box.
+  get relationArcs() {
+    const element = this.selectedElement;
+    if (element?.type !== 'relation') return [];
+    const model = this.modelStore.model;
+    return model.arcs
+      .filter((arc) => arc.source === element.id || arc.target === element.id)
+      .map((arc) => {
+        const other = model.elements.get(
+          arc.source === element.id ? arc.target : arc.source,
+        );
+        return {
+          arc,
+          otherLabel: other?.label || '(unnamed)',
+          one: arc.cardinality === 'one',
+        };
+      });
+  }
+
+  @action
+  toggleArcOne(arcId, event) {
+    const cardinality = event.target.checked ? 'one' : null;
+    this.modelStore.mutate((model) =>
+      model.updateArcCardinality(arcId, cardinality),
+    );
+  }
+
   get showsNopOption() {
     return this.selectedElement?.type === 'transition';
   }
@@ -286,6 +315,21 @@ export default class PropertiesPanel extends Component {
             />
             NOP transition
           </label>
+        {{/if}}
+        {{#if this.relationArcs.length}}
+          <div class="properties-panel-field">
+            <span class="properties-panel-subhead">Cardinality ("1" side)</span>
+            {{#each this.relationArcs as |entry|}}
+              <label class="properties-panel-checkbox">
+                <input
+                  type="checkbox"
+                  checked={{entry.one}}
+                  {{on "change" (fn this.toggleArcOne entry.arc.id)}}
+                />
+                {{entry.otherLabel}}
+              </label>
+            {{/each}}
+          </div>
         {{/if}}
         <div class="properties-panel-field">
           <span class="properties-panel-subhead">Contained in</span>

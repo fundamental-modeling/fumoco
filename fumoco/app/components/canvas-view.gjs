@@ -869,6 +869,9 @@ export default class CanvasView extends Component {
   buildArcs(view, effectiveBoxes) {
     const included = new Set(view.included);
     const model = this.modelStore.model;
+    // relationId -> [{ attach, one }], one entry per ER arc, for
+    // drawCardinalityArrow once every arc's route is known.
+    const relationEnds = new Map();
     for (const arc of model.arcs) {
       if (!included.has(arc.source) || !included.has(arc.target)) continue;
       const sourceBox = effectiveBoxes.get(arc.source);
@@ -888,13 +891,106 @@ export default class CanvasView extends Component {
       const isPartitionArc =
         sourceType === ElementType.PARTITION ||
         targetType === ElementType.PARTITION;
-      this.drawArc(arc, sourceBox, targetBox, {
+      const path = this.drawArc(arc, sourceBox, targetBox, {
         vertical: isPetriArc,
         relationEnd,
         isPartitionArc,
         sourceCircular: sourceType === ElementType.PLACE,
         targetCircular: targetType === ElementType.PLACE,
       });
+      if (relationEnd) {
+        const relationId = relationEnd === 'target' ? arc.target : arc.source;
+        const attach = relationEnd === 'target' ? path.at(-1) : path[0];
+        if (!relationEnds.has(relationId)) relationEnds.set(relationId, []);
+        relationEnds
+          .get(relationId)
+          .push({ attach, one: arc.cardinality === 'one' });
+      }
+    }
+    for (const [relationId, ends] of relationEnds) {
+      this.drawCardinalityArrow(
+        effectiveBoxes.get(relationId),
+        ends,
+        Boolean(model.elements.get(relationId)?.label),
+      );
+    }
+  }
+
+  // FMC's 1:n / n:1 / 1:1 shorthand: one small thick arrow inside the
+  // relation box, pointing toward each entity set that is the "1" side
+  // (->, <-, <->). The connecting arcs themselves stay undirected. A
+  // binary relation gets a single shaft between its two arcs' attach
+  // points; an n-ary one gets a short arrow from the center toward each
+  // "1" side instead.
+  drawCardinalityArrow(box, ends, hasLabel) {
+    if (!box || !ends.some((end) => end.one)) return;
+    const mid = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    const unit = (from, to) => {
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const len = Math.hypot(dx, dy) || 1;
+      return { x: dx / len, y: dy / len };
+    };
+    // A shaft through the box center along `u`, sized to the box's
+    // extent in that direction and, under a label, moved off the text:
+    // below it for a horizontal arrow, beside it for a vertical one.
+    const shaft = (u) => {
+      const half = Math.min(
+        0.3 * (Math.abs(u.x) * box.width + Math.abs(u.y) * box.height),
+        20,
+      );
+      const horizontal = Math.abs(u.x) >= Math.abs(u.y);
+      const c = {
+        x: mid.x + (hasLabel && !horizontal ? box.width * 0.35 : 0),
+        y: mid.y + (hasLabel && horizontal ? box.height / 4 : 0),
+      };
+      return [
+        { x: c.x - u.x * half, y: c.y - u.y * half },
+        { x: c.x + u.x * half, y: c.y + u.y * half },
+      ];
+    };
+    const segments =
+      ends.length === 2
+        ? [
+            [
+              ...shaft(unit(ends[0].attach, ends[1].attach)),
+              ends[1].one,
+              ends[0].one,
+            ],
+          ]
+        : ends
+            .filter((end) => end.one)
+            .map((end) => {
+              // half a shaft: from its center out toward this "1" side
+              const [back, tip] = shaft(unit(mid, end.attach));
+              const tail = { x: (back.x + tip.x) / 2, y: (back.y + tip.y) / 2 };
+              return [tail, tip, true, false];
+            });
+    for (const [from, to, headAtTo, headAtFrom] of segments) {
+      this.shapeLayer.add(
+        new Konva.Line({
+          points: [from.x, from.y, to.x, to.y],
+          stroke: '#000000',
+          strokeWidth: 3,
+          name: 'fumoco-edge',
+          listening: false,
+        }),
+      );
+      for (const [tip, tail, show] of [
+        [to, from, headAtTo],
+        [from, to, headAtFrom],
+      ]) {
+        if (!show) continue;
+        this.shapeLayer.add(
+          new Konva.Line({
+            points: arrowHeadPoints(tip, tail, 9),
+            closed: true,
+            fill: '#000000',
+            name: 'fumoco-edge',
+            listening: false,
+          }),
+        );
+      }
     }
   }
 
@@ -943,8 +1039,8 @@ export default class CanvasView extends Component {
         items.unshift({
           label:
             arc.cardinality === 'one'
-              ? 'Clear cardinality (many)'
-              : 'Set cardinality: one (functional)',
+              ? 'Unmark "1" side'
+              : 'Mark entity set as "1" side',
           action: () =>
             this.modelStore.mutate((model) =>
               model.updateArcCardinality(
@@ -960,9 +1056,10 @@ export default class CanvasView extends Component {
     // A partitioning arc is a plain line, no arrowhead -- the triangle
     // node itself (apex = the partitioned superset's side, base = each
     // part) already carries the meaning; an arrowhead would be redundant
-    // and isn't part of the notation. Every other arc gets the ordinary
-    // filled triangle.
-    if (!isPartitionArc) {
+    // and isn't part of the notation. ER arcs are undirected too (the
+    // cardinality arrow lives inside the relation box, see
+    // drawCardinalityArrow); only Petri arcs get the filled triangle.
+    if (!isPartitionArc && !isErArc) {
       this.shapeLayer.add(
         new Konva.Line({
           points: arrowHeadPoints(path.at(-1), path.at(-2), 9),
@@ -988,35 +1085,7 @@ export default class CanvasView extends Component {
         }),
       );
     }
-    // A 1:n/1:1 relation marks its functional side with a small arrow
-    // drawn a bit inside the relation's own box, pointing further inward
-    // -- FMC's "arrow inside the relation symbol" convention for
-    // cardinality (spec/index.html's Cardinality and roles section),
-    // distinct from the main edge's own end (which just reflects
-    // whichever way this arc happened to be drawn, not a semantic
-    // direction for an ER connection).
-    if (isErArc && arc.cardinality === 'one') {
-      const atTarget = relationEnd === 'target';
-      const border = atTarget ? path.at(-1) : path[0];
-      const from = atTarget ? path.at(-2) : path[1];
-      const dx = border.x - from.x;
-      const dy = border.y - from.y;
-      const len = Math.hypot(dx, dy) || 1;
-      const inset = 14;
-      const tip = {
-        x: border.x + (dx / len) * inset,
-        y: border.y + (dy / len) * inset,
-      };
-      this.shapeLayer.add(
-        new Konva.Line({
-          points: arrowHeadPoints(tip, border, 7),
-          closed: true,
-          fill: '#000000',
-          name: 'fumoco-edge',
-          listening: false,
-        }),
-      );
-    }
+    return path;
   }
 
   // A single Konva.Shape drawing a rounded-corner rectilinear path (native

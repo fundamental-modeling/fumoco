@@ -109,7 +109,7 @@ export default class Palette extends Component {
 
   @action
   addRelation() {
-    this.addElement(ElementType.RELATION, 'New relation');
+    this.addElement(ElementType.RELATION, null); // unnamed by default
   }
 
   @action
