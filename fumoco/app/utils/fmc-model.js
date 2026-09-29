@@ -227,11 +227,13 @@ function migrateLegacyJSON(json) {
   return { ...json, elements, accesses, views, channels: undefined };
 }
 
-// A view's createdAt/updatedAt ISO string for display ('—' if unset).
-export function formatDate(iso) {
+// A view's createdAt/updatedAt ISO string for display ('—' if unset);
+// the date alone unless `withTime`.
+export function formatDate(iso, { withTime = true } = {}) {
   if (!iso) return '—';
   const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString();
+  if (Number.isNaN(date.getTime())) return '—';
+  return withTime ? date.toLocaleString() : date.toLocaleDateString();
 }
 
 export class View {

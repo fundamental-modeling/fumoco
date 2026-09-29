@@ -342,10 +342,13 @@ on-demand, not enforced eagerly like the bipartite/acyclic-containment
 rules, since arity is a well-formedness condition on a *finished*
 diagram, not a live editing invariant.
 
-** TODO Soft diagram-size nudge: slide-format page outline
-Decided 2026-09-29: a faint dashed 16:9 slide frame on the canvas, plus
-an advisory hint when the content exceeds it. Advisory only, never
-blocks.
+** DONE Soft diagram-size nudge: portrait-slide page outline
+A faint dashed frame anchored at the diagram's top-left, sized 680x1170:
+a default PowerPoint slide in portrait (7.5in x 13.33in = 720x1280px at
+96dpi) minus the export's 20px margins and ~64px title header, so
+content that fits exports to exactly one portrait slide. Turns orange
+with a "Diagram exceeds a portrait slide" note when the content
+outgrows it. Advisory only; drawn on the guide layer, never exported.
 
 ** DONE Right-click context menu (delete/copy/cut/paste, waypoint removal)
 Per-target menus on =canvas-view.gjs=: a box (rename/copy/cut/delete-

@@ -18,6 +18,11 @@ import { ConnectorKind, connectorRule } from 'fumoco/services/connector-tool';
 import { nextFreeBoxPosition } from 'fumoco/utils/box-layout';
 
 const GRID = 10;
+// Advisory page: a default PowerPoint slide in portrait (7.5in x 13.33in
+// = 720x1280px at 96dpi), minus the export's 20px margins and ~64px
+// title header -- content that fits exports to exactly one slide.
+const PAGE_WIDTH = 680;
+const PAGE_HEIGHT = 1170;
 const ZOOM_STEP = 1.25;
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 4;
@@ -793,12 +798,14 @@ export default class CanvasView extends Component {
     this.nodesById.clear();
 
     if (!view) {
+      this.drawPageFrame(null);
       this.shapeLayer.batchDraw();
       return;
     }
 
     const model = this.modelStore.model;
     const effectiveBoxes = computeEffectiveBoxes(model, view);
+    this.drawPageFrame(effectiveBoxes);
     const displayChildren = buildDisplayChildIndex(model, view);
     const drawOrder = buildDrawOrder(model, view);
 
@@ -1470,6 +1477,47 @@ export default class CanvasView extends Component {
     return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
   }
 
+  // A faint dashed portrait-slide frame anchored at the diagram's
+  // top-left; turns orange with a note once the content outgrows it.
+  // Advisory only -- never blocks, never exported (guide layer).
+  drawPageFrame(effectiveBoxes) {
+    this.guideLayer.find('.fumoco-page').forEach((node) => node.destroy());
+    const boxes = [...(effectiveBoxes?.values() ?? [])];
+    if (!boxes.length) return this.guideLayer.batchDraw();
+    const x = Math.min(...boxes.map((b) => b.x));
+    const y = Math.min(...boxes.map((b) => b.y));
+    const width = Math.max(...boxes.map((b) => b.x + b.width)) - x;
+    const height = Math.max(...boxes.map((b) => b.y + b.height)) - y;
+    const exceeds = width > PAGE_WIDTH || height > PAGE_HEIGHT;
+    const color = exceeds ? '#e08a00' : '#a8a8a8';
+    this.guideLayer.add(
+      new Konva.Rect({
+        name: 'fumoco-page',
+        x,
+        y,
+        width: PAGE_WIDTH,
+        height: PAGE_HEIGHT,
+        stroke: color,
+        strokeWidth: 1,
+        dash: [8, 6],
+      }),
+    );
+    if (exceeds) {
+      this.guideLayer.add(
+        new Konva.Text({
+          name: 'fumoco-page',
+          x,
+          y: y - 18,
+          text: 'Diagram exceeds a portrait slide',
+          fontSize: 12,
+          fontFamily: CANVAS_FONT_FAMILY,
+          fill: color,
+        }),
+      );
+    }
+    this.guideLayer.batchDraw();
+  }
+
   // Zooms around the viewport center, so whatever's in the middle of the
   // screen stays put.
   setZoom(next) {
@@ -1523,7 +1571,7 @@ export default class CanvasView extends Component {
         text: `Author: ${view.author || '—'} · Contributors: ${view.contributors || '—'}`,
       },
       {
-        text: `Created: ${formatDate(view.createdAt)} · Last modified: ${formatDate(view.updatedAt)}`,
+        text: `Created: ${formatDate(view.createdAt, { withTime: false })} · Last modified: ${formatDate(view.updatedAt, { withTime: false })}`,
       },
     ];
     let y = 0;
@@ -1593,6 +1641,7 @@ export default class CanvasView extends Component {
       height: this.stage.height(),
     };
     this.transformer.nodes([]); // hide selection handles for the export
+    this.guideLayer.hide(); // page frame, marquee
     this.stage.position({ x: -bounds.x + margin, y: -bounds.y + margin });
     this.stage.size({ width, height });
     const background = new Konva.Rect({
@@ -1612,6 +1661,7 @@ export default class CanvasView extends Component {
     } finally {
       background.destroy();
       header.destroy();
+      this.guideLayer.show();
       this.stage.scale(originalScale);
       this.stage.position(originalPos);
       this.stage.size(originalSize);
