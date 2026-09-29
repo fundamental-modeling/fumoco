@@ -925,6 +925,18 @@ in-app only. Context menus list Cut/Copy/Paste/Select all with
 platform-specific shortcut hints; right-clicking inside a multi-selection
 keeps it.
 
+## Waypoint routing (`orthogonalPath`, `joinLegs`)
+
+An access edge is routed leg by leg between its anchors (boxes, and
+waypoints as zero-size boxes). A point within a box's range counts as
+overlapping it (overlap exactly 0), so that leg is a straight
+perpendicular. A bent leg can bend either way (`orthogonalPath`'s
+`flip`); `joinLegs` picks the combination with the fewest non-default
+bends in which the path never doubles back (180-degree turn) at a
+waypoint -- exhaustive, capped at 1024 combinations. `contentBounds`
+includes waypoints so export/scroll extents cover edges routed beyond
+the boxes.
+
 ## Edge trees and lens edges (`drawAccessEdge`)
 
 **Edge trees**: `View.edgeBundles` maps an element to its bundled sides.

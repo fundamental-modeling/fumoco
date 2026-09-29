@@ -7,6 +7,7 @@ import {
   displayParentOf,
   lensEnds,
   nestingDepth,
+  joinLegs,
   orthogonalPath,
   snapBox,
   swapBoxAxes,
@@ -841,9 +842,9 @@ module('Unit | Component | canvas-view (edge trees)', function () {
 });
 
 module('Unit | Component | canvas-view (waypoint routing)', function () {
-  // Reg test 6: waypoint (238,137) beside "New location" (100..220 x
-  // 100..160) -- the last leg drops perpendicular onto its right side.
-  test('a waypoint beside a box meets it at the foot of the perpendicular', function (assert) {
+  // Waypoint (238,137) beside "New location" (100..220 x 100..160) -- the
+  // last leg drops perpendicular onto its right side.
+  test('Reg test 6 (human-provided): a waypoint beside a box meets it at the foot of the perpendicular', function (assert) {
     const waypoint = { x: 238, y: 137, width: 0, height: 0 };
     const location = { x: 100, y: 100, width: 120, height: 60 };
     assert.deepEqual(orthogonalPath(waypoint, location), [
@@ -870,3 +871,46 @@ module('Unit | Component | canvas-view (waypoint routing)', function () {
     ]);
   });
 });
+
+module(
+  'Unit | Component | canvas-view (no reversal at a waypoint)',
+  function () {
+    // A read edge from "New location" (200..320 x 130..190) through a
+    // waypoint (366,203) to "New agent" (350..470 x 10..70). The default
+    // bend (right, then down to the waypoint) makes the next leg climb
+    // straight back up the same line: a spike. A waypoint may never turn
+    // the path around.
+    test('Reg test 7 (human-provided): a waypoint never makes the path double back', function (assert) {
+      const location = { x: 200, y: 130, width: 120, height: 60 };
+      const waypoint = { x: 366, y: 203, width: 0, height: 0 };
+      const agent = { x: 350, y: 10, width: 120, height: 60 };
+      const legs = [
+        [
+          orthogonalPath(location, waypoint),
+          orthogonalPath(location, waypoint, true),
+        ],
+        [orthogonalPath(waypoint, agent)],
+      ];
+      assert.deepEqual(joinLegs(legs), [
+        { x: 260, y: 190 },
+        { x: 260, y: 203 },
+        { x: 366, y: 203 },
+        { x: 366, y: 70 },
+      ]);
+    });
+
+    test('joinLegs keeps the default bends when nothing doubles back', function (assert) {
+      const a = { x: 0, y: 0, width: 100, height: 50 };
+      const waypoint = { x: 300, y: 200, width: 0, height: 0 };
+      const b = { x: 400, y: 170, width: 100, height: 60 };
+      const legs = [
+        [orthogonalPath(a, waypoint), orthogonalPath(a, waypoint, true)],
+        [orthogonalPath(waypoint, b)],
+      ];
+      assert.deepEqual(joinLegs(legs), [
+        ...orthogonalPath(a, waypoint),
+        ...orthogonalPath(waypoint, b).slice(1),
+      ]);
+    });
+  },
+);

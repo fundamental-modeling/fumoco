@@ -335,7 +335,9 @@ function pointInBox(point, box) {
 // every other box in the view); add it if crossings become a real problem.
 // Exported (like verticalArcPath) purely so the swept regression test can
 // call it directly.
-export function orthogonalPath(a, b) {
+// `flip` bends the other way when a bend is needed (vertical first
+// instead of horizontal first, or vice versa) -- see joinLegs.
+export function orthogonalPath(a, b, flip = false) {
   const ax0 = a.x,
     ay0 = a.y,
     ax1 = a.x + a.width,
@@ -388,7 +390,7 @@ export function orthogonalPath(a, b) {
   const bEnterX = bcx > acx ? bx0 : bx1;
   const bEnterY = bcy > acy ? by0 : by1;
 
-  if (-xOverlap >= -yOverlap) {
+  if (-xOverlap >= -yOverlap !== flip) {
     return [
       { x: aExitX, y: acy },
       { x: bcx, y: acy },
@@ -675,6 +677,53 @@ export function branchPath(box, junction, side) {
   }
   const center = box[across] + box[breadth] / 2;
   return [point(exit, center), point(junction[along], center), { ...junction }];
+}
+
+// Joins an edge's legs (anchor to anchor) into one path. Each leg comes
+// as its alternative routes, default first -- a bent leg can bend either
+// way. Picks the combination with the fewest non-default bends in which
+// the path never doubles back on itself (a waypoint may turn a path by
+// 90 degrees, never by 180); if none exists, the defaults.
+export function joinLegs(legs) {
+  const join = (choice) => {
+    let path = [];
+    legs.forEach((alternatives, i) => {
+      const leg = alternatives[choice[i]];
+      path = path.length ? [...path, ...leg.slice(1)] : leg;
+    });
+    return path;
+  };
+  let best = legs.map(() => 0);
+  let bestScore = Infinity;
+  const combos = legs.reduce((n, alternatives) => n * alternatives.length, 1);
+  // ponytail: exhaustive, capped at 1024 combinations (10 bent legs);
+  // beyond that, only the first 1024 are tried.
+  for (let code = 0; code < Math.min(combos, 1024); code++) {
+    let rest = code;
+    const choice = legs.map((alternatives) => {
+      const pick = rest % alternatives.length;
+      rest = Math.floor(rest / alternatives.length);
+      return pick;
+    });
+    const score = choice.filter(Boolean).length;
+    if (score < bestScore && !doublesBack(join(choice))) {
+      best = choice;
+      bestScore = score;
+    }
+  }
+  return join(best);
+}
+
+function doublesBack(points) {
+  const moves = [];
+  for (let i = 1; i < points.length; i++) {
+    const dx = Math.sign(points[i].x - points[i - 1].x);
+    const dy = Math.sign(points[i].y - points[i - 1].y);
+    if (dx || dy) moves.push({ dx, dy });
+  }
+  return moves.some(
+    (m, i) => i > 0 && m.dx === -moves[i - 1].dx && m.dy === -moves[i - 1].dy,
+  );
 }
 
 // A side's midpoint, and the junction TRUNK_LENGTH out from it where a
@@ -1529,22 +1578,27 @@ export default class CanvasView extends Component {
       end.head = false;
       return { side, junction: trunks.get(key).junction };
     });
-    let path = [];
+    const legs = [];
     for (let i = 0; i < anchors.length - 1; i++) {
       const [start, end] = [
         i === 0 && branches[0],
         i === anchors.length - 2 && branches[1],
       ];
-      const segment =
-        start && end
-          ? orthogonalPath(pointBox(start.junction), pointBox(end.junction))
-          : start
-            ? branchPath(anchors[i + 1], start.junction, start.side).reverse()
-            : end
-              ? branchPath(anchors[i], end.junction, end.side)
-              : orthogonalPath(anchors[i], anchors[i + 1]);
-      path = path.length ? [...path, ...segment.slice(1)] : segment;
+      const [a, b] = [
+        start ? pointBox(start.junction) : anchors[i],
+        end ? pointBox(end.junction) : anchors[i + 1],
+      ];
+      if (start && !end) {
+        legs.push([branchPath(b, start.junction, start.side).reverse()]);
+      } else if (end && !start) {
+        legs.push([branchPath(a, end.junction, end.side)]);
+      } else {
+        const bends = [orthogonalPath(a, b), orthogonalPath(a, b, true)];
+        const same = JSON.stringify(bends[0]) === JSON.stringify(bends[1]);
+        legs.push(same ? [bends[0]] : bends);
+      }
     }
+    const path = joinLegs(legs);
     this.addRoutedEdge(path, {
       arrowStart: ends[0].head,
       arrowEnd: ends[1].head,
@@ -1822,6 +1876,8 @@ export default class CanvasView extends Component {
         width: label.width(),
         height: label.height(),
       })),
+      // an edge routed out through a waypoint reaches at least that far
+      ...[...view.edgeWaypoints.values()].flat().map(pointBox),
     ];
     if (!boxes.length) return null;
     const minX = Math.min(...boxes.map((b) => b.x));

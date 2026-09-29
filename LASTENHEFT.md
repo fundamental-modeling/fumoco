@@ -130,7 +130,9 @@ implementation notes here — that's the other two documents' job.
   its access kind between read/write/modify.
 - As a modeler, I want to manipulate an arrow's routing by adding and
   moving waypoints, while it stays strictly horizontal/vertical
-  (rectangular) in nature — no free-angle segments.
+  (rectangular) in nature — no free-angle segments. A waypoint beside a
+  box meets it at the foot of the perpendicular, and a waypoint must
+  never make the arrow turn back on itself.
 - As a modeler, I want the properties panel to show the arrows/connections
   to and from a selected box, not just its own label/flags.
 - As a modeler, I want arrows to be entities tracked in the world model,
