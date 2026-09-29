@@ -25,6 +25,7 @@ const GRID = 10;
 const PAGE_WIDTH = 1240;
 const PAGE_HEIGHT = 610;
 const ZOOM_STEP = 1.25;
+const OUTSIDE_LABEL_GAP = 4; // px between a human agent's box and its name above it
 const GUIDE_STRIP = 8; // px: the canvas-edge strips guides are dragged in from / back out to
 const GUIDE_SNAP = 6; // px (screen): how close a box edge/center must come to snap to a guide
 const MIN_ZOOM = 0.25;
@@ -774,6 +775,7 @@ export default class CanvasView extends Component {
   guideLayer;
   transformer;
   nodesById = new Map();
+  outsideLabels = new Map(); // element id -> label drawn outside its box (human agents)
   marqueeRect;
   marqueeStart = null;
   // { x, y, items: [{label, action}] } in viewport pixel coords, or null
@@ -993,9 +995,10 @@ export default class CanvasView extends Component {
 
     this.transformer.nodes([]);
     this.shapeLayer
-      .find('.fumoco-shape, .fumoco-edge')
+      .find('.fumoco-shape, .fumoco-edge, .fumoco-outside-label')
       .forEach((node) => node.destroy());
     this.nodesById.clear();
+    this.outsideLabels.clear();
 
     if (!view) {
       this.drawPageFrame(null);
@@ -1806,6 +1809,13 @@ export default class CanvasView extends Component {
   contentBounds(view) {
     const boxes = [
       ...computeEffectiveBoxes(this.modelStore.model, view).values(),
+      // world coords: labels sit directly on the layer
+      ...[...this.outsideLabels.values()].map((label) => ({
+        x: label.x(),
+        y: label.y(),
+        width: label.width(),
+        height: label.height(),
+      })),
     ];
     if (!boxes.length) return null;
     const minX = Math.min(...boxes.map((b) => b.x));
@@ -2805,14 +2815,37 @@ export default class CanvasView extends Component {
         fontFamily: CANVAS_FONT_FAMILY,
         fill: '#666666',
       });
+    } else if (element.type === ElementType.HUMAN_AGENT) {
+      // FMC's human agent: the box holds just the stick figure; its name
+      // sits outside, centered above it. A separate layer node rather
+      // than a child of the group, so the Transformer's handles (and
+      // resize scaling) cover only the box -- it follows the box on
+      // drag/resize, and outsideLabels feeds contentBounds.
+      label = null;
+      const outside = new Konva.Text({
+        name: 'fumoco-outside-label',
+        text: labelText,
+        fontSize: 15,
+        fontFamily: CANVAS_FONT_FAMILY,
+        fill: '#000000',
+        listening: false,
+      });
+      const place = () =>
+        outside.position({
+          x:
+            group.x() +
+            (rect.width() * group.scaleX()) / 2 -
+            outside.width() / 2,
+          y: group.y() - OUTSIDE_LABEL_GAP - outside.height(),
+        });
+      place();
+      group.on('dragmove transform', place);
+      this.outsideLabels.set(element.id, outside);
+      this.shapeLayer.add(outside);
     } else {
-      // A human agent's stick figure occupies the box's left ~32px; the
-      // label centers in the space to its right instead of running into it.
-      const inset = element.type === ElementType.HUMAN_AGENT ? 32 : 0;
       label = new Konva.Text({
         text: labelText,
-        x: inset,
-        width: box.width - inset,
+        width: box.width,
         height: box.height,
         align: 'center',
         verticalAlign: 'middle',
@@ -2828,7 +2861,7 @@ export default class CanvasView extends Component {
     }
     // A NOP transition carries no label -- it's a solid bar, and any text
     // on top of a black fill wouldn't read anyway.
-    if (!isNopTransition) group.add(label);
+    if (label && !isNopTransition) group.add(label);
 
     group.on('click', (event) => {
       event.cancelBubble = true;
@@ -2891,6 +2924,7 @@ export default class CanvasView extends Component {
         const dy = group.y() - dragStart.y;
         this.modelStore.mutate(() => {
           for (const descendant of descendants) {
+            if (descendant.labelOnly) continue;
             const descendantBox = view.boxes.get(descendant.id);
             if (descendantBox) {
               view.boxes.set(descendant.id, {
@@ -2971,6 +3005,17 @@ export default class CanvasView extends Component {
         const node = this.nodesById.get(childId);
         if (node)
           result.push({ id: childId, node, x0: node.x(), y0: node.y() });
+        const label = this.outsideLabels.get(childId);
+        if (label) {
+          // moves along, but isn't a box to write back (labelOnly)
+          result.push({
+            id: childId,
+            node: label,
+            x0: label.x(),
+            y0: label.y(),
+            labelOnly: true,
+          });
+        }
         visit(childId);
       }
     };
@@ -3069,48 +3114,26 @@ export default class CanvasView extends Component {
     };
   }
 
+  // Centered in the box, scaled to ~70% of it (the figure's own drawing
+  // is 14 x 33 units around its center); line width stays 1.5px.
   buildStickFigure(box) {
-    const cx = 20;
-    const cy = box.height / 2;
-    const stroke = '#000000';
-    const group = new Konva.Group();
-    group.add(
-      new Konva.Circle({
-        x: cx,
-        y: cy - 12,
-        radius: 5,
-        stroke,
-        strokeWidth: 1.5,
-      }),
-    );
-    group.add(
-      new Konva.Line({
-        points: [cx, cy - 7, cx, cy + 8],
-        stroke,
-        strokeWidth: 1.5,
-      }),
-    );
-    group.add(
-      new Konva.Line({
-        points: [cx - 6, cy - 2, cx + 6, cy - 2],
-        stroke,
-        strokeWidth: 1.5,
-      }),
-    );
-    group.add(
-      new Konva.Line({
-        points: [cx, cy + 8, cx - 5, cy + 16],
-        stroke,
-        strokeWidth: 1.5,
-      }),
-    );
-    group.add(
-      new Konva.Line({
-        points: [cx, cy + 8, cx + 5, cy + 16],
-        stroke,
-        strokeWidth: 1.5,
-      }),
-    );
+    const scale = Math.min((0.7 * box.height) / 33, (0.7 * box.width) / 14);
+    const group = new Konva.Group({
+      x: box.width / 2,
+      y: box.height / 2,
+      scaleX: scale,
+      scaleY: scale,
+    });
+    const line = {
+      stroke: '#000000',
+      strokeWidth: 1.5,
+      strokeScaleEnabled: false,
+    };
+    group.add(new Konva.Circle({ y: -12, radius: 5, ...line }));
+    group.add(new Konva.Line({ points: [0, -7, 0, 8], ...line }));
+    group.add(new Konva.Line({ points: [-6, -2, 6, -2], ...line }));
+    group.add(new Konva.Line({ points: [0, 8, -5, 16], ...line }));
+    group.add(new Konva.Line({ points: [0, 8, 5, 16], ...line }));
     return group;
   }
 

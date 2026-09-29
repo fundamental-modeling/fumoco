@@ -90,6 +90,9 @@ implementation notes here — that's the other two documents' job.
 
 ## Selecting and arranging multiple elements
 
+- As a modeler, I want a human agent drawn as in FMC: a box holding just
+  the stick figure, with its name outside the box, centered above it.
+
 - As a modeler, I want to multi-select boxes via shift-click, cmd/ctrl-
   click, and by dragging a selection rectangle over them.
 - As a modeler, I want to select everything in a drawing with Cmd-A on a

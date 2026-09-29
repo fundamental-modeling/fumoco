@@ -8,6 +8,9 @@ const DEFAULT_SIZES = {
   [ElementType.PLACE]: { width: 33, height: 33 },
   // ~1em high, 3em wide: an unnamed relation just carries its arrow.
   [ElementType.RELATION]: { width: 45, height: 15 },
+  // Portrait, ~3em x 4em, holding just the stick figure (FMC stencil);
+  // the name is drawn outside, above it.
+  [ElementType.HUMAN_AGENT]: { width: 45, height: 60 },
   // A triangle glyph, not a label-sized box.
   [ElementType.PARTITION]: { width: 60, height: 50 },
 };

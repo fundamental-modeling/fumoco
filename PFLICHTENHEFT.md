@@ -901,6 +901,17 @@ note when the content outgrows it. On the guide layer; never exported.
   body stacked 8px apart down-right behind it. The body rect is named
   `.fumoco-body` so selection styling finds it rather than a copy.
 
+## Human agents (`buildShape`, `buildStickFigure`)
+
+As in the FMC stencils: a portrait box (default 45x60, ~3em x 4em) with
+the stick figure centered and scaled to ~70% of it, and the name outside,
+centered above the box. The name is a separate layer node
+(`outsideLabels`), not a child of the element's group, so the
+Transformer's handles and resize scaling cover only the box; it follows
+the box on drag/transform (and with a dragged container's descendants),
+and `contentBounds` includes it so exports and scrollbars don't cut it
+off.
+
 ## Clipboard and keyboard (`canvas-view.gjs`)
 
 Cmd (Mac) or Ctrl + A/X/C/V -- either modifier is accepted everywhere,

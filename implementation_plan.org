@@ -226,6 +226,11 @@ view's fields when nothing is selected. Verified by code trace
 Confirmed done (2026-09-29): compact icon buttons sit right-aligned on
 the title's line.
 
+** DONE Human agents: stick figure in a portrait box, name outside above it
+Per the FMC stencil library: 45x60 default box, stick figure centered and
+scaled, name centered above the box as its own layer node (so resize
+handles cover only the box); included in export/scroll bounds.
+
 ** DONE One access edge per agent/location pair: read + write = modify
 =addAccess= merges a second direction into the existing edge (read +
 write -> modify) instead of adding a second edge, via the connector tool,

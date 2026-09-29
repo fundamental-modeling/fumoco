@@ -760,24 +760,26 @@ export class FmcModel {
         }),
       );
     }
+    // Merged in a plain array first: fromJSON can run lazily *during* a
+    // render (model-store's initializer), where reading a tracked array
+    // and then writing to it is an error.
+    const accesses = [];
     for (const access of json.accesses ?? []) {
       // `id: makeId()` first, then spread `access` over it, so an already-
       // current export's own id wins and only a legacy/missing one gets a
       // fresh one assigned here. A second edge for the same agent/location
       // pair (files saved before edges were merged) folds into the first.
-      const index = model.accesses.findIndex(
+      const existing = accesses.find(
         (a) => a.agent === access.agent && a.location === access.location,
       );
-      if (index === -1) {
-        model.accesses.push({ id: makeId(), ...access });
+      if (existing) {
+        existing.kind = mergeAccessKinds(existing.kind, access.kind);
       } else {
-        const existing = model.accesses[index];
-        model.accesses.splice(index, 1, {
-          ...existing,
-          kind: mergeAccessKinds(existing.kind, access.kind),
-        });
+        accesses.push({ id: makeId(), ...access });
       }
     }
+    model.accesses.push(...accesses);
+    const accessIds = new Set(accesses.map((a) => a.id));
     for (const arc of json.arcs ?? []) {
       model.arcs.push({ id: makeId(), ...arc });
     }
@@ -795,7 +797,6 @@ export class FmcModel {
         view.nestedUnder ?? {},
       ))
         v.nestedUnder.set(elementId, parentId);
-      const accessIds = new Set(model.accesses.map((a) => a.id));
       for (const [edgeId, points] of Object.entries(view.edgeWaypoints ?? {})) {
         if (!accessIds.has(edgeId)) continue; // merged away on load
         v.edgeWaypoints.set(
