@@ -5,6 +5,7 @@ import {
   displayParentOf,
   nestingDepth,
   orthogonalPath,
+  snapBox,
   swapBoxAxes,
   verticalArcPath,
 } from 'fumoco/components/canvas-view';
@@ -741,6 +742,28 @@ module('Unit | Component | canvas-view (reified relation circle)', function () {
       y: 62.5,
       width: 90,
       height: 90,
+    });
+  });
+});
+
+module('Unit | Component | canvas-view (guide snapping)', function () {
+  const box = { x: 0, y: 0, width: 45, height: 15 };
+
+  test('snaps the nearest of left/center/right onto a guide within tolerance', function (assert) {
+    const guides = [{ axis: 'x', pos: 300 }];
+    // right edge 297 -> 300
+    assert.strictEqual(snapBox(guides, { ...box, x: 252 }, 6).x, 255);
+    // center 302.5 -> 300
+    assert.strictEqual(snapBox(guides, { ...box, x: 280 }, 6).x, 277.5);
+    // left edge 303 -> 300
+    assert.strictEqual(snapBox(guides, { ...box, x: 303 }, 6).x, 300);
+  });
+
+  test('falls back to the grid outside tolerance or on the other axis', function (assert) {
+    const guides = [{ axis: 'x', pos: 300 }];
+    assert.deepEqual(snapBox(guides, { ...box, x: 233, y: 107 }, 6), {
+      x: 230,
+      y: 110,
     });
   });
 });

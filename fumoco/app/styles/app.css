@@ -398,6 +398,32 @@ body {
   z-index: 10;
 }
 
+.canvas-guide-strip {
+  position: absolute;
+  z-index: 5;
+  background: rgb(42 157 244 / 8%);
+}
+
+.canvas-guide-strip:hover {
+  background: rgb(42 157 244 / 25%);
+}
+
+.canvas-guide-strip-top {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
+  cursor: row-resize;
+}
+
+.canvas-guide-strip-left {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 8px;
+  cursor: col-resize;
+}
+
 .canvas-zoom-toolbar {
   position: absolute;
   bottom: 8px;

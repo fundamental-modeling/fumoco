@@ -169,10 +169,14 @@ passive component, with "Storage" and "Channel" as its two specific
 kinds, not two unrelated concepts (confirmed against
 https://www.fmc-modeling.org/notation_reference).
 
-** TODO Draggable guide lines that boxes snap to
-Decided 2026-09-29: guides only, no tick-mark ruler strip. Drag a guide in
-from the top or left canvas edge; boxes snap to it within a few px, same
-as grid snapping; drag it back out to remove it. Persisted per view.
+** DONE Draggable guide lines that boxes snap to
+No ruler strip: thin highlighted strips along the canvas's top and left
+edges; drag from one to add a horizontal/vertical guide (grid-snapped),
+drag a guide back onto its strip to remove it. Stored per view
+(=View.guides=, serialized). While dragging a box, its left/center/right
+(top/middle/bottom) snaps to a guide within 6 screen px, else to the
+grid (=snapBox=). Guides live on the guide layer, so they're never
+exported. Resizing doesn't snap to guides yet.
 
 ** DONE Zoom in / zoom out / reset to 100%
 Bottom-right canvas buttons (−, current %, +); the % button resets to

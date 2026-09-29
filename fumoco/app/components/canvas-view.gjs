@@ -24,6 +24,8 @@ const GRID = 10;
 const PAGE_WIDTH = 1240;
 const PAGE_HEIGHT = 610;
 const ZOOM_STEP = 1.25;
+const GUIDE_STRIP = 8; // px: the canvas-edge strips guides are dragged in from / back out to
+const GUIDE_SNAP = 6; // px (screen): how close a box edge/center must come to snap to a guide
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 4;
 const MIN_SIZE = 10; // below the 15px-high default relation
@@ -144,6 +146,29 @@ function circleAround(box) {
     y: box.y + box.height / 2 - d / 2,
     width: d,
     height: d,
+  };
+}
+
+// A dragged box's top-left, snapped: its left/center/right edge
+// (top/middle/bottom for horizontal guides) onto the nearest guide within
+// `tolerance` diagram units, else onto the grid.
+export function snapBox(guides, box, tolerance) {
+  const snapAxis = (axis, start, size) => {
+    let best = null;
+    for (const guide of guides) {
+      if (guide.axis !== axis) continue;
+      for (const offset of [0, size / 2, size]) {
+        const distance = Math.abs(start + offset - guide.pos);
+        if (distance < tolerance && (!best || distance < best.distance)) {
+          best = { distance, start: guide.pos - offset };
+        }
+      }
+    }
+    return best ? best.start : snapToGrid(start);
+  };
+  return {
+    x: snapAxis('x', box.x, box.width),
+    y: snapAxis('y', box.y, box.height),
   };
 }
 
@@ -694,7 +719,7 @@ export default class CanvasView extends Component {
       height: element.clientHeight || 600,
     });
     this.shapeLayer = new Konva.Layer();
-    this.guideLayer = new Konva.Layer({ listening: false });
+    this.guideLayer = new Konva.Layer(); // guides are draggable
     this.transformer = new Konva.Transformer({
       // newBox is in screen px; MIN_SIZE is in diagram units
       boundBoxFunc: (oldBox, newBox) =>
@@ -894,6 +919,7 @@ export default class CanvasView extends Component {
 
     if (!view) {
       this.drawPageFrame(null);
+      this.drawGuides(null);
       this.shapeLayer.batchDraw();
       return;
     }
@@ -901,6 +927,7 @@ export default class CanvasView extends Component {
     const model = this.modelStore.model;
     const effectiveBoxes = computeEffectiveBoxes(model, view);
     this.drawPageFrame(effectiveBoxes);
+    this.drawGuides(view);
     const displayChildren = buildDisplayChildIndex(model, view);
     const drawOrder = buildDrawOrder(model, view);
 
@@ -1574,6 +1601,99 @@ export default class CanvasView extends Component {
     return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
   }
 
+  guideLine(axis, pos) {
+    const far = 100000;
+    return new Konva.Line({
+      name: 'fumoco-guide',
+      x: axis === 'x' ? pos : 0,
+      y: axis === 'y' ? pos : 0,
+      points: axis === 'x' ? [0, -far, 0, far] : [-far, 0, far, 0],
+      stroke: '#2a9df4',
+      strokeWidth: 1,
+      hitStrokeWidth: 8,
+      strokeScaleEnabled: false,
+    });
+  }
+
+  // Guides are draggable along their own axis only; dropped back onto
+  // the canvas edge strip they came from, they're removed.
+  drawGuides(view) {
+    this.guideLayer.find('.fumoco-guide').forEach((node) => node.destroy());
+    (view?.guides ?? []).forEach((guide, index) => {
+      const line = this.guideLine(guide.axis, guide.pos);
+      line.draggable(true);
+      line.dragBoundFunc((pos) =>
+        guide.axis === 'x'
+          ? { x: pos.x, y: line.absolutePosition().y }
+          : { x: line.absolutePosition().x, y: pos.y },
+      );
+      line.on('mouseenter', () => {
+        this.stage.container().style.cursor =
+          guide.axis === 'x' ? 'col-resize' : 'row-resize';
+      });
+      line.on('mouseleave', () => {
+        this.stage.container().style.cursor = '';
+      });
+      line.on('dragend', () => {
+        const screen = line.absolutePosition();
+        const removed =
+          (guide.axis === 'x' ? screen.x : screen.y) < GUIDE_STRIP;
+        const pos = snapToGrid(guide.axis === 'x' ? line.x() : line.y());
+        this.stage.container().style.cursor = '';
+        this.modelStore.mutate(() => {
+          if (removed) view.guides.splice(index, 1);
+          else view.guides.splice(index, 1, { axis: guide.axis, pos });
+        });
+      });
+      this.guideLayer.add(line);
+    });
+    this.guideLayer.batchDraw();
+  }
+
+  // A drag handle needs mousedown, attached here rather than via {{on}}
+  // (ember-template-lint rejects pointer-down bindings on a div).
+  guideStrip = modifier((element, [axis]) => {
+    const handler = (event) => this.startGuide(axis, event);
+    element.addEventListener('mousedown', handler);
+    return () => element.removeEventListener('mousedown', handler);
+  });
+
+  // Mousedown on the top (axis 'y') or left (axis 'x') edge strip: a new
+  // guide follows the pointer and is added where it's released -- unless
+  // that's still on the strip, which cancels it.
+  startGuide(axis, event) {
+    const view = this.modelStore.activeView;
+    if (!view || !this.stage) return;
+    event.preventDefault();
+    const origin = this.stage.container().getBoundingClientRect();
+    const toWorld = (evt) =>
+      axis === 'x'
+        ? (evt.clientX - origin.left - this.stage.x()) / this.stage.scaleX()
+        : (evt.clientY - origin.top - this.stage.y()) / this.stage.scaleY();
+    const line = this.guideLine(axis, toWorld(event));
+    line.listening(false);
+    this.guideLayer.add(line);
+    this.guideLayer.batchDraw();
+    const move = (evt) => {
+      line[axis](toWorld(evt));
+      this.guideLayer.batchDraw();
+    };
+    const up = (evt) => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      line.destroy();
+      this.guideLayer.batchDraw();
+      const screen =
+        axis === 'x' ? evt.clientX - origin.left : evt.clientY - origin.top;
+      if (screen < GUIDE_STRIP) return;
+      this.modelStore.mutate(() => {
+        view.guides.push({ axis, pos: snapToGrid(toWorld(evt)) });
+      });
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  }
+
   // A faint dashed landscape-slide frame anchored at the diagram's
   // top-left; turns orange with a note once the content outgrows it.
   // Advisory only -- never blocks, never exported (guide layer).
@@ -1590,6 +1710,7 @@ export default class CanvasView extends Component {
     this.guideLayer.add(
       new Konva.Rect({
         name: 'fumoco-page',
+        listening: false,
         x,
         y,
         width: PAGE_WIDTH,
@@ -1603,6 +1724,7 @@ export default class CanvasView extends Component {
       this.guideLayer.add(
         new Konva.Text({
           name: 'fumoco-page',
+          listening: false,
           x,
           y: y - 18,
           text: 'Diagram exceeds a landscape slide',
@@ -2252,14 +2374,21 @@ export default class CanvasView extends Component {
       name: 'fumoco-shape',
       id: element.id,
       // pos is absolute (screen) -- snap in diagram units, so the grid
-      // holds at any pan offset and zoom level
+      // (and guides) hold at any pan offset and zoom level
       dragBoundFunc: (pos) => {
         const scale = this.stage.scaleX();
         const { x, y } = this.stage.position();
-        return {
-          x: snapToGrid((pos.x - x) / scale) * scale + x,
-          y: snapToGrid((pos.y - y) / scale) * scale + y,
-        };
+        const snapped = snapBox(
+          view.guides,
+          {
+            x: (pos.x - x) / scale,
+            y: (pos.y - y) / scale,
+            width: box.width,
+            height: box.height,
+          },
+          GUIDE_SNAP / scale,
+        );
+        return { x: snapped.x * scale + x, y: snapped.y * scale + y };
       },
     });
     const isLocation = element.type === ElementType.LOCATION;
@@ -2676,6 +2805,18 @@ export default class CanvasView extends Component {
         {{this.syncSelection}}
         {{this.syncEdgeSelection}}
         {{this.syncConnectorEligibility}}
+      ></div>
+      <div
+        class="canvas-guide-strip canvas-guide-strip-top"
+        title="Drag down to add a horizontal guide"
+        aria-hidden="true"
+        {{this.guideStrip "y"}}
+      ></div>
+      <div
+        class="canvas-guide-strip canvas-guide-strip-left"
+        title="Drag right to add a vertical guide"
+        aria-hidden="true"
+        {{this.guideStrip "x"}}
       ></div>
       <div class="canvas-export-toolbar">
         <button type="button" {{on "click" this.exportPng}}>Export PNG</button>

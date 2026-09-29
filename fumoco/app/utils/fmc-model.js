@@ -275,6 +275,10 @@ export class View {
   // path is routed through, in a view -- routing is a per-view display
   // choice, same as nestedUnder, not a model-level fact.
   edgeWaypoints = new TrackedMap();
+  // Snap guide lines: { axis: 'x' (vertical line at x = pos) | 'y'
+  // (horizontal line at y = pos), pos } in diagram units. Replaced, not
+  // mutated, on edit so the TrackedArray sees it.
+  guides = new TrackedArray();
   // Metadata shown in the properties panel when nothing else is selected
   // -- `name` already serves as the view's own "title". `createdAt` is
   // set once and never changes; `updatedAt` is bumped by model-store's
@@ -695,6 +699,7 @@ export class FmcModel {
                 points.map((p) => ({ ...p })),
               ]),
             ),
+            guides: view.guides.map((g) => ({ ...g })),
           },
         ]),
       ),
@@ -749,6 +754,7 @@ export class FmcModel {
           new TrackedArray(points.map((p) => ({ ...p }))),
         );
       }
+      for (const guide of view.guides ?? []) v.guides.push({ ...guide });
       model.views.set(id, v);
     }
     return model;
