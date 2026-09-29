@@ -41,6 +41,10 @@ export const ElementType = Object.freeze({
   // arc from the triangle to each part (subset) attaches along its base.
   // See spec/index.html's "Orthogonal partitioning" section.
   PARTITION: 'partition',
+  // "…" between exemplars (A1 … An), in any diagram type: enumerates
+  // similar elements without drawing each one. Not part of the bipartite
+  // graph -- nothing connects to it.
+  ELLIPSIS: 'ellipsis',
 });
 
 // The "rounded" bipartite kind in each diagram type (agent/transition/

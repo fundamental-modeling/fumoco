@@ -191,7 +191,10 @@ export default class PropertiesPanel extends Component {
   }
 
   get showsFillOption() {
-    return this.selectedElement && this.selectedElement.type !== 'partition';
+    return (
+      this.selectedElement &&
+      !['partition', 'ellipsis'].includes(this.selectedElement.type)
+    );
   }
 
   get fillOptions() {

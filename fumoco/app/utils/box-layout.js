@@ -11,6 +11,8 @@ const DEFAULT_SIZES = {
   // Portrait, ~3em x 4em, holding just the stick figure (FMC stencil);
   // the name is drawn outside, above it.
   [ElementType.HUMAN_AGENT]: { width: 45, height: 60 },
+  // Three dots, ~3em x 1em.
+  [ElementType.ELLIPSIS]: { width: 45, height: 15 },
   // A triangle glyph, not a label-sized box.
   [ElementType.PARTITION]: { width: 60, height: 50 },
 };

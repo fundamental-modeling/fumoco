@@ -368,6 +368,11 @@ relation), growing with it.
 Nodes now stroke at =NODE_STROKE_WIDTH= (3, 4 when selected); edges stay
 at =strokeWidth: 2=.
 
+** DONE Ellipsis ("…") element in all three diagram types
+For "A1 … An" enumeration: three dots along the box's longer side (so it
+can stand vertically too), no outline, no connections; palette button in
+block, Petri net and ER views.
+
 ** DONE "N similar boxes" marker: stacked-box style on one element
 =Element.multiple= (properties panel checkbox, agents/storages): the box
 is drawn with two copies stacked behind it, offset 8px down-right. The

@@ -101,6 +101,11 @@ export default class Palette extends Component {
   }
 
   @action
+  addEllipsis() {
+    this.addElement(ElementType.ELLIPSIS, null);
+  }
+
+  @action
   addPartition() {
     this.addElement(ElementType.PARTITION, null);
   }
@@ -133,6 +138,11 @@ export default class Palette extends Component {
           {{on "click" this.addPartition}}
         >Partition</button>
       {{/if}}
+      <button
+        type="button"
+        title="Ellipsis (…) between exemplars: A1 … An"
+        {{on "click" this.addEllipsis}}
+      >Ellipsis …</button>
 
       <h3>Connectors</h3>
       {{#each this.connectorButtons as |option|}}

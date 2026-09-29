@@ -679,6 +679,20 @@ export function branchPath(box, junction, side) {
   return [point(exit, center), point(junction[along], center), { ...junction }];
 }
 
+// An ellipsis's three dots, in box-local coordinates: spread along the
+// box's longer side (a tall box gives a vertical ellipsis).
+export function ellipsisDots({ width, height }) {
+  const horizontal = width >= height;
+  const long = horizontal ? width : height;
+  const radius = Math.min(Math.min(width, height) / 4, 3);
+  return [1, 3, 5].map((sixths) => {
+    const along = (long * sixths) / 6;
+    return horizontal
+      ? { x: along, y: height / 2, radius }
+      : { x: width / 2, y: along, radius };
+  });
+}
+
 // Which way a channel carries information: from the agent(s) writing it
 // to the agent(s) reading it, along the dominant axis. `axis` is 'x' or
 // 'y'; `sign` is +1 (right/down) or -1 (left/up), or 0 when there's no
@@ -1805,7 +1819,10 @@ export default class CanvasView extends Component {
       const rect = node.findOne('.fumoco-body');
       if (!rect) continue;
       const selected = this.selection.isSelected(id);
-      rect.stroke(selected ? '#0078ff' : '#000000');
+      // an ellipsis has no outline of its own -- only while selected
+      const unselected =
+        element?.type === ElementType.ELLIPSIS ? null : '#000000';
+      rect.stroke(selected ? '#0078ff' : unselected);
       rect.strokeWidth(
         selected ? NODE_STROKE_WIDTH_SELECTED : NODE_STROKE_WIDTH,
       );
@@ -2831,6 +2848,7 @@ export default class CanvasView extends Component {
     const isPlace = element.type === ElementType.PLACE;
     const isEntitySet = element.type === ElementType.ENTITY_SET;
     const isPartition = element.type === ElementType.PARTITION;
+    const isEllipsis = element.type === ElementType.ELLIPSIS;
     const isNopTransition =
       element.type === ElementType.TRANSITION && element.isNop;
     // A channel's place, a Petri net place, or an ER entity set all use
@@ -2864,8 +2882,10 @@ export default class CanvasView extends Component {
           name: 'fumoco-body',
           width: box.width,
           height: box.height,
-          fill: element.fill ?? '#ffffff',
-          stroke: '#000000',
+          // an ellipsis is just its dots: a transparent (still clickable)
+          // body with no outline
+          fill: isEllipsis ? 'rgba(0,0,0,0)' : (element.fill ?? '#ffffff'),
+          stroke: isEllipsis ? null : '#000000',
           strokeWidth: NODE_STROKE_WIDTH,
           cornerRadius,
           dash: isLocation && element.dashed ? [6, 4] : undefined,
@@ -2878,6 +2898,12 @@ export default class CanvasView extends Component {
       }
     }
     group.add(rect);
+
+    if (isEllipsis) {
+      for (const dot of ellipsisDots(box)) {
+        group.add(new Konva.Circle({ ...dot, fill: '#000000' }));
+      }
+    }
 
     if (element.type === ElementType.HUMAN_AGENT) {
       group.add(this.buildStickFigure(box));
@@ -2984,7 +3010,7 @@ export default class CanvasView extends Component {
     }
     // A NOP transition carries no label -- it's a solid bar, and any text
     // on top of a black fill wouldn't read anyway.
-    if (label && !isNopTransition) group.add(label);
+    if (label && !isNopTransition && !isEllipsis) group.add(label);
 
     group.on('click', (event) => {
       event.cancelBubble = true;

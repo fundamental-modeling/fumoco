@@ -897,6 +897,12 @@ note when the content outgrows it. On the guide layer; never exported.
   the NOP bar stay resizable.
 - **Fill**: `Element.fill` is null (white) or one of `BOX_FILLS`, five
   low-saturation colors picked by swatch in the properties panel.
+- **Ellipsis**: `ElementType.ELLIPSIS`, in every diagram type's
+  palette, default 45x15. Three dots along the box's longer side
+  (`ellipsisDots`; a tall box gives a vertical ellipsis) on a
+  transparent, clickable body with no outline except while selected.
+  Not part of any bipartite graph: no connector accepts it, no label is
+  drawn, no fill option.
 - **Multiple instances**: `Element.multiple` draws two copies of the
   body stacked 8px apart down-right behind it. The body rect is named
   `.fumoco-body` so selection styling finds it rather than a copy.

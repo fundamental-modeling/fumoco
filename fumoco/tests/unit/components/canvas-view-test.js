@@ -6,6 +6,7 @@ import {
   bundledSideToward,
   computeEffectiveBoxes,
   displayParentOf,
+  ellipsisDots,
   lensEnds,
   nestingDepth,
   joinLegs,
@@ -969,5 +970,24 @@ module('Unit | Component | canvas-view (channel labels)', function () {
       x: 132,
       y: 106.5,
     });
+  });
+});
+
+module('Unit | Component | canvas-view (ellipsis)', function () {
+  test('three dots along the longer side', function (assert) {
+    assert.deepEqual(ellipsisDots({ width: 45, height: 15 }), [
+      { x: 7.5, y: 7.5, radius: 3 },
+      { x: 22.5, y: 7.5, radius: 3 },
+      { x: 37.5, y: 7.5, radius: 3 },
+    ]);
+    assert.deepEqual(
+      ellipsisDots({ width: 15, height: 45 }).map((d) => [d.x, d.y]),
+      [
+        [7.5, 7.5],
+        [7.5, 22.5],
+        [7.5, 37.5],
+      ],
+      'a tall ellipsis runs vertically',
+    );
   });
 });
