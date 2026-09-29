@@ -901,6 +901,18 @@ note when the content outgrows it. On the guide layer; never exported.
   body stacked 8px apart down-right behind it. The body rect is named
   `.fumoco-body` so selection styling finds it rather than a copy.
 
+## Channel labels (`channelFlow`, `withFlowArrow`, `outsideLabelPosition`)
+
+A channel place's circle stays empty; its label is an outside label (same
+mechanism as a human agent's name), centered above the circle -- or to
+its right when the channel runs vertically, so it doesn't sit on the
+line. `channelFlow` finds the direction from the agent writing the
+channel to the one reading it (dominant axis; no direction for a
+bidirectional channel, whose agents only modify it). For a shorthand
+channel, `withFlowArrow` turns the stored "R▶" into ▶ ◀ ▼ ▲ accordingly,
+with a thin space before it as in the FMC stencil; the stored label is
+unchanged.
+
 ## Human agents (`buildShape`, `buildStickFigure`)
 
 As in the FMC stencils: a portrait box (default 45x60, ~3em x 4em) with

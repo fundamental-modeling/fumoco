@@ -1,6 +1,7 @@
 import { module, test } from 'qunit';
 import {
   buildDrawOrder,
+  channelFlow,
   branchPath,
   bundledSideToward,
   computeEffectiveBoxes,
@@ -9,10 +10,12 @@ import {
   nestingDepth,
   joinLegs,
   orthogonalPath,
+  outsideLabelPosition,
   snapBox,
   swapBoxAxes,
   trunkPoints,
   verticalArcPath,
+  withFlowArrow,
 } from 'fumoco/components/canvas-view';
 import { ElementType, FmcModel } from 'fumoco/utils/fmc-model';
 
@@ -914,3 +917,57 @@ module(
     });
   },
 );
+
+module('Unit | Component | canvas-view (channel labels)', function () {
+  function reqRes(sourceBox, targetBox) {
+    const model = new FmcModel();
+    const source = model.addElement(ElementType.AGENT);
+    const target = model.addElement(ElementType.AGENT);
+    const [place] = model.addReqRes(source, target, { shorthand: true });
+    const boxes = new Map([
+      [source, sourceBox],
+      [target, targetBox],
+    ]);
+    return { model, place, boxes };
+  }
+
+  test('the R triangle points from requester to server', function (assert) {
+    const left = { x: 0, y: 0, width: 100, height: 60 };
+    const right = { x: 300, y: 0, width: 100, height: 60 };
+    const below = { x: 0, y: 300, width: 100, height: 60 };
+    for (const [from, to, expected] of [
+      [left, right, 'R\u2009▶'],
+      [right, left, 'R\u2009◀'],
+      [left, below, 'R\u2009▼'],
+      [below, left, 'R\u2009▲'],
+    ]) {
+      const { model, place, boxes } = reqRes(from, to);
+      assert.strictEqual(
+        withFlowArrow('R▶', channelFlow(model, place, boxes)),
+        expected,
+      );
+    }
+  });
+
+  test('a bidirectional channel has an axis but no direction', function (assert) {
+    const model = new FmcModel();
+    const a = model.addElement(ElementType.AGENT);
+    const b = model.addElement(ElementType.AGENT);
+    const place = model.addChannel(a, b, false);
+    const boxes = new Map([
+      [a, { x: 0, y: 0, width: 100, height: 60 }],
+      [b, { x: 0, y: 300, width: 100, height: 60 }],
+    ]);
+    assert.deepEqual(channelFlow(model, place, boxes), { axis: 'y', sign: 0 });
+  });
+
+  test('outside labels sit centered above, or beside a vertical channel', function (assert) {
+    const circle = { x: 100, y: 100, width: 28, height: 28 };
+    const size = { width: 20, height: 15 };
+    assert.deepEqual(outsideLabelPosition(circle, size), { x: 104, y: 81 });
+    assert.deepEqual(outsideLabelPosition(circle, size, 'right'), {
+      x: 132,
+      y: 106.5,
+    });
+  });
+});

@@ -679,6 +679,56 @@ export function branchPath(box, junction, side) {
   return [point(exit, center), point(junction[along], center), { ...junction }];
 }
 
+// Which way a channel carries information: from the agent(s) writing it
+// to the agent(s) reading it, along the dominant axis. `axis` is 'x' or
+// 'y'; `sign` is +1 (right/down) or -1 (left/up), or 0 when there's no
+// single direction (a bidirectional channel's agents only modify it).
+// null when fewer than two of its agents are placed.
+export function channelFlow(model, placeId, boxes) {
+  const centers = (kinds) =>
+    model.accesses
+      .filter((a) => a.location === placeId && kinds.includes(a.kind))
+      .map((a) => boxes.get(a.agent))
+      .filter(Boolean)
+      .map((b) => ({ x: b.x + b.width / 2, y: b.y + b.height / 2 }));
+  const writers = centers(['write']);
+  const readers = centers(['read']);
+  const directed = writers.length && readers.length;
+  const [from, to] = directed
+    ? [writers[0], readers[0]]
+    : centers(['read', 'write', 'modify']);
+  if (!from || !to) return null;
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const axis = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y';
+  const sign = directed ? Math.sign(axis === 'x' ? dx : dy) || 1 : 0;
+  return { axis, sign };
+}
+
+// A shorthand channel label ("R▶") with its triangle turned to the flow.
+// No flow (unplaced or bidirectional): the label as stored.
+export function withFlowArrow(label, flow) {
+  if (!flow?.sign) return label;
+  const arrow =
+    flow.axis === 'x' ? (flow.sign > 0 ? '▶' : '◀') : flow.sign > 0 ? '▼' : '▲';
+  // a thin space before the triangle, as in the FMC stencil ("R ▶")
+  return label.replace(/\s*[▶◀▲▼]/g, `\u2009${arrow}`);
+}
+
+// Top-left for a label of `size` outside `box`: centered above it, or
+// vertically centered to its right.
+export function outsideLabelPosition(box, size, where = 'above') {
+  return where === 'right'
+    ? {
+        x: box.x + box.width + OUTSIDE_LABEL_GAP,
+        y: box.y + box.height / 2 - size.height / 2,
+      }
+    : {
+        x: box.x + box.width / 2 - size.width / 2,
+        y: box.y - OUTSIDE_LABEL_GAP - size.height,
+      };
+}
+
 // Joins an edge's legs (anchor to anchor) into one path. Each leg comes
 // as its alternative routes, default first -- a bent leg can bend either
 // way. Picks the combination with the fewest non-default bends in which
@@ -2877,29 +2927,45 @@ export default class CanvasView extends Component {
         fontFamily: CANVAS_FONT_FAMILY,
         fill: '#666666',
       });
-    } else if (element.type === ElementType.HUMAN_AGENT) {
-      // FMC's human agent: the box holds just the stick figure; its name
-      // sits outside, centered above it. A separate layer node rather
-      // than a child of the group, so the Transformer's handles (and
-      // resize scaling) cover only the box -- it follows the box on
-      // drag/resize, and outsideLabels feeds contentBounds.
+    } else if (element.type === ElementType.HUMAN_AGENT || isChannel) {
+      // Drawn outside the box: a human agent's box holds just the stick
+      // figure, and a channel's small circle is left empty (FMC's "R▶"
+      // sits beside it). A separate layer node rather than a child of the
+      // group, so the Transformer's handles (and resize scaling) cover
+      // only the box -- it follows the box on drag/resize, and
+      // outsideLabels feeds contentBounds.
       label = null;
+      const flow = isChannel
+        ? channelFlow(this.modelStore.model, element.id, view.boxes)
+        : null;
       const outside = new Konva.Text({
         name: 'fumoco-outside-label',
-        text: labelText,
+        text:
+          isChannel && element.channel.shorthand
+            ? withFlowArrow(labelText, flow)
+            : labelText,
         fontSize: 15,
         fontFamily: CANVAS_FONT_FAMILY,
+        // A shorthand channel's glyph (e.g. "R▶") carries the direction in
+        // place of arrowheads -- bold, per the FMC convention.
+        fontStyle: isChannel && element.channel.shorthand ? 'bold' : 'normal',
         fill: '#000000',
         listening: false,
       });
       const place = () =>
-        outside.position({
-          x:
-            group.x() +
-            (rect.width() * group.scaleX()) / 2 -
-            outside.width() / 2,
-          y: group.y() - OUTSIDE_LABEL_GAP - outside.height(),
-        });
+        outside.position(
+          outsideLabelPosition(
+            {
+              x: group.x(),
+              y: group.y(),
+              width: rect.width() * group.scaleX(),
+              height: rect.height() * group.scaleY(),
+            },
+            { width: outside.width(), height: outside.height() },
+            // beside a vertical channel, so it doesn't sit on the line
+            flow?.axis === 'y' ? 'right' : 'above',
+          ),
+        );
       place();
       group.on('dragmove transform', place);
       this.outsideLabels.set(element.id, outside);
@@ -2913,12 +2979,7 @@ export default class CanvasView extends Component {
         verticalAlign: 'middle',
         fontSize: 15,
         fontFamily: CANVAS_FONT_FAMILY,
-        // a 28px channel circle can't spare 8px a side for "R▶"
-        padding: isChannel ? 1 : 8,
-        // A shorthand channel's label glyph (e.g. "R▶") is what carries
-        // direction, in place of arrowheads -- bold makes that glyph the
-        // thing your eye catches, matching the FMC convention.
-        fontStyle: isChannel && element.channel.shorthand ? 'bold' : 'normal',
+        padding: 8,
       });
     }
     // A NOP transition carries no label -- it's a solid bar, and any text

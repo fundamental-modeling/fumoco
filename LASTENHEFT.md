@@ -92,6 +92,9 @@ implementation notes here — that's the other two documents' job.
 
 - As a modeler, I want a human agent drawn as in FMC: a box holding just
   the stick figure, with its name outside the box, centered above it.
+- As a modeler, I want a channel's label — in particular the request/
+  response shorthand "R▶" — drawn outside the channel's small circle, as
+  in FMC, with the triangle pointing the way the request goes.
 
 - As a modeler, I want to multi-select boxes via shift-click, cmd/ctrl-
   click, and by dragging a selection rectangle over them.
