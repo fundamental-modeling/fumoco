@@ -351,8 +351,14 @@ export function orthogonalPath(a, b) {
 
   const xOverlap = Math.min(ax1, bx1) - Math.max(ax0, bx0);
   const yOverlap = Math.min(ay1, by1) - Math.max(ay0, by0);
+  // A waypoint is a zero-size box, so a point inside the other box's
+  // range overlaps it by exactly 0 -- still a straight, perpendicular
+  // line (the foot of the perpendicular), not an elbow.
+  const pointAxis = (size) => a[size] === 0 || b[size] === 0;
+  const straightX = xOverlap > 0 || (xOverlap === 0 && pointAxis('width'));
+  const straightY = yOverlap > 0 || (yOverlap === 0 && pointAxis('height'));
 
-  if (xOverlap > 0) {
+  if (straightX) {
     const x = (Math.max(ax0, bx0) + Math.min(ax1, bx1)) / 2;
     return bcy >= acy
       ? [
@@ -364,7 +370,7 @@ export function orthogonalPath(a, b) {
           { x, y: by1 },
         ];
   }
-  if (yOverlap > 0) {
+  if (straightY) {
     const y = (Math.max(ay0, by0) + Math.min(ay1, by1)) / 2;
     return bcx >= acx
       ? [

@@ -839,3 +839,34 @@ module('Unit | Component | canvas-view (edge trees)', function () {
     });
   });
 });
+
+module('Unit | Component | canvas-view (waypoint routing)', function () {
+  // Reg test 6: waypoint (238,137) beside "New location" (100..220 x
+  // 100..160) -- the last leg drops perpendicular onto its right side.
+  test('a waypoint beside a box meets it at the foot of the perpendicular', function (assert) {
+    const waypoint = { x: 238, y: 137, width: 0, height: 0 };
+    const location = { x: 100, y: 100, width: 120, height: 60 };
+    assert.deepEqual(orthogonalPath(waypoint, location), [
+      { x: 238, y: 137 },
+      { x: 220, y: 137 },
+    ]);
+  });
+
+  test('a waypoint above a box drops straight down into it', function (assert) {
+    const waypoint = { x: 150, y: 40, width: 0, height: 0 };
+    const location = { x: 100, y: 100, width: 120, height: 60 };
+    assert.deepEqual(orthogonalPath(waypoint, location), [
+      { x: 150, y: 40 },
+      { x: 150, y: 100 },
+    ]);
+  });
+
+  test('two waypoints on one vertical line join straight', function (assert) {
+    const a = { x: 50, y: 0, width: 0, height: 0 };
+    const b = { x: 50, y: 90, width: 0, height: 0 };
+    assert.deepEqual(orthogonalPath(a, b), [
+      { x: 50, y: 0 },
+      { x: 50, y: 90 },
+    ]);
+  });
+});
