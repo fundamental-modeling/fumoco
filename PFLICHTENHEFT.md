@@ -81,6 +81,56 @@ the tree/a dedicated toolbar into `palette.gjs`; `properties-panel.gjs`
 shows the last-selected element's type/label/dashed-flag (or the active
 view's name if nothing is selected), editable in place.
 
+## View metadata (`View` in `fmc-model.js`, properties panel)
+
+`View` gained `createdAt`/`updatedAt` (ISO strings) and free-text
+`author`/`contributors` fields, shown/editable in the properties panel
+alongside the existing view-name field when nothing else is selected
+(name already served as the view's own "title", so no separate title
+field was needed). `FmcModel.createView` stamps both dates to "now" for
+a genuinely new view; `fromJSON` defaults a legacy view's missing dates
+to `null` rather than fabricating a creation time it doesn't actually
+know.
+
+`updatedAt` is bumped centrally, not by each call site: `model-store.js`'s
+`mutate` (the single funnel every mutating action already goes through
+for autosave) also sets `this.activeView.updatedAt = new Date().toISOString()`
+after every mutation, whenever there is an active view. This is a
+best-effort "last edited while this view was open", not precise
+per-view dirty tracking — a mutation could touch an element shown only
+in some *other* view while this one happens to be active, and it would
+still bump this view's timestamp. Distinguishing that would need
+tracking which view(s) a given mutation actually affects, which nothing
+else in the model does either, so this trades precision for not needing
+every one of the many mutation call sites to remember to stamp anything.
+
+## Canvas font (`app.js`, `canvas-view.gjs`: `CANVAS_FONT_FAMILY`)
+
+Canvas text renders in Barlow, matching the FMC diagrams this editor is
+modeled after. Self-hosted via `@fontsource/barlow` (imported in
+`app.js`, weights 400 and 700 — 700 covers a shorthand channel label's
+bold glyph), not a Google Fonts CDN link, so it works offline the same
+as everything else in this standalone app. Every `Konva.Text` node sets
+`fontFamily: CANVAS_FONT_FAMILY` (`'Barlow, sans-serif'` — the fallback
+covers both the brief window before the webfont loads and any glyph
+Barlow itself doesn't have).
+
+Canvas text is a real gotcha here: unlike DOM text, it's rasterized with
+whatever font is loaded at that *exact instant* and never retroactively
+re-renders once a webfont finishes loading later. Since `setupStage`'s
+first draw can easily happen before Barlow has loaded on a cold page
+load, every label would otherwise silently and permanently render in
+the `sans-serif` fallback. Fixed with one
+`document.fonts.ready.then(() => shapeLayer.batchDraw())` in
+`setupStage`, guarded by `!this.isDestroyed` since that promise can
+resolve after the component's already torn down (`this.stage.destroy()`
+in the modifier's own cleanup) — calling `batchDraw` on an already-
+destroyed layer isn't something Konva promises to handle gracefully.
+
+Narrow-variant width configurability (e.g. offering Barlow Condensed/
+Semi-Condensed as an alternative) isn't built — out of scope for this
+pass, plain Barlow is what was actually asked for.
+
 ## Visual nesting (`canvas-view.gjs`: `computeEffectiveBoxes`, `nestingDepth`)
 
 Deliberately *not* real Konva group-nesting (child coordinates relative

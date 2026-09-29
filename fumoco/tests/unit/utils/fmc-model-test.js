@@ -171,6 +171,32 @@ module('Unit | Utility | fmc-model', function () {
     assert.strictEqual(restored.views.get(viewId).boxes.get(agent).width, 120);
   });
 
+  test('createView stamps createdAt/updatedAt, author/contributors round-trip, and a legacy view without them loads with null (not a fabricated date)', function (assert) {
+    const model = new FmcModel();
+    const viewId = model.createView('v');
+    const view = model.views.get(viewId);
+
+    assert.ok(view.createdAt);
+    assert.strictEqual(view.createdAt, view.updatedAt);
+    assert.strictEqual(view.author, null);
+
+    view.author = 'Ada';
+    view.contributors = 'Bob, Carol';
+    const restored = FmcModel.fromJSON(model.toJSON());
+    assert.strictEqual(restored.views.get(viewId).createdAt, view.createdAt);
+    assert.strictEqual(restored.views.get(viewId).author, 'Ada');
+    assert.strictEqual(restored.views.get(viewId).contributors, 'Bob, Carol');
+
+    const legacy = FmcModel.fromJSON({
+      elements: {},
+      accesses: [],
+      arcs: [],
+      views: { [viewId]: { name: 'v', diagramType: 'block' } },
+    });
+    assert.strictEqual(legacy.views.get(viewId).createdAt, null);
+    assert.strictEqual(legacy.views.get(viewId).updatedAt, null);
+  });
+
   test("a view's nestedUnder display choices round-trip, including an explicit un-nest (null)", function (assert) {
     const model = new FmcModel();
     const container = model.addElement(ElementType.AGENT);

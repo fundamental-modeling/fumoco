@@ -18,9 +18,14 @@ export default class ModelStoreService extends Service {
   }
 
   // Every mutating action funnels through here so autosave stays current
-  // without every call site remembering to trigger it.
+  // without every call site remembering to trigger it. Also stamps the
+  // active view's `updatedAt` -- a best-effort "last edited" rather than
+  // precise per-view dirty tracking (see View's own comment in
+  // fmc-model.js), but good enough for the properties panel to show
+  // something meaningful without every call site remembering to bump it.
   mutate(fn) {
     const result = fn(this.model);
+    if (this.activeView) this.activeView.updatedAt = new Date().toISOString();
     this._scheduleAutosave();
     return result;
   }

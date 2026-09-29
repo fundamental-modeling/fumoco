@@ -241,11 +241,40 @@ export class View {
   // path is routed through, in a view -- routing is a per-view display
   // choice, same as nestedUnder, not a model-level fact.
   edgeWaypoints = new TrackedMap();
+  // Metadata shown in the properties panel when nothing else is selected
+  // -- `name` already serves as the view's own "title". `createdAt` is
+  // set once and never changes; `updatedAt` is bumped by model-store's
+  // `mutate` whenever this is the *active* view during an edit (a
+  // best-effort "last edited" -- it can't distinguish an edit that only
+  // touched an element shown in some other view from one that touched
+  // this view's own content, so it's closer to "last edited while this
+  // view was open" than a precise per-view dirty-tracking). Both are
+  // `null` for a view loaded from a file saved before this existed,
+  // rather than falsely claiming a creation time. `author`/`contributors`
+  // are plain free-text fields, not a structured/validated list.
+  @tracked createdAt;
+  @tracked updatedAt;
+  @tracked author;
+  @tracked contributors;
 
-  constructor(id, name, diagramType = 'block') {
+  constructor(
+    id,
+    name,
+    diagramType = 'block',
+    {
+      createdAt = null,
+      updatedAt = null,
+      author = null,
+      contributors = null,
+    } = {},
+  ) {
     this.id = id;
     this.name = name;
     this.diagramType = diagramType;
+    this.createdAt = createdAt;
+    this.updatedAt = updatedAt;
+    this.author = author;
+    this.contributors = contributors;
   }
 }
 
@@ -578,7 +607,11 @@ export class FmcModel {
 
   createView(name, diagramType = 'block') {
     const id = makeId();
-    this.views.set(id, new View(id, name, diagramType));
+    const now = new Date().toISOString();
+    this.views.set(
+      id,
+      new View(id, name, diagramType, { createdAt: now, updatedAt: now }),
+    );
     return id;
   }
 
@@ -613,6 +646,10 @@ export class FmcModel {
           {
             name: view.name,
             diagramType: view.diagramType,
+            createdAt: view.createdAt,
+            updatedAt: view.updatedAt,
+            author: view.author,
+            contributors: view.contributors,
             included: [...view.included],
             boxes: Object.fromEntries(view.boxes),
             nestedUnder: Object.fromEntries(view.nestedUnder),
@@ -655,7 +692,12 @@ export class FmcModel {
       model.arcs.push({ id: makeId(), ...arc });
     }
     for (const [id, view] of Object.entries(json.views ?? {})) {
-      const v = new View(id, view.name, view.diagramType);
+      const v = new View(id, view.name, view.diagramType, {
+        createdAt: view.createdAt ?? null,
+        updatedAt: view.updatedAt ?? null,
+        author: view.author ?? null,
+        contributors: view.contributors ?? null,
+      });
       for (const elementId of view.included ?? []) v.included.push(elementId);
       for (const [elementId, box] of Object.entries(view.boxes ?? {}))
         v.boxes.set(elementId, { ...box });

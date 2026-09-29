@@ -220,9 +220,33 @@ Every access edge touching the selected element (either end), labeled
 with the other endpoint and direction; click one to select that arrow,
 or delete it directly from the list.
 
-** OPEN Canvas text renders in Barlow, with narrow-variant width configurable
+** DONE Canvas text renders in Barlow
+Self-hosted via =@fontsource/barlow= (imported in =app.js=, not a CDN
+link, so it works offline too), weights 400 and 700 (the latter for a
+shorthand channel label's bold glyph). Every =Konva.Text= node in
+=canvas-view.gjs= now sets =fontFamily: CANVAS_FONT_FAMILY= (=Barlow,
+sans-serif=). Canvas text doesn't retroactively re-render once a webfont
+finishes loading the way DOM text does, so =setupStage= also does one
+=document.fonts.ready.then(() => shapeLayer.batchDraw())= to redraw once
+Barlow is actually available, rather than silently sticking with the
+=sans-serif= fallback forever on a cold page load. Narrow-variant width
+configurability (e.g. a Barlow Condensed/Semi-Condensed option) is not
+built -- the user asked for plain Barlow specifically this round; a
+narrower cut is its own follow-up if wanted later.
 
-** OPEN A diagram (view) carries title, created-at, updated-at, author, and contributor fields
+** DONE A diagram (view) carries a creation date, a last-updated date, an author, and contributor fields
+(Title was already covered by =View.name=.) =View= gained =createdAt=/
+=updatedAt= (ISO strings, =null= for a view loaded from a file saved
+before this existed, rather than a fabricated date) and free-text
+=author=/=contributors= fields. =FmcModel.createView= stamps both dates
+to "now"; =model-store.js='s =mutate= bumps the *active* view's
+=updatedAt= on every edit -- a best-effort "last edited while this view
+was open", not precise per-view dirty tracking (a mutation could touch
+an element shown only in some other view while this one happens to be
+active; distinguishing that would need tracking which view(s) a given
+mutation actually affects, which nothing else in the model does either).
+Shown/editable in the properties panel when nothing else is selected,
+alongside the existing view-name field.
 
 ** DONE Box size only ever changes via the 8 resize handles, never any other gesture
 Already held given the current interaction model (dragging only ever

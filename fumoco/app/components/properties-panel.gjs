@@ -14,6 +14,22 @@ export default class PropertiesPanel extends Component {
     return id ? this.modelStore.model.elements.get(id) : null;
   }
 
+  // Views loaded from a file saved before this metadata existed have
+  // `null` timestamps -- shown as "-" rather than a fabricated date.
+  formatDate(iso) {
+    if (!iso) return '—';
+    const date = new Date(iso);
+    return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString();
+  }
+
+  get viewCreatedAt() {
+    return this.formatDate(this.modelStore.activeView?.createdAt);
+  }
+
+  get viewUpdatedAt() {
+    return this.formatDate(this.modelStore.activeView?.updatedAt);
+  }
+
   get selectedAccess() {
     const id = this.selection.selectedEdgeId;
     if (!id) return null;
@@ -196,6 +212,24 @@ export default class PropertiesPanel extends Component {
     });
   }
 
+  @action
+  updateViewAuthor(event) {
+    const view = this.modelStore.activeView;
+    if (!view) return;
+    this.modelStore.mutate(() => {
+      view.author = event.target.value || null;
+    });
+  }
+
+  @action
+  updateViewContributors(event) {
+    const view = this.modelStore.activeView;
+    if (!view) return;
+    this.modelStore.mutate(() => {
+      view.contributors = event.target.value || null;
+    });
+  }
+
   <template>
     <div class="properties-panel">
       {{#if this.selectedElement}}
@@ -343,6 +377,30 @@ export default class PropertiesPanel extends Component {
             {{on "input" this.updateViewName}}
           />
         </label>
+        <label class="properties-panel-field">
+          Author
+          <input
+            type="text"
+            value={{this.modelStore.activeView.author}}
+            {{on "input" this.updateViewAuthor}}
+          />
+        </label>
+        <label class="properties-panel-field">
+          Contributors
+          <input
+            type="text"
+            value={{this.modelStore.activeView.contributors}}
+            {{on "input" this.updateViewContributors}}
+          />
+        </label>
+        <div class="properties-panel-field">
+          <span class="properties-panel-subhead">Created</span>
+          <span>{{this.viewCreatedAt}}</span>
+        </div>
+        <div class="properties-panel-field">
+          <span class="properties-panel-subhead">Last edited</span>
+          <span>{{this.viewUpdatedAt}}</span>
+        </div>
       {{else}}
         <p class="properties-panel-empty">Nothing selected.</p>
       {{/if}}

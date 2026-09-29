@@ -24,6 +24,11 @@ const NESTING_PADDING = 30;
 // edges and nodes"); edges stay at their existing strokeWidth: 2.
 const NODE_STROKE_WIDTH = 3;
 const NODE_STROKE_WIDTH_SELECTED = 4;
+// Self-hosted via @fontsource/barlow (app.js) so it works offline too --
+// matching the FMC diagrams this app is modeled after. `sans-serif`
+// fallback covers the brief window before the webfont finishes loading
+// (font-display: swap) and any glyph Barlow itself doesn't cover.
+const CANVAS_FONT_FAMILY = 'Barlow, sans-serif';
 
 function snapToGrid(value) {
   return Math.round(value / GRID) * GRID;
@@ -616,6 +621,17 @@ export default class CanvasView extends Component {
     this.stage.add(this.guideLayer);
     this.shapeLayer.add(this.transformer);
 
+    // Canvas text is drawn with whatever font is *currently* loaded at
+    // that exact instant -- unlike DOM text, it doesn't retroactively
+    // re-render once a webfont finishes loading. Barlow is very likely
+    // still loading on a cold page load (this modifier runs before
+    // syncShapes' first draw), so without this every label would
+    // silently render in the `sans-serif` fallback forever, even once
+    // Barlow is available. One redraw once fonts are ready fixes it.
+    document.fonts?.ready?.then(() => {
+      if (!this.isDestroyed) this.shapeLayer?.batchDraw();
+    });
+
     this.marqueeRect = new Konva.Rect({
       fill: 'rgba(0, 120, 255, 0.1)',
       stroke: '#0078ff',
@@ -964,6 +980,7 @@ export default class CanvasView extends Component {
           y: mid.y - 14,
           text: String(arc.weight),
           fontSize: 12,
+          fontFamily: CANVAS_FONT_FAMILY,
           fill: '#000000',
           name: 'fumoco-edge',
           listening: false,
@@ -1822,6 +1839,7 @@ export default class CanvasView extends Component {
         x: 8,
         y: 6,
         fontSize: 15,
+        fontFamily: CANVAS_FONT_FAMILY,
         fill: '#666666',
       });
     } else {
@@ -1832,6 +1850,7 @@ export default class CanvasView extends Component {
         align: 'center',
         verticalAlign: 'middle',
         fontSize: 15,
+        fontFamily: CANVAS_FONT_FAMILY,
         padding: 8,
         // A shorthand channel's label glyph (e.g. "R▶") is what carries
         // direction, in place of arrowheads -- bold makes that glyph the
