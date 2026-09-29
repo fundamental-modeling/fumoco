@@ -538,6 +538,14 @@ export class FmcModel {
     this.accesses.splice(index, 1, { ...this.accesses[index], kind });
   }
 
+  // Modify access only: draw as two curved arrows forming a lens instead
+  // of one straight double-headed line (see canvas-view's lensEnds).
+  setAccessLens(id, lens) {
+    const index = this.accesses.findIndex((a) => a.id === id);
+    if (index === -1) return;
+    this.accesses.splice(index, 1, { ...this.accesses[index], lens });
+  }
+
   // Checks well-formedness conditions that only make sense on a
   // *finished* diagram (see spec/index.html's Access-arity laws) rather
   // than as a live editing invariant -- a storage/channel is allowed to

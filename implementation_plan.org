@@ -226,6 +226,15 @@ view's fields when nothing is selected. Verified by code trace
 Confirmed done (2026-09-29): compact icon buttons sit right-aligned on
 the title's line.
 
+** DONE Modify (read/write) edges drawable as a lens of two curved arrows
+Per edge (=access.lens=, via the connector's properties panel or its
+right-click menu): instead of one straight =<->= line, two curves bowing
+opposite ways between the boxes' facing sides, one arrowhead each. Only
+where the two boxes face each other -- parallel sides with a gap and an
+overlapping extent (=lensEnds=); drawn from the middle of that overlap.
+Anywhere else, or with routing waypoints, it falls back to the straight
+line. Not for channel places.
+
 ** DONE Select an arrow; properties panel lets its access kind be changed
 Click an edge's path on the canvas or a row under the tree's new "Arrows"
 section; the properties panel shows its endpoints and a read/write/modify

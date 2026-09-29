@@ -150,6 +150,35 @@ function circleAround(box) {
   };
 }
 
+// Where two boxes face each other -- parallel sides with a gap between
+// them and an overlapping extent -- for a lens-drawn modify edge: the
+// midpoint of that overlap on each box's facing side (`p` on `a`, `q` on
+// `b`) and the overlap's length. null when they don't face each other.
+export function lensEnds(a, b) {
+  const overlap = (a0, a1, b0, b1) => [Math.max(a0, b0), Math.min(a1, b1)];
+  const [y0, y1] = overlap(a.y, a.y + a.height, b.y, b.y + b.height);
+  const [x0, x1] = overlap(a.x, a.x + a.width, b.x, b.x + b.width);
+  if (y1 > y0) {
+    const y = (y0 + y1) / 2;
+    if (a.x + a.width < b.x) {
+      return { p: { x: a.x + a.width, y }, q: { x: b.x, y }, span: y1 - y0 };
+    }
+    if (b.x + b.width < a.x) {
+      return { p: { x: a.x, y }, q: { x: b.x + b.width, y }, span: y1 - y0 };
+    }
+  }
+  if (x1 > x0) {
+    const x = (x0 + x1) / 2;
+    if (a.y + a.height < b.y) {
+      return { p: { x, y: a.y + a.height }, q: { x, y: b.y }, span: x1 - x0 };
+    }
+    if (b.y + b.height < a.y) {
+      return { p: { x, y: a.y }, q: { x, y: b.y + b.height }, span: x1 - x0 };
+    }
+  }
+  return null;
+}
+
 // A dragged box's top-left, snapped: its left/center/right edge
 // (top/middle/bottom for horizontal guides) onto the nearest guide within
 // `tolerance` diagram units, else onto the grid.
@@ -1266,7 +1295,14 @@ export default class CanvasView extends Component {
   // arrowhead triangles, which are purely decorative.
   addRoutedEdge(
     points,
-    { arrowStart = false, arrowEnd = false, edgeId = null, view = null } = {},
+    {
+      arrowStart = false,
+      arrowEnd = false,
+      edgeId = null,
+      view = null,
+      // a different path than the rounded polyline (e.g. a lens)
+      draw = (ctx) => drawRoundedPolyline(ctx, points, EDGE_CORNER_RADIUS),
+    } = {},
   ) {
     const mainShape = new Konva.Shape({
       stroke: '#000000',
@@ -1274,7 +1310,7 @@ export default class CanvasView extends Component {
       hitStrokeWidth: 16, // a 2px line is hard to click on directly
       name: 'fumoco-edge',
       sceneFunc: (ctx, shapeNode) => {
-        drawRoundedPolyline(ctx, points, EDGE_CORNER_RADIUS);
+        draw(ctx);
         ctx.strokeShape(shapeNode);
       },
     });
@@ -1347,6 +1383,16 @@ export default class CanvasView extends Component {
     const isChannel = !!locationElement?.channel;
     const suppressArrow = locationElement?.channel?.shorthand === true;
     const waypoints = [...(view.edgeWaypoints.get(access.id) ?? [])];
+    const lens =
+      access.kind === 'modify' &&
+      access.lens &&
+      !isChannel &&
+      !waypoints.length &&
+      lensEnds(agentBox, locationBox);
+    if (lens) {
+      this.drawLensEdge(access.id, lens, view);
+      return;
+    }
     if (access.kind === 'modify') {
       const path = buildRoutedPath([
         agentBox,
@@ -1372,6 +1418,46 @@ export default class CanvasView extends Component {
       edgeId: access.id,
       view,
     });
+  }
+
+  // A modify edge as a lens: two curves between the facing sides' points,
+  // bowing opposite ways, one arrowhead each -- agent-to-location on one,
+  // location-to-agent on the other.
+  drawLensEdge(edgeId, { p, q, span }, view) {
+    const length = Math.hypot(q.x - p.x, q.y - p.y);
+    const normal = { x: -(q.y - p.y) / length, y: (q.x - p.x) / length };
+    // control point 2x the bulge out, so the curve's apex bows by `bulge`
+    const bulge = Math.min(length * 0.3, span / 2, 24);
+    const mid = { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 };
+    const [c1, c2] = [1, -1].map((side) => ({
+      x: mid.x + normal.x * 2 * bulge * side,
+      y: mid.y + normal.y * 2 * bulge * side,
+    }));
+    this.addRoutedEdge([p, q], {
+      edgeId,
+      view,
+      draw: (ctx) => {
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.quadraticCurveTo(c1.x, c1.y, q.x, q.y);
+        ctx.moveTo(q.x, q.y);
+        ctx.quadraticCurveTo(c2.x, c2.y, p.x, p.y);
+      },
+    });
+    for (const [tip, control] of [
+      [q, c1],
+      [p, c2],
+    ]) {
+      this.shapeLayer.add(
+        new Konva.Line({
+          points: arrowHeadPoints(tip, control),
+          closed: true,
+          fill: '#000000',
+          name: 'fumoco-edge',
+          listening: false,
+        }),
+      );
+    }
   }
 
   // Inserts a new waypoint at `point`, positioned among the edge's
@@ -2289,7 +2375,23 @@ export default class CanvasView extends Component {
   }
 
   edgeMenuItems(edgeId, view, point) {
+    const access = this.modelStore.model.accesses.find((a) => a.id === edgeId);
+    const lensItem =
+      access?.kind === 'modify'
+        ? [
+            {
+              label: access.lens
+                ? 'Draw as straight line'
+                : 'Draw as two curved arrows',
+              action: () =>
+                this.modelStore.mutate((model) =>
+                  model.setAccessLens(edgeId, !access.lens),
+                ),
+            },
+          ]
+        : [];
     return [
+      ...lensItem,
       {
         label: 'Insert waypoint here',
         action: () => this.insertWaypoint(edgeId, view, point),

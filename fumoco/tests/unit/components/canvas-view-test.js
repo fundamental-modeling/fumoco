@@ -3,6 +3,7 @@ import {
   buildDrawOrder,
   computeEffectiveBoxes,
   displayParentOf,
+  lensEnds,
   nestingDepth,
   orthogonalPath,
   snapBox,
@@ -765,5 +766,33 @@ module('Unit | Component | canvas-view (guide snapping)', function () {
       x: 230,
       y: 110,
     });
+  });
+});
+
+module('Unit | Component | canvas-view (lens edges)', function () {
+  test('side-by-side boxes face each other at the middle of their overlap', function (assert) {
+    const a = { x: 0, y: 0, width: 100, height: 60 };
+    const b = { x: 200, y: 20, width: 100, height: 60 };
+    assert.deepEqual(lensEnds(a, b), {
+      p: { x: 100, y: 40 },
+      q: { x: 200, y: 40 },
+      span: 40,
+    });
+  });
+
+  test('stacked boxes face each other vertically', function (assert) {
+    const a = { x: 0, y: 200, width: 100, height: 60 };
+    const b = { x: 50, y: 0, width: 100, height: 60 };
+    assert.deepEqual(lensEnds(a, b), {
+      p: { x: 75, y: 200 },
+      q: { x: 75, y: 60 },
+      span: 50,
+    });
+  });
+
+  test('diagonally offset boxes (no overlapping sides) do not', function (assert) {
+    const a = { x: 0, y: 0, width: 100, height: 60 };
+    const b = { x: 200, y: 100, width: 100, height: 60 };
+    assert.strictEqual(lensEnds(a, b), null);
   });
 });

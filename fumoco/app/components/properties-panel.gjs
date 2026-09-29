@@ -127,6 +127,22 @@ export default class PropertiesPanel extends Component {
     );
   }
 
+  get showsLensOption() {
+    return (
+      this.selectedAccess?.kind === 'modify' &&
+      !this.selectedAccessLocation?.channel
+    );
+  }
+
+  @action
+  toggleLens(event) {
+    const id = this.selectedAccess?.id;
+    if (!id) return;
+    this.modelStore.mutate((model) =>
+      model.setAccessLens(id, event.target.checked),
+    );
+  }
+
   get showsNopOption() {
     return this.selectedElement?.type === 'transition';
   }
@@ -476,6 +492,16 @@ export default class PropertiesPanel extends Component {
             <option value="modify">modify</option>
           </select>
         </label>
+        {{#if this.showsLensOption}}
+          <label class="properties-panel-field properties-panel-checkbox">
+            <input
+              type="checkbox"
+              checked={{this.selectedAccess.lens}}
+              {{on "change" this.toggleLens}}
+            />
+            Two curved arrows (lens) where the boxes face each other
+          </label>
+        {{/if}}
         <button
           type="button"
           {{on "click" (fn this.deleteAccess this.selectedAccess.id)}}
