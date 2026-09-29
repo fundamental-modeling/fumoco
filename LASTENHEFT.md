@@ -66,8 +66,11 @@ implementation notes here — that's the other two documents' job.
 - As a modeler, I want a scrollable/pannable canvas viewport — a diagram
   bigger than the visible area needs to actually be reachable, with
   actual visible scrollbars, not just wheel/trackpad panning.
-- As a modeler, I want guide lines I can drag in from a ruler on the left
-  or top of the canvas, that other boxes then snap to.
+- As a modeler, I want guide lines I can drag in from the left or top
+  edge of the canvas (no tick-mark ruler needed), that other boxes then
+  snap to, and that I can drag back out to remove.
+- As a modeler, I want zoom in / zoom out buttons and a one-click return
+  to 100%.
 - As a modeler, I want box size to only ever change by selecting the box
   and dragging one of its 8 resize handles — not by any other gesture.
 - As a modeler, I don't need rotation at all — boxes should stay
@@ -80,7 +83,8 @@ implementation notes here — that's the other two documents' job.
   resize it directly too.
 - As a modeler, when I drag a nested box out of its parent, I want it to
   actually end up placed outside the parent's box, not just technically
-  un-nested while still overlapping it visually.
+  un-nested while still overlapping it visually — it only leaves the
+  parent once it's fully clear of it.
 - As a modeler, I want clicking the empty canvas background (not any
   box) to show that view's own properties in the properties panel.
 
@@ -88,6 +92,9 @@ implementation notes here — that's the other two documents' job.
 
 - As a modeler, I want to multi-select boxes via shift-click, cmd/ctrl-
   click, and by dragging a selection rectangle over them.
+- As a modeler, I want to select everything in a drawing with Cmd-A on a
+  Mac (Ctrl-A on other keyboards), and cut/copy/paste the same way —
+  Cmd/Ctrl-X/C/V — acting on the whole selection.
 - As a modeler, I want to make selected boxes the same width/height/both,
   matching whichever one I selected last.
 - As a modeler, I want to align a selection (left/center/right, top/
@@ -126,6 +133,10 @@ implementation notes here — that's the other two documents' job.
 - As a modeler, I want arrows to be entities tracked in the world model,
   also visible in the left (tree) panel — not just implicit lines drawn
   between two elements.
+- As a modeler, I want a read/write (modify) arrow drawable in two
+  variants: a straight `<->` line, or two arrows `<-` `->` curved into a
+  lens — the latter where the two boxes face each other (overlapping
+  parallel sides).
 
 ## Nesting / containment
 
@@ -160,31 +171,25 @@ implementation notes here — that's the other two documents' job.
 - As a modeler, I want edges converging on the same box to merge into a
   shared trunk near that box ("edge trees") instead of drawing every leg
   separately all the way to the box, so a box with many connections stays
-  legible.
+  legible — opt-in per box side, never automatic.
 - As a modeler, I want new boxes of the same element type to default to a
   consistent size, so two boxes don't end up looking more or less
-  important than each other purely because one has a longer label.
+  important than each other purely because one has a longer label — and
+  a way to reset a box back to that size.
 - As a modeler, I want a node's line weight to read as visibly heavier
   than an edge's, so boxes and connectors stay easy to tell apart even in
   a dense diagram.
-- As a modeler, I want a one-click way to apply FMC's standard block-
-  diagram arrangement (system of interest centered, its environment/
-  users placed around it) to a fresh diagram, instead of starting from a
-  blank canvas every time.
-- As a modeler, I want reusable layout patterns for the standard Petri-net
-  constructs (strict sequence, case, loop, concurrency) I can drop onto
-  the canvas, since these have well-known standard shapes worth not
-  redrawing by hand each time.
 - As a modeler, I want a way to represent "N similar boxes" as one
-  exemplar plus an ellipsis/enumeration marker, instead of being forced
-  to draw every instance when the exact count doesn't matter.
+  exemplar drawn as a stack of boxes, instead of being forced to draw
+  every instance when the exact count doesn't matter.
 - As a modeler, I want a grouping/structuring box's fill to stay plain
   white by default, the same as any other box, and only turn muted/
-  colored when I explicitly set that myself — not automatically just
-  because it happens to be a container.
+  colored (from a small muted palette) when I explicitly set that myself
+  — not automatically just because it happens to be a container.
 - As a modeler, I want a soft nudge (not a hard limit) when a diagram
-  grows past a size that would no longer fit a standard page/screen, so I
-  notice before a diagram has become unreadably large rather than after.
+  grows past what fits a PowerPoint slide in landscape (a bit less high,
+  leaving room for the diagram title), so I notice before a diagram has
+  become unreadably large rather than after.
 
 ## Model validation
 
@@ -200,9 +205,9 @@ implementation notes here — that's the other two documents' job.
 - As a modeler, I want a right-click context menu on the canvas, so
   actions like delete/copy/cut/paste don't require memorizing keyboard
   shortcuts or hunting through the properties panel.
-- As a modeler, right-clicking a box should offer rename, copy, cut,
-  delete-from-view, and delete-from-model — the same actions already
-  available elsewhere, just reachable at the point I'm looking at.
+- As a modeler, right-clicking a box should offer rename, cut, copy,
+  paste, delete-from-view, and delete-from-model — the same actions
+  already available elsewhere, just reachable at the point I'm looking at.
 - As a modeler, right-clicking an arrow should offer inserting a waypoint
   right at that point and deleting the connector.
 - As a modeler, right-clicking a waypoint on an arrow should offer
@@ -229,8 +234,18 @@ implementation notes here — that's the other two documents' job.
   entity set connects to the triangle's tip, and each subset connects to
   its base — distinct from the "subset" approach of nesting one entity
   set inside another.
-- As a modeler, I want small arrows on a relation for its 1:n, n:1, and
-  1:1 cardinality, matching FMC's arrow-inside-the-relation convention.
+- As a modeler, I want the lines between a relation and its entity sets
+  to be undirected (not arrows); the relation box itself carries a small
+  arrow pointing toward the "1" side — `->`, `<-`, or `<->` for 1:1 —
+  with the arrow's line as fine as the connecting lines and nearly
+  triangular tips with a slight concave dent. The cardinality is a
+  property I add to a relation.
+- As a modeler, I want a relation unnamed by default, and an empty
+  relation about 1em high and 3em wide.
+- As a modeler, I want a relation to turn 90 degrees when its entity sets
+  are stacked vertically (automatically, for now).
+- As a modeler, I want the circle around a reified relation to be about
+  6em in diameter, growing with the relation box.
 - As a modeler, I want to reify a relation into an entity set by nesting
   the relation inside it, so the reified entity set can then participate
   in further relations of its own.
@@ -250,6 +265,29 @@ implementation notes here — that's the other two documents' job.
 - As a modeler, I want to open a Fumoco model file directly in VS Code
   and get the same editing experience as the standalone app.
 
+## Export
+
+- As a modeler, I want to export a view as PNG and as SVG.
+- As a modeler, I want exports on a white background, never transparent.
+- As a modeler, I want every export to carry a header with the view's
+  title, author(s), created date and last-modified date (dates only, no
+  time), plus "Fumoco" and its version.
+
+## About
+
+- As a modeler, I want a small footer in the right-hand pane showing
+  "Fumoco" and its version.
+
+## Out of scope
+
+Dropped on 2026-09-29, kept here so they aren't re-raised by accident:
+
+- A one-click "standard block-diagram arrangement" starting layout —
+  manual layout is the premise.
+- Reusable Petri-net layout stencils (sequence, case, loop, concurrency) —
+  copy/paste covers it.
+- Importing diagrams from the old text DSL (`examples/*.fmc`).
+
 ## Process
 
 - As the person paying for this, I want changes committed regularly, not
@@ -259,3 +297,7 @@ implementation notes here — that's the other two documents' job.
   alongside the actual work, not written up after the fact.
 - As the person paying for this, I want the implementation plan kept in
   Org mode, using Org's own TODO-state keywords, not a Markdown checklist.
+- As the person paying for this, I want semantic-release style version
+  numbers (from 0.1.0), derived from conventional commits.
+- As the person paying for this, I want the repository presentable for
+  publication on GitHub.

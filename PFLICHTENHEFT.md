@@ -758,14 +758,11 @@ section for the exact counts.
   per-element flag -- can be passed through without a bespoke parameter
   for each one.
 - ER cardinality: an entity_set<->relation arc's `cardinality` field
-  (`null` or `'one'`, toggled via the arc's right-click menu,
-  `FmcModel.updateArcCardinality`) draws a small filled triangle a short
-  distance *inside* the relation's own box (computed by extending inward
-  along the arc's own final segment direction, `ARC_ROUTE_MARGIN`-scale
-  inset) -- FMC's "arrow inside the relation symbol" convention for a
-  1:n/1:1 relation, distinct from the main edge's own end arrowhead.
-  `buildArcs` figures out which end is the relation (`relationEnd`) from
-  the elements' types so `drawArc` knows which side to draw it on.
+  (`null` or `'one'`, `FmcModel.updateArcCardinality`) marks that entity
+  set as a "1" side. Superseded rendering -- see "ER relations" below:
+  arcs are undirected and the relation box carries one arrow toward the
+  "1" side(s). `buildArcs` still figures out which end is the relation
+  (`relationEnd`) from the elements' types.
 - ER independent (orthogonal) partitioning: a `PARTITION` element renders
   as an actual triangle (a `Konva.Line` with 3 points, apex at the box's
   top-center, base along its bottom edge, in `buildShape`) rather than the
@@ -817,62 +814,152 @@ below); no validation extension (`FmcModel.validate` still only checks
 block-diagram Access-arity laws). All explicitly out of scope for this
 pass.
 
-## Export (`canvas-view.gjs`: `exportPng`, `contentBounds`)
+## Export (`canvas-view.gjs`: `withExportStage`, `exportPng`, `exportSvg`)
 
-An "Export PNG" button overlays the canvas (`.canvas-export-toolbar`,
-top-right, inside a new `.canvas-view-wrapper` -- needed because the
-`.canvas-view` div itself is Konva's own stage container, and Konva
-takes it over on creation, so a sibling overlay button can't live inside
-it without risking being clobbered). Works for every diagram type, since
-it operates on the Konva stage directly, not anything diagram-specific.
+"Export PNG" / "Export SVG" buttons overlay the canvas
+(`.canvas-export-toolbar`, top-right, inside `.canvas-view-wrapper` --
+the `.canvas-view` div itself is Konva's stage container, which Konva
+takes over). Works for every diagram type, since it operates on the
+Konva stage, not anything diagram-specific.
 
-Exporting "the whole diagram" needs its own definition, since the canvas
-is an infinite pannable surface with no fixed extent: `contentBounds(view)`
-takes the bounding box over every box in `computeEffectiveBoxes(model,
-view)` (post-nesting-fit), which is what "the diagram" actually means
-here. `exportPng` then:
-1. Records the stage's current position/size (to restore after).
-2. Clears the `Transformer`'s selected nodes (hides resize handles for
-   the export) -- restored via the existing `attachTransformer()`.
-3. Repositions/resizes the stage to exactly fit `contentBounds` plus a
-   margin -- this is what makes the export cover the full diagram
-   regardless of what's currently scrolled into view, not just whatever
-   the viewport happens to show.
-4. Adds a temporary white `Konva.Rect` behind everything (the stage
-   itself has no background of its own -- shapes render on
-   transparency), since a transparent-background PNG isn't a usable
-   deliverable.
-5. Calls `stage.toDataURL({ pixelRatio: 2, mimeType: 'image/png' })`.
-6. Destroys the background rect, restores the original stage position/
-   size and the transformer's selection, and triggers a download via a
-   throwaway `<a>` element.
+"The whole diagram" is `contentBounds(view)`: the bounding box over every
+box in `computeEffectiveBoxes(model, view)`. `withExportStage(render)`
+then, synchronously (so nothing ever paints on screen):
+1. Builds the header (`buildExportHeader`): view title (bold), "Author ·
+   Contributors", "Created · Last modified" (dates only), a thin rule
+   below, and "Fumoco vX.Y.Z" right-aligned on the title line. The export
+   area grows upward to fit it.
+2. Records the stage's position/size/scale, resets the scale to 1
+   (exports are always 100%), clears the Transformer's nodes and hides
+   the guide layer (page frame, guides, marquee).
+3. Fits the stage to the header + content plus a 20px margin, with a
+   white `Konva.Rect` behind the whole area -- the stage has no
+   background of its own, and an export must never be transparent.
+4. Runs `render(width, height)`, then restores everything.
 
-All of steps 1-6 run synchronously in one call stack -- `toDataURL` never
-yields -- so the temporary resize/background never actually paints to
-the screen; there's no visible flash despite resizing the live stage.
+PNG: `stage.toDataURL({ pixelRatio: 2 })`. SVG: the shape layer's native
+2D context is swapped for an `svgcanvas` recording context and
+`drawScene()` runs once at pixel ratio 1 -- Konva has no vector export,
+and this keeps every shape (custom edge `sceneFunc`s included) on one
+draw path instead of a second hand-written serializer. (`canvas2svg` was
+tried first but lacks `setLineDash`, which dashed locations need.) Text
+references Barlow by name; the font isn't embedded.
 
-**SVG export** reuses the same fit-to-content setup
-(`withExportStage`), then swaps the shape layer's native 2D context for
-an `svgcanvas` recording context and calls `drawScene()` once at pixel
-ratio 1 -- Konva has no vector export of its own, and this keeps every
-shape (custom edge `sceneFunc`s included) on a single draw path instead
-of a second hand-written serializer. (`canvas2svg` was tried first but
-lacks `setLineDash`, which dashed locations need.)
+The version (`config.APP.version`, read from `package.json` in
+`config/environment.js`) also appears in the palette's footer.
 
-## Canvas viewport (pan)
+## Canvas viewport: pan, zoom, scrollbars, guides, page frame
 
-Wheel/trackpad scroll pans by translating `stage.x()`/`stage.y()`
-directly (shift+wheel swaps the axis, for single-axis input devices).
-No zoom yet, just panning. This meant `getPointerPosition()` (raw
-container-pixel coordinates, unaffected by the stage's own pan offset)
-was no longer safe to use for anything compared against shape positions
-(which live in the stage's *local*/world coordinate space) — the marquee
-selection's start/move handlers switched to
-`getRelativePointerPosition()`, which converts through the stage's
-current transform. Everything else (drag/resize/`dragBoundFunc`/snap
-guides) was already safe: Konva reports a dragged node's position
-relative to its immediate parent (the shape layer), not the stage, so
-panning the stage never affected it.
+**Pan.** Wheel/trackpad scroll translates `stage.x()`/`stage.y()`
+(shift+wheel swaps the axis). Pointer positions compared against shapes
+always go through `getRelativePointerPosition()`, which accounts for the
+stage transform.
+
+**Zoom** (`setZoom`): bottom-right buttons (−, current %, +; the % resets
+to 100%), steps of 1.25x clamped to 25%–400%, around the viewport center.
+Anything that turns screen positions into diagram units divides by the
+stage scale: `dragBoundFunc` (Konva hands it *absolute* positions) snaps
+in diagram units, and the Transformer's minimum size is checked in
+diagram units. The dotted grid is a CSS background on the container;
+`syncGridBackground` scales and offsets it with the stage.
+
+**Scrollbars** (`syncScrollbars`): native, always visible (styled via
+`::-webkit-scrollbar` so macOS overlay scrollbars don't hide them). Each
+is a thin overflow strip along the bottom/right edge whose spacer is the
+scroll extent in screen px: the content bounds plus one viewport of
+slack (half each side), unioned with the current viewport. Scrolling a
+bar pans the stage; panning/zooming otherwise updates the bars
+(programmatic updates are recognized and ignored by the scroll handler).
+
+**Guides** (`View.guides`, `drawGuides`, `snapBox`): `{ axis, pos }` in
+diagram units, per view, serialized. Thin strips along the canvas's top
+and left edges start a new guide on mousedown (attached via a modifier --
+ember-template-lint rejects pointer-down bindings on a div); releasing it
+back on the strip cancels. Guides are draggable along their axis and
+removed when dropped on the edge strip. While dragging a box,
+`snapBox` snaps its left/center/right (top/middle/bottom) to the nearest
+guide within 6 screen px, else to the grid. Resizing doesn't snap to
+guides.
+
+**Page frame** (`drawPageFrame`): a dashed 1240x610 frame at the
+content's top-left -- a default PowerPoint slide in landscape (1280x720
+at 96dpi) minus the export's margins and header -- turning orange with a
+note when the content outgrows it. On the guide layer; never exported.
+
+## Element appearance (`Element.fill`, `Element.multiple`, `defaultBoxSize`)
+
+- **Default sizes** live in one place, `defaultBoxSize(element)` in
+  `utils/box-layout.js` (place 33x33, relation 45x15, partition 60x50,
+  channel place 28x28, NOP bar 300x17, everything else 120x60), used by
+  every "place this element" call site and by the context menu's "Reset
+  size" (type default, keeping the center; a container's manual size is
+  dropped so it auto-fits). `MIN_SIZE` is 10 so the small relation and
+  the NOP bar stay resizable.
+- **Fill**: `Element.fill` is null (white) or one of `BOX_FILLS`, five
+  low-saturation colors picked by swatch in the properties panel.
+- **Multiple instances**: `Element.multiple` draws two copies of the
+  body stacked 8px apart down-right behind it. The body rect is named
+  `.fumoco-body` so selection styling finds it rather than a copy.
+
+## Clipboard and keyboard (`canvas-view.gjs`)
+
+Cmd (Mac) or Ctrl + A/X/C/V -- either modifier is accepted everywhere,
+and text inputs keep their native behavior. `copySelection` stores the
+selected elements' properties and stored boxes plus every access edge/arc
+between two copied elements (nesting isn't copied); `pasteClipboard`
+recreates them with fresh ids -- centered on the click point from a
+context menu, or offset 20px further per paste from the keyboard -- and
+selects the result. Cut = copy + delete from model. The clipboard is
+in-app only. Context menus list Cut/Copy/Paste/Select all with
+platform-specific shortcut hints; right-clicking inside a multi-selection
+keeps it.
+
+## Edge trees and lens edges (`drawAccessEdge`)
+
+**Edge trees**: `View.edgeBundles` maps an element to its bundled sides.
+An access edge whose neighbouring anchor (the other box, or the nearest
+waypoint) lies beyond a bundled side (`bundledSideToward`) is routed to
+that side's junction, 24px out from its midpoint (`trunkPoints`), via
+`branchPath`: out of its own box on the side facing the junction,
+parallel to the trunk to the junction's level, then across into it
+(straight in when the box sits over the junction). One trunk per bundled
+side is drawn afterwards, with the arrowhead only if every merged edge
+points into the box.
+
+**Lens**: a modify edge with `lens: true` (`FmcModel.setAccessLens`),
+between boxes that face each other (`lensEnds`: parallel sides with a
+gap and an overlapping extent), is drawn as two quadratic curves between
+the middle of that overlap on each facing side, bowing opposite ways,
+with one arrowhead each. `addRoutedEdge` takes a custom `draw` so the
+lens keeps the normal edge's click/select/context-menu behavior. Falls
+back to the straight line otherwise, or when the edge has waypoints.
+
+## ER relations (`drawCardinalityArrow`, `computeEffectiveBoxes`)
+
+- Entity-set↔relation arcs are undirected (no arrowhead). An arc's
+  `cardinality: 'one'` marks that entity set as a "1" side, set per
+  entity set from the relation's properties panel.
+- The relation box carries one arrow: a binary relation gets a single
+  shaft between its two arcs' attach points with a head at each "1" end
+  (`->`, `<-`, `<->`); an n-ary one a half-shaft from the center per "1"
+  side. Always horizontal or vertical. 2px shaft like the arcs, stopping
+  inside the head; heads are near-triangles with a 2px concave dent.
+  Beside/below the label when the relation is named.
+- A relation whose entity sets are stacked vertically is displayed
+  turned 90 degrees (`isVerticalRelation`, `swapBoxAxes`) inside
+  `computeEffectiveBoxes`, so routing, drawing and export all agree; the
+  stored box stays unturned, and drag/resize turn it back before writing
+  (`toStoredBox`).
+- A reified relation's entity set (an entity set displaying exactly one
+  relation) auto-fits as a circle twice the relation's longer side
+  across (`circleAround`).
+
+## Versioning
+
+Semantic-release style versions (from 0.1.0) derived from conventional
+commits, cut by hand: `npm version X.Y.Z --no-git-tag-version` in
+`fumoco/`, a `chore(release): X.Y.Z` commit, and an annotated `vX.Y.Z`
+tag.
 
 ## Containment (`Element.parents`)
 
