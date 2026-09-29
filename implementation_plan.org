@@ -122,15 +122,17 @@ visually verified in a live browser (no Claude-in-Chrome connection
 available this session) -- confirmed via code review and the existing
 test suite only.
 
-** TODO Export a view as SVG
-Split out from the PNG item above, which is now done -- SVG needs a
-genuinely separate implementation, not just another =stage.export=
-call: Konva has no built-in vector SVG export, so per the original plan
-this needs a hand-written serializer that walks the same view model
-=buildShape=/=drawArc= already render from and emits
-=<rect>=/=<path>=/=<text>= directly (a JS sibling to
-=attic/src/fmc/render.py='s drawing logic). Deferred rather than
-half-built alongside the PNG work.
+** DONE Export a view as SVG
+An "Export SVG" button next to "Export PNG". Rather than a hand-written
+serializer duplicating =buildShape=/=drawArc=, the shape layer is
+redrawn once into =svgcanvas='s recording Canvas2D context (swapped in
+for the layer's native context), so every shape -- custom edge
+=sceneFunc=s, dashes, arcs, text -- goes through the exact same draw
+code as the canvas. Shares its fit-to-content stage setup with PNG
+(=withExportStage=). Verified in headless Chromium: agents, human agent
+glyph, channel, dashed location, rounded edges and arrowheads all come
+out as vector =<path>=/=<text>=. Text references Barlow by name
+(not embedded), so a viewer without it falls back to sans-serif.
 
 ** DONE Delete a connector, not just an element
 Selecting an access edge on the canvas (click) already worked

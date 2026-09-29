@@ -6,6 +6,7 @@ import { on } from '@ember/modifier';
 import { fn } from '@ember/helper';
 import { modifier } from 'ember-modifier';
 import Konva from 'konva';
+import { Context as SvgContext } from 'svgcanvas';
 import { TrackedArray } from 'tracked-built-ins';
 import {
   ElementType,
@@ -1366,23 +1367,20 @@ export default class CanvasView extends Component {
     return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
   }
 
-  // PNG export (SVG is a separate, much larger task -- a hand-written
-  // serializer independent of Konva's own canvas rendering, tracked as
-  // its own follow-up rather than half-built alongside this).
-  @action
-  exportPng() {
+  // Export covers the whole diagram, not just whatever's currently
+  // scrolled into view: temporarily resize/reposition the stage to fit
+  // the full content (plus a white page behind it -- the stage itself
+  // has no background), run `render(width, height)`, then restore.
+  // Synchronous start to finish, so it never paints on screen.
+  withExportStage(render) {
     const view = this.modelStore.activeView;
-    if (!this.stage || !view) return;
+    if (!this.stage || !view) return null;
     const bounds = this.contentBounds(view);
-    if (!bounds) return;
+    if (!bounds) return null;
     const margin = 20;
     const width = bounds.width + margin * 2;
     const height = bounds.height + margin * 2;
 
-    // Export must cover the whole diagram, not just whatever's currently
-    // scrolled into view -- temporarily resize/reposition the stage to
-    // fit the full content, render, then restore. Synchronous start to
-    // finish (toDataURL doesn't yield), so this never paints on screen.
     const originalPos = { x: this.stage.x(), y: this.stage.y() };
     const originalSize = {
       width: this.stage.width(),
@@ -1391,13 +1389,9 @@ export default class CanvasView extends Component {
     this.transformer.nodes([]); // hide selection handles for the export
     this.stage.position({ x: -bounds.x + margin, y: -bounds.y + margin });
     this.stage.size({ width, height });
-
-    // The stage itself has no background -- shapes render on
-    // transparency -- so a plain white page needs its own rect, behind
-    // everything, removed again right after.
     const background = new Konva.Rect({
-      x: 0,
-      y: 0,
+      x: bounds.x - margin,
+      y: bounds.y - margin,
       width,
       height,
       fill: '#ffffff',
@@ -1407,21 +1401,58 @@ export default class CanvasView extends Component {
     background.moveToBottom();
     this.stage.batchDraw();
 
-    const dataUrl = this.stage.toDataURL({
-      pixelRatio: 2,
-      mimeType: 'image/png',
-    });
+    try {
+      return render(width, height);
+    } finally {
+      background.destroy();
+      this.stage.position(originalPos);
+      this.stage.size(originalSize);
+      this.attachTransformer();
+      this.stage.batchDraw();
+    }
+  }
 
-    background.destroy();
-    this.stage.position(originalPos);
-    this.stage.size(originalSize);
-    this.attachTransformer();
-    this.stage.batchDraw();
-
+  download(href, extension) {
+    const view = this.modelStore.activeView;
     const link = document.createElement('a');
-    link.href = dataUrl;
-    link.download = `${(view.name || 'fumoco-view').replace(/[^a-z0-9_-]+/gi, '_')}.png`;
+    link.href = href;
+    link.download = `${(view.name || 'fumoco-view').replace(/[^a-z0-9_-]+/gi, '_')}.${extension}`;
     link.click();
+  }
+
+  @action
+  exportPng() {
+    const dataUrl = this.withExportStage(() =>
+      this.stage.toDataURL({ pixelRatio: 2, mimeType: 'image/png' }),
+    );
+    if (dataUrl) this.download(dataUrl, 'png');
+  }
+
+  // Vector export: Konva has no SVG output of its own, so the shape layer
+  // is redrawn once into svgcanvas's recording 2D context -- same draw
+  // code as the canvas (custom edge sceneFuncs included), SVG out.
+  @action
+  exportSvg() {
+    const svg = this.withExportStage((width, height) => {
+      const canvas = this.shapeLayer.getCanvas();
+      const context = canvas.getContext();
+      const native = context._context;
+      const recorder = new SvgContext(width, height);
+      context._context = recorder;
+      const pixelRatio = canvas.getPixelRatio();
+      canvas.setPixelRatio(1);
+      try {
+        this.shapeLayer.drawScene();
+      } finally {
+        context._context = native;
+        canvas.setPixelRatio(pixelRatio);
+      }
+      return recorder.getSerializedSvg(true);
+    });
+    if (!svg) return;
+    const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+    this.download(url, 'svg');
+    URL.revokeObjectURL(url);
   }
 
   promptRename(id) {
@@ -2106,6 +2137,7 @@ export default class CanvasView extends Component {
       ></div>
       <div class="canvas-export-toolbar">
         <button type="button" {{on "click" this.exportPng}}>Export PNG</button>
+        <button type="button" {{on "click" this.exportSvg}}>Export SVG</button>
       </div>
     </div>
     {{#if this.contextMenu}}

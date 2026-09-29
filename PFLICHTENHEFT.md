@@ -851,13 +851,13 @@ All of steps 1-6 run synchronously in one call stack -- `toDataURL` never
 yields -- so the temporary resize/background never actually paints to
 the screen; there's no visible flash despite resizing the live stage.
 
-**SVG export is a separate, larger task, deliberately not built here**:
-Konva has no built-in vector SVG export, so per the original plan it
-needs a hand-written serializer walking the same view model
-`buildShape`/`drawArc` already render from, emitting
-`<rect>`/`<path>`/`<text>` directly (a JS sibling to
-`attic/src/fmc/render.py`'s drawing logic) -- tracked as its own
-`implementation_plan.org` entry rather than half-built alongside PNG.
+**SVG export** reuses the same fit-to-content setup
+(`withExportStage`), then swaps the shape layer's native 2D context for
+an `svgcanvas` recording context and calls `drawScene()` once at pixel
+ratio 1 -- Konva has no vector export of its own, and this keeps every
+shape (custom edge `sceneFunc`s included) on a single draw path instead
+of a second hand-written serializer. (`canvas2svg` was tried first but
+lacks `setLineDash`, which dashed locations need.)
 
 ## Canvas viewport (pan)
 
