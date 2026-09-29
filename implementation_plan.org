@@ -342,13 +342,13 @@ on-demand, not enforced eagerly like the bipartite/acyclic-containment
 rules, since arity is a well-formedness condition on a *finished*
 diagram, not a live editing invariant.
 
-** DONE Soft diagram-size nudge: portrait-slide page outline
-A faint dashed frame anchored at the diagram's top-left, sized 680x1170:
-a default PowerPoint slide in portrait (7.5in x 13.33in = 720x1280px at
-96dpi) minus the export's 20px margins and ~64px title header, so
-content that fits exports to exactly one portrait slide. Turns orange
-with a "Diagram exceeds a portrait slide" note when the content
-outgrows it. Advisory only; drawn on the guide layer, never exported.
+** DONE Soft diagram-size nudge: landscape-slide page outline
+A faint dashed frame anchored at the diagram's top-left, sized 1240x610:
+a default PowerPoint slide, landscape (13.33in x 7.5in = 1280x720px at
+96dpi), minus the export's 20px margins and ~64px title header, so
+content that fits exports to exactly one slide. Turns orange with a
+"Diagram exceeds a landscape slide" note when the content outgrows it.
+Advisory only; drawn on the guide layer, never exported.
 
 ** DONE Select all / cut / copy / paste by keyboard, on the whole selection
 Cmd (Mac) or Ctrl (elsewhere; either works everywhere) + A/X/C/V.

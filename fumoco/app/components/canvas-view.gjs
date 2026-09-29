@@ -18,11 +18,11 @@ import { ConnectorKind, connectorRule } from 'fumoco/services/connector-tool';
 import { nextFreeBoxPosition } from 'fumoco/utils/box-layout';
 
 const GRID = 10;
-// Advisory page: a default PowerPoint slide in portrait (7.5in x 13.33in
-// = 720x1280px at 96dpi), minus the export's 20px margins and ~64px
+// Advisory page: a default PowerPoint slide, landscape (13.33in x 7.5in
+// = 1280x720px at 96dpi), minus the export's 20px margins and ~64px
 // title header -- content that fits exports to exactly one slide.
-const PAGE_WIDTH = 680;
-const PAGE_HEIGHT = 1170;
+const PAGE_WIDTH = 1240;
+const PAGE_HEIGHT = 610;
 const ZOOM_STEP = 1.25;
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 4;
@@ -1555,7 +1555,7 @@ export default class CanvasView extends Component {
     return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
   }
 
-  // A faint dashed portrait-slide frame anchored at the diagram's
+  // A faint dashed landscape-slide frame anchored at the diagram's
   // top-left; turns orange with a note once the content outgrows it.
   // Advisory only -- never blocks, never exported (guide layer).
   drawPageFrame(effectiveBoxes) {
@@ -1586,7 +1586,7 @@ export default class CanvasView extends Component {
           name: 'fumoco-page',
           x,
           y: y - 18,
-          text: 'Diagram exceeds a portrait slide',
+          text: 'Diagram exceeds a landscape slide',
           fontSize: 12,
           fontFamily: CANVAS_FONT_FAMILY,
           fill: color,
