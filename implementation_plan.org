@@ -162,12 +162,15 @@ passive component, with "Storage" and "Channel" as its two specific
 kinds, not two unrelated concepts (confirmed against
 https://www.fmc-modeling.org/notation_reference).
 
-** OPEN Draggable ruler guide lines that boxes snap to
-Dragged in from a ruler on the left or top edge of the canvas.
+** TODO Draggable guide lines that boxes snap to
+Decided 2026-09-29: guides only, no tick-mark ruler strip. Drag a guide in
+from the top or left canvas edge; boxes snap to it within a few px, same
+as grid snapping; drag it back out to remove it. Persisted per view.
 
-** OPEN Visible scrollbars for the canvas viewport
-Wheel/trackpad panning is in; an actual scrollbar widget (position +
-extent, click-drag to scroll) is not.
+** TODO Visible scrollbars for the canvas viewport
+Wheel/trackpad panning is in. Decided 2026-09-29: the scroll extent is the
+content bounds (=contentBounds=) plus one viewport of slack, so it grows
+with the diagram; drag the thumb or click the track.
 
 ** DONE Selecting a container shows the same 8 resize handles a plain box gets
 Resolved the earlier open design question in favor of "yes, make it
@@ -176,20 +179,22 @@ to contain the container's current children (per =computeEffectiveBoxes='
 new =boxContains= check); shrinking/moving children past that falls back
 to auto-fit again, silently, same as an invalid drag-nest.
 
-** OPEN Dragging a nested box out of its parent should place it visibly outside the parent's box
-Not just technically un-nested (nestedUnder = null) while still
-overlapping the parent's rendered rectangle. Likely needs the "still
-inside" check to move from center-point-in-box to a box/box overlap
-threshold.
+** TODO Dragging a nested box out of its parent should place it visibly outside the parent's box
+Decided 2026-09-29: require full clearance -- a box only un-nests once it
+no longer overlaps the parent's rendered rectangle at all; any drop that
+still overlaps keeps it nested. Replaces the current center-point-in-box
+check.
 
-** OPEN Clicking the empty canvas background shows the view's own properties
-May already work (properties panel falls back to the active view when
-nothing is selected) — needs verifying against the exact "background
-click" gesture, not just "selection is empty."
+** DONE Clicking the empty canvas background shows the view's own properties
+Already works: a background click (stage mouseup with no marquee) calls
+=selection.clear()=, and the properties panel falls back to the active
+view's fields when nothing is selected. Verified by code trace
+2026-09-29.
 
-** OPEN Model tree row: rename/delete buttons on the same line as the title, right-aligned
-Currently wraps to its own line because the title button is
-=width: 100%=.
+** TODO Model tree row: rename/delete buttons on the same line as the title, right-aligned
+Decided 2026-09-29: always visible, compact icon buttons; the title
+truncates with an ellipsis instead of the button wrapping (currently
+=width: 100%=).
 
 ** DONE Select an arrow; properties panel lets its access kind be changed
 Click an edge's path on the canvas or a row under the tree's new "Arrows"
@@ -285,39 +290,31 @@ possibly rendering underneath an unrelated container's nested content.
 stepping outward until it finds a spot that doesn't overlap any box
 already in the view.
 
-** OPEN Edges converging on the same box merge into a shared trunk ("edge trees")
+** TODO Edges converging on the same box side merge into a shared trunk ("edge trees"), opt-in
 Derived from screening the Visualization Guidelines (2026-09-27, see
-=spec/SOURCES.md=). Needs a routing-graph pass, not just per-edge
-=orthogonalPath= — bundle same-target edges' final leg into one shared
-segment before splitting off to each source/target.
+=spec/SOURCES.md=). Decided 2026-09-29: opt-in per box side, never
+automatic -- default routing stays as-is. Edges entering the same side
+of a box with bundling enabled share their final segment.
 
-** OPEN New boxes of the same element type default to a consistent size
-Currently every new box is 120x60 regardless of type; fine as a shared
-default, but nothing currently nudges an oversized/undersized box back
-toward its type's norm.
+** TODO New boxes default to a per-type size, plus a "reset size" action
+Decided 2026-09-29: each element type gets a fixed default size
+(currently everything is 120x60); plus a context-menu/toolbar action that
+resets the selected boxes to their type's default. No automatic nudging
+of existing boxes.
 
 ** DONE Node line weight reads heavier than edge line weight
 Nodes now stroke at =NODE_STROKE_WIDTH= (3, 4 when selected); edges stay
 at =strokeWidth: 2=.
 
-** OPEN One-click "standard block diagram arrangement" starting layout
-System-of-interest centered, environment/users placed around it — an
-initial-layout helper, not an ongoing constraint.
+** TODO "N similar boxes" marker: stacked-box style on one element
+Decided 2026-09-29: a per-element =multiple= flag draws the box with
+offset copies stacked behind it (FMC's usual many-instances notation).
+No separate ellipsis element.
 
-** OPEN Reusable Petri-net layout patterns (sequence, case, loop, concurrency)
-Drop-in stencils for the four standard constructs, once Milestone B's
-Petri net element types exist.
-
-** OPEN "N similar boxes" enumeration marker (one exemplar + ellipsis)
-An alternative to drawing every instance when the exact count doesn't
-matter.
-
-** OPEN Grouping/structuring boxes default to a muted, low-saturation fill
-Tried (container fill =#f2f2f2=), then reverted: default should stay
-plain white like any other box unless the user explicitly changes it —
-an unrequested visual default shouldn't be imposed just because the
-guideline suggests it. Revisit as an explicit, opt-in fill-color property
-on a box instead of an automatic default tied to "is this a container."
+** TODO Opt-in box fill color from a small muted palette
+An automatic container fill (=#f2f2f2=) was tried and reverted: default
+stays plain white. Decided 2026-09-29: the properties panel offers white
+(default) plus ~5 low-saturation fills, for any box, not just containers.
 
 ** DONE Warn (don't block) when deleting an access edge would leave a channel/storage under FMC's minimum arity
 Resolved via a general "Validate model" action (=FmcModel.validate()=,
@@ -329,8 +326,10 @@ on-demand, not enforced eagerly like the bipartite/acyclic-containment
 rules, since arity is a well-formedness condition on a *finished*
 diagram, not a live editing invariant.
 
-** OPEN Soft diagram-size nudge past a standard page/screen size
-Advisory, not a hard limit — surface it, don't block on it.
+** TODO Soft diagram-size nudge: slide-format page outline
+Decided 2026-09-29: a faint dashed 16:9 slide frame on the canvas, plus
+an advisory hint when the content exceeds it. Advisory only, never
+blocks.
 
 ** DONE Right-click context menu (delete/copy/cut/paste, waypoint removal)
 Per-target menus on =canvas-view.gjs=: a box (rename/copy/cut/delete-
