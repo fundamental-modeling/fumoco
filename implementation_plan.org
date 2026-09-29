@@ -174,6 +174,15 @@ Decided 2026-09-29: guides only, no tick-mark ruler strip. Drag a guide in
 from the top or left canvas edge; boxes snap to it within a few px, same
 as grid snapping; drag it back out to remove it. Persisted per view.
 
+** DONE Zoom in / zoom out / reset to 100%
+Bottom-right canvas buttons (−, current %, +); the % button resets to
+100%. Steps of 1.25x, clamped to 25%-400%, zooming around the viewport
+center. Grid snapping (=dragBoundFunc=) and the resize minimum now work
+in diagram units rather than screen px, so they hold at any zoom and pan
+offset (snapping was already slightly off after panning by a non-multiple
+of 10); the dotted CSS grid follows pan and zoom. Exports always render
+at 100%.
+
 ** TODO Visible scrollbars for the canvas viewport
 Wheel/trackpad panning is in. Decided 2026-09-29: the scroll extent is the
 content bounds (=contentBounds=) plus one viewport of slack, so it grows

@@ -373,10 +373,20 @@ body {
   z-index: 10;
 }
 
-/* stylelint-disable-next-line no-descending-specificity -- unrelated
-   component (canvas overlay vs. tree panel); see the same pattern above
-   for .canvas-context-menu button. */
-.canvas-export-toolbar button {
+.canvas-zoom-toolbar {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  z-index: 10;
+  display: flex;
+  gap: 4px;
+}
+
+/* stylelint-disable no-descending-specificity -- unrelated component
+   (canvas overlay vs. tree panel); see the same pattern above for
+   .canvas-context-menu button. */
+.canvas-export-toolbar button,
+.canvas-zoom-toolbar button {
   background: #fff;
   border: 1px solid #ccc;
   border-radius: 4px;
@@ -385,7 +395,8 @@ body {
   cursor: pointer;
 }
 
-/* stylelint-disable-next-line no-descending-specificity -- see above */
-.canvas-export-toolbar button:hover {
+.canvas-export-toolbar button:hover,
+.canvas-zoom-toolbar button:hover {
   background: #f2f2f2;
 }
+/* stylelint-enable no-descending-specificity */

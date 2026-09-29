@@ -18,6 +18,9 @@ import { ConnectorKind, connectorRule } from 'fumoco/services/connector-tool';
 import { nextFreeBoxPosition } from 'fumoco/utils/box-layout';
 
 const GRID = 10;
+const ZOOM_STEP = 1.25;
+const MIN_ZOOM = 0.25;
+const MAX_ZOOM = 4;
 const MIN_SIZE = 20;
 const MARQUEE_THRESHOLD = 3; // px of movement before a stage mousedown counts as a drag, not a click
 const NESTING_PADDING = 30;
@@ -601,6 +604,7 @@ export default class CanvasView extends Component {
   // pasting always creates an independent element rather than something
   // that looks like an alias of the original.
   @tracked clipboard = null;
+  @tracked zoom = 1;
 
   setupStage = modifier((element) => {
     this.stage = new Konva.Stage({
@@ -611,8 +615,11 @@ export default class CanvasView extends Component {
     this.shapeLayer = new Konva.Layer();
     this.guideLayer = new Konva.Layer({ listening: false });
     this.transformer = new Konva.Transformer({
+      // newBox is in screen px; MIN_SIZE is in diagram units
       boundBoxFunc: (oldBox, newBox) =>
-        newBox.width < MIN_SIZE || newBox.height < MIN_SIZE ? oldBox : newBox,
+        Math.min(newBox.width, newBox.height) / this.stage.scaleX() < MIN_SIZE
+          ? oldBox
+          : newBox,
       // Boxes stay axis-aligned -- rotation isn't persisted anywhere
       // (buildShape never reads back a rotation), so the handle Konva
       // shows by default did nothing but confuse users into thinking
@@ -654,6 +661,7 @@ export default class CanvasView extends Component {
       const dy = shiftKey ? 0 : deltaY;
       this.stage.x(this.stage.x() - dx);
       this.stage.y(this.stage.y() - dy);
+      this.syncGridBackground();
       this.stage.batchDraw();
     });
 
@@ -1462,6 +1470,49 @@ export default class CanvasView extends Component {
     return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
   }
 
+  // Zooms around the viewport center, so whatever's in the middle of the
+  // screen stays put.
+  setZoom(next) {
+    if (!this.stage) return;
+    const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next));
+    const old = this.stage.scaleX();
+    const center = { x: this.stage.width() / 2, y: this.stage.height() / 2 };
+    const { x, y } = this.stage.position();
+    this.stage.scale({ x: zoom, y: zoom });
+    this.stage.position({
+      x: center.x - ((center.x - x) / old) * zoom,
+      y: center.y - ((center.y - y) / old) * zoom,
+    });
+    this.zoom = zoom;
+    this.syncGridBackground();
+    this.stage.batchDraw();
+  }
+
+  @action zoomIn() {
+    this.setZoom(this.zoom * ZOOM_STEP);
+  }
+
+  @action zoomOut() {
+    this.setZoom(this.zoom / ZOOM_STEP);
+  }
+
+  @action resetZoom() {
+    this.setZoom(1);
+  }
+
+  get zoomLabel() {
+    return `${Math.round(this.zoom * 100)}%`;
+  }
+
+  // The dotted grid is a CSS background on the container; keep it
+  // aligned with the stage's pan and zoom so snapped boxes sit on dots.
+  syncGridBackground() {
+    const style = this.stage.container().style;
+    const step = GRID * this.stage.scaleX();
+    style.backgroundSize = `${step}px ${step}px`;
+    style.backgroundPosition = `${this.stage.x()}px ${this.stage.y()}px`;
+  }
+
   // Title, authors and dates above an exported diagram, separated from
   // it by a thin rule. Built at the origin; the caller positions it.
   buildExportHeader(view) {
@@ -1535,6 +1586,8 @@ export default class CanvasView extends Component {
     const height = bounds.height + margin * 2;
 
     const originalPos = { x: this.stage.x(), y: this.stage.y() };
+    const originalScale = this.stage.scale();
+    this.stage.scale({ x: 1, y: 1 }); // export at 100%, whatever the zoom
     const originalSize = {
       width: this.stage.width(),
       height: this.stage.height(),
@@ -1559,6 +1612,7 @@ export default class CanvasView extends Component {
     } finally {
       background.destroy();
       header.destroy();
+      this.stage.scale(originalScale);
       this.stage.position(originalPos);
       this.stage.size(originalSize);
       this.attachTransformer();
@@ -1932,7 +1986,16 @@ export default class CanvasView extends Component {
       draggable: true,
       name: 'fumoco-shape',
       id: element.id,
-      dragBoundFunc: (pos) => ({ x: snapToGrid(pos.x), y: snapToGrid(pos.y) }),
+      // pos is absolute (screen) -- snap in diagram units, so the grid
+      // holds at any pan offset and zoom level
+      dragBoundFunc: (pos) => {
+        const scale = this.stage.scaleX();
+        const { x, y } = this.stage.position();
+        return {
+          x: snapToGrid((pos.x - x) / scale) * scale + x,
+          y: snapToGrid((pos.y - y) / scale) * scale + y,
+        };
+      },
     });
     const isLocation = element.type === ElementType.LOCATION;
     const isChannel = !!element.channel;
@@ -2292,6 +2355,23 @@ export default class CanvasView extends Component {
       <div class="canvas-export-toolbar">
         <button type="button" {{on "click" this.exportPng}}>Export PNG</button>
         <button type="button" {{on "click" this.exportSvg}}>Export SVG</button>
+      </div>
+      <div class="canvas-zoom-toolbar">
+        <button
+          type="button"
+          title="Zoom out"
+          {{on "click" this.zoomOut}}
+        >&minus;</button>
+        <button
+          type="button"
+          title="Reset zoom to 100%"
+          {{on "click" this.resetZoom}}
+        >{{this.zoomLabel}}</button>
+        <button
+          type="button"
+          title="Zoom in"
+          {{on "click" this.zoomIn}}
+        >+</button>
       </div>
     </div>
     {{#if this.contextMenu}}
