@@ -5,6 +5,7 @@ import {
   displayParentOf,
   nestingDepth,
   orthogonalPath,
+  swapBoxAxes,
   verticalArcPath,
 } from 'fumoco/components/canvas-view';
 import { ElementType, FmcModel } from 'fumoco/utils/fmc-model';
@@ -677,5 +678,50 @@ module('Unit | Component | canvas-view (nesting geometry)', function () {
       }
     }
     assert.true(checked > 200, 'the sweep actually exercised many placements');
+  });
+});
+
+module('Unit | Component | canvas-view (turned ER relations)', function () {
+  function erView(entityA, entityB) {
+    const model = new FmcModel();
+    const a = model.addElement(ElementType.ENTITY_SET);
+    const b = model.addElement(ElementType.ENTITY_SET);
+    const r = model.addElement(ElementType.RELATION);
+    model.addArc(a, r);
+    model.addArc(r, b);
+    const view = model.views.get(model.createView('v', 'er'));
+    view.included.push(a, b, r);
+    view.boxes.set(a, { ...entityA, width: 120, height: 60 });
+    view.boxes.set(b, { ...entityB, width: 120, height: 60 });
+    view.boxes.set(r, { x: 100, y: 200, width: 120, height: 60 });
+    return { model, view, r };
+  }
+
+  test('a relation between side-by-side entity sets keeps its stored box', function (assert) {
+    const { model, view, r } = erView({ x: 0, y: 200 }, { x: 400, y: 200 });
+    assert.deepEqual(computeEffectiveBoxes(model, view).get(r), {
+      x: 100,
+      y: 200,
+      width: 120,
+      height: 60,
+    });
+  });
+
+  test('a relation between stacked entity sets turns 90 degrees about its center', function (assert) {
+    const { model, view, r } = erView({ x: 100, y: 0 }, { x: 100, y: 400 });
+    const box = computeEffectiveBoxes(model, view).get(r);
+    // center (160,230) kept, width/height swapped
+    assert.deepEqual(box, {
+      x: 130,
+      y: 170,
+      width: 60,
+      height: 120,
+      rotated: true,
+    });
+    assert.deepEqual(
+      swapBoxAxes(box),
+      { x: 100, y: 200, width: 120, height: 60 },
+      'turning it back restores the stored box',
+    );
   });
 });

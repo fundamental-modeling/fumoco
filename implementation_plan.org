@@ -662,6 +662,16 @@ carries the meaning) via =drawArc='s new =isPartitionArc= flag. The old
 =ConnectorKind.INHERITANCE= were removed entirely rather than kept
 alongside the new mechanism.
 
+** DONE Relations turn 90 degrees automatically between stacked entity sets
+A relation whose entity sets sit above/below it (binary: the line
+between the two entity sets is steeper than 45 degrees; n-ary: summed
+offsets more vertical than horizontal) is displayed turned -- width and
+height swapped about its center, in =computeEffectiveBoxes=, so routing,
+drawing and export all see the turned box. The stored box stays
+unturned; drag/resize turn it back before writing (=toStoredBox=). The
+cardinality arrow always snaps to horizontal/vertical. No manual
+orientation override yet -- add one if automatic isn't always right.
+
 ** DONE ER reification (relation -> entity set)
 =FmcModel.reifyRelation(relationId)= creates a fresh entity set and
 nests the relation inside it via the existing generic containment

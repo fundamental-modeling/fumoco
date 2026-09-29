@@ -130,12 +130,63 @@ export function nestingDepth(model, view, id, includedSet, cache) {
 // no error, just stops trusting a box that no longer makes sense. Computed
 // deepest-first so a grandparent's fit already sees its parent's
 // (already-fit) box.
+// The same box turned 90 degrees about its center (width/height swapped).
+export function swapBoxAxes({ x, y, width, height }) {
+  return {
+    x: x + width / 2 - height / 2,
+    y: y + height / 2 - width / 2,
+    width: height,
+    height: width,
+  };
+}
+
+// A displayed box back to what's stored: turned back if it was shown
+// turned (computeEffectiveBoxes), and without the display-only flag.
+function toStoredBox({ rotated, ...box }) {
+  return rotated ? swapBoxAxes(box) : box;
+}
+
+// Whether an ER relation's entity sets sit above/below it rather than
+// beside it: for a binary relation, the line between its two entity
+// sets is steeper than 45 degrees; otherwise the entity sets' summed
+// offsets from the relation are more vertical than horizontal.
+export function isVerticalRelation(model, relationId, box, boxes) {
+  const centerOf = (b) => ({ x: b.x + b.width / 2, y: b.y + b.height / 2 });
+  const others = model.arcs
+    .filter((arc) => arc.source === relationId || arc.target === relationId)
+    .map((arc) =>
+      boxes.get(arc.source === relationId ? arc.target : arc.source),
+    )
+    .filter(Boolean)
+    .map(centerOf);
+  if (!others.length) return false;
+  if (others.length === 2) {
+    return (
+      Math.abs(others[1].y - others[0].y) > Math.abs(others[1].x - others[0].x)
+    );
+  }
+  const mid = centerOf(box);
+  const dx = others.reduce((sum, p) => sum + Math.abs(p.x - mid.x), 0);
+  const dy = others.reduce((sum, p) => sum + Math.abs(p.y - mid.y), 0);
+  return dy > dx;
+}
+
 export function computeEffectiveBoxes(model, view) {
   const includedSet = new Set(view.included);
   const effective = new Map();
   for (const id of view.included) {
     const box = view.boxes.get(id);
     if (box) effective.set(id, box);
+  }
+  // A relation between vertically stacked entity sets turns 90 degrees
+  // automatically. The stored box stays in its unturned shape; `rotated`
+  // tells drag/resize to turn it back before writing (see buildShape).
+  for (const id of view.included) {
+    const box = effective.get(id);
+    if (!box || model.elements.get(id)?.type !== ElementType.RELATION) continue;
+    if (isVerticalRelation(model, id, box, effective)) {
+      effective.set(id, { ...swapBoxAxes(box), rotated: true });
+    }
   }
   const depthCache = new Map();
   const byDepthDescending = [...view.included].sort(
@@ -941,11 +992,13 @@ export default class CanvasView extends Component {
   drawCardinalityArrow(box, ends, hasLabel) {
     if (!box || !ends.some((end) => end.one)) return;
     const mid = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    // Always horizontal or vertical, whichever is nearer.
     const unit = (from, to) => {
       const dx = to.x - from.x;
       const dy = to.y - from.y;
-      const len = Math.hypot(dx, dy) || 1;
-      return { x: dx / len, y: dy / len };
+      return Math.abs(dx) >= Math.abs(dy)
+        ? { x: Math.sign(dx) || 1, y: 0 }
+        : { x: 0, y: Math.sign(dy) };
     };
     // A shaft through the box center along `u`, sized to the box's
     // extent in that direction and, under a label, moved off the text:
@@ -2238,7 +2291,10 @@ export default class CanvasView extends Component {
     } else {
       group.on('dragend', () => {
         this.modelStore.mutate(() => {
-          view.boxes.set(element.id, { ...box, x: group.x(), y: group.y() });
+          view.boxes.set(
+            element.id,
+            toStoredBox({ ...box, x: group.x(), y: group.y() }),
+          );
           this.updateContainmentAfterDrag(element.id, view);
         });
         // Don't wait on/depend on the tracked-collection update rebuilding
@@ -2254,12 +2310,13 @@ export default class CanvasView extends Component {
     // handles are dragging (the leaf's own, or a container's manual
     // override -- see computeEffectiveBoxes) is committed the same way.
     group.on('transformend', () => {
-      const newBox = {
+      const newBox = toStoredBox({
         x: group.x(),
         y: group.y(),
         width: Math.max(MIN_SIZE, rect.width() * group.scaleX()),
         height: Math.max(MIN_SIZE, rect.height() * group.scaleY()),
-      };
+        rotated: box.rotated,
+      });
       group.scaleX(1);
       group.scaleY(1);
       this.modelStore.mutate(() => view.boxes.set(element.id, newBox));
