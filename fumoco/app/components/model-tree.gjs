@@ -81,7 +81,12 @@ export default class ModelTree extends Component {
 
   @action
   async open() {
-    await this.modelStore.open();
+    try {
+      await this.modelStore.open();
+    } catch (error) {
+      if (error.name === 'AbortError') return; // picker cancelled
+      window.alert(`Could not open file: ${error.message}`);
+    }
   }
 
   @action
