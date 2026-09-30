@@ -1074,6 +1074,22 @@ back to the straight line otherwise, or when the edge has waypoints.
   relation) auto-fits as a circle twice the relation's longer side
   across (`circleAround`).
 
+## Documentation figures (`scripts/render-figures.mjs`)
+
+The spec's figures are Fumoco models (`docs/spec/figures/*.fumoco.json`,
+each view with `exportHeader: false` -- a per-view setting, "Header in
+exports" in the view's properties) rendered by Fumoco itself:
+`npm run docs:figures` builds the app, serves it with `vite preview`,
+drives headless Chrome/Chromium over the DevTools protocol (plain
+WebSocket, no Puppeteer; Node >= 22.4, `$CHROME` to pick the browser),
+loads each model, triggers the app's own "Export SVG" and writes
+`<name>.svg` next to the model. Rendering the figures surfaced two SVG
+export bugs, since fixed: connector corners are now quadratic curves
+(the recording context mishandled `arcTo` at non-right angles and short
+legs), and the human agent's stick figure scales its line width
+explicitly (the transform reset behind `strokeScaleEnabled: false` isn't
+recorded).
+
 ## Versioning
 
 Semantic-release style versions (from 0.1.0) derived from conventional

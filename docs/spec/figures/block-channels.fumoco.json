@@ -1,0 +1,361 @@
+{
+  "elements": {
+    "a1": {
+      "type": "agent",
+      "label": "A1",
+      "parents": []
+    },
+    "a2": {
+      "type": "agent",
+      "label": "A2",
+      "parents": []
+    },
+    "c1": {
+      "type": "location",
+      "label": null,
+      "parents": [],
+      "channel": {
+        "shorthand": false
+      }
+    },
+    "b1": {
+      "type": "agent",
+      "label": "A1",
+      "parents": []
+    },
+    "b2": {
+      "type": "agent",
+      "label": "A2",
+      "parents": []
+    },
+    "c2": {
+      "type": "location",
+      "label": null,
+      "parents": [],
+      "channel": {
+        "shorthand": false
+      }
+    },
+    "d1": {
+      "type": "agent",
+      "label": "A1",
+      "parents": []
+    },
+    "d2": {
+      "type": "agent",
+      "label": "A2",
+      "parents": []
+    },
+    "req": {
+      "type": "location",
+      "label": "REQ",
+      "parents": [],
+      "channel": {
+        "shorthand": false
+      }
+    },
+    "res": {
+      "type": "location",
+      "label": "RES",
+      "parents": [],
+      "channel": {
+        "shorthand": false
+      }
+    },
+    "e1": {
+      "type": "agent",
+      "label": "A1",
+      "parents": []
+    },
+    "e2": {
+      "type": "agent",
+      "label": "A2",
+      "parents": []
+    },
+    "r": {
+      "type": "location",
+      "label": "R▶",
+      "parents": [],
+      "channel": {
+        "shorthand": true
+      }
+    },
+    "f1": {
+      "type": "agent",
+      "label": "A1",
+      "parents": []
+    },
+    "f2": {
+      "type": "agent",
+      "label": "A2",
+      "parents": []
+    },
+    "fs": {
+      "type": "location",
+      "label": "S",
+      "parents": []
+    },
+    "t1": {
+      "type": "text",
+      "label": "unidirectional",
+      "parents": []
+    },
+    "t2": {
+      "type": "text",
+      "label": "bidirectional",
+      "parents": []
+    },
+    "t3": {
+      "type": "text",
+      "label": "request/response",
+      "parents": []
+    },
+    "t4": {
+      "type": "text",
+      "label": "request/response,\nshort",
+      "parents": []
+    },
+    "t5": {
+      "type": "text",
+      "label": "shared storage",
+      "parents": []
+    }
+  },
+  "accesses": [
+    {
+      "id": "x1",
+      "agent": "a1",
+      "kind": "write",
+      "location": "c1"
+    },
+    {
+      "id": "x2",
+      "agent": "a2",
+      "kind": "read",
+      "location": "c1"
+    },
+    {
+      "id": "x3",
+      "agent": "b1",
+      "kind": "modify",
+      "location": "c2"
+    },
+    {
+      "id": "x4",
+      "agent": "b2",
+      "kind": "modify",
+      "location": "c2"
+    },
+    {
+      "id": "x5",
+      "agent": "d1",
+      "kind": "write",
+      "location": "req"
+    },
+    {
+      "id": "x6",
+      "agent": "d2",
+      "kind": "read",
+      "location": "req"
+    },
+    {
+      "id": "x7",
+      "agent": "d2",
+      "kind": "write",
+      "location": "res"
+    },
+    {
+      "id": "x8",
+      "agent": "d1",
+      "kind": "read",
+      "location": "res"
+    },
+    {
+      "id": "x9",
+      "agent": "e1",
+      "kind": "write",
+      "location": "r"
+    },
+    {
+      "id": "x10",
+      "agent": "e2",
+      "kind": "read",
+      "location": "r"
+    },
+    {
+      "id": "x11",
+      "agent": "f1",
+      "kind": "modify",
+      "location": "fs"
+    },
+    {
+      "id": "x12",
+      "agent": "f2",
+      "kind": "modify",
+      "location": "fs"
+    }
+  ],
+  "arcs": [],
+  "views": {
+    "v": {
+      "name": "Channels",
+      "diagramType": "block",
+      "exportHeader": false,
+      "included": [
+        "a1",
+        "c1",
+        "a2",
+        "t1",
+        "b1",
+        "c2",
+        "b2",
+        "t2",
+        "d1",
+        "req",
+        "res",
+        "d2",
+        "t3",
+        "e1",
+        "r",
+        "e2",
+        "t4",
+        "f1",
+        "f2",
+        "fs",
+        "t5"
+      ],
+      "boxes": {
+        "a1": {
+          "x": 40,
+          "y": 40,
+          "width": 120,
+          "height": 60
+        },
+        "c1": {
+          "x": 86,
+          "y": 146,
+          "width": 28,
+          "height": 28
+        },
+        "a2": {
+          "x": 40,
+          "y": 240,
+          "width": 120,
+          "height": 60
+        },
+        "t1": {
+          "x": 40,
+          "y": 320,
+          "width": 120,
+          "height": 24
+        },
+        "b1": {
+          "x": 200,
+          "y": 40,
+          "width": 120,
+          "height": 60
+        },
+        "c2": {
+          "x": 246,
+          "y": 146,
+          "width": 28,
+          "height": 28
+        },
+        "b2": {
+          "x": 200,
+          "y": 240,
+          "width": 120,
+          "height": 60
+        },
+        "t2": {
+          "x": 200,
+          "y": 320,
+          "width": 120,
+          "height": 24
+        },
+        "d1": {
+          "x": 360,
+          "y": 40,
+          "width": 160,
+          "height": 60
+        },
+        "req": {
+          "x": 386,
+          "y": 146,
+          "width": 28,
+          "height": 28
+        },
+        "res": {
+          "x": 466,
+          "y": 146,
+          "width": 28,
+          "height": 28
+        },
+        "d2": {
+          "x": 360,
+          "y": 240,
+          "width": 160,
+          "height": 60
+        },
+        "t3": {
+          "x": 360,
+          "y": 320,
+          "width": 160,
+          "height": 24
+        },
+        "e1": {
+          "x": 560,
+          "y": 40,
+          "width": 120,
+          "height": 60
+        },
+        "r": {
+          "x": 606,
+          "y": 146,
+          "width": 28,
+          "height": 28
+        },
+        "e2": {
+          "x": 560,
+          "y": 240,
+          "width": 120,
+          "height": 60
+        },
+        "t4": {
+          "x": 560,
+          "y": 320,
+          "width": 140,
+          "height": 44
+        },
+        "f1": {
+          "x": 720,
+          "y": 40,
+          "width": 120,
+          "height": 60
+        },
+        "f2": {
+          "x": 880,
+          "y": 40,
+          "width": 120,
+          "height": 60
+        },
+        "fs": {
+          "x": 800,
+          "y": 240,
+          "width": 120,
+          "height": 60
+        },
+        "t5": {
+          "x": 800,
+          "y": 320,
+          "width": 140,
+          "height": 24
+        }
+      },
+      "nestedUnder": {},
+      "edgeWaypoints": {},
+      "guides": [],
+      "edgeBundles": {}
+    }
+  }
+}

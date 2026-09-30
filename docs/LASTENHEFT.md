@@ -291,6 +291,10 @@ implementation notes here — that's the other two documents' job.
   unnamed marking-holder.
 - As a modeler, I want to open a Fumoco model file directly in VS Code
   and get the same editing experience as the standalone app.
+- As the maintainer, I want the diagrams in the documentation drawn with
+  Fumoco itself, regenerated from model files.
+- As a modeler, I want to export a view without its title/author/date
+  header, e.g. for a figure embedded in another document.
 
 ## Export
 

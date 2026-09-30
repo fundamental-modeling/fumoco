@@ -1,0 +1,210 @@
+{
+  "elements": {
+    "agent": {
+      "type": "agent",
+      "label": "Agent",
+      "parents": []
+    },
+    "human": {
+      "type": "human_agent",
+      "label": "Human agent",
+      "parents": []
+    },
+    "storage": {
+      "type": "location",
+      "label": "Storage",
+      "parents": []
+    },
+    "variant": {
+      "type": "location",
+      "label": "Structure variance",
+      "parents": [],
+      "dashed": true
+    },
+    "multi": {
+      "type": "agent",
+      "label": "Worker",
+      "parents": [],
+      "multiple": true
+    },
+    "reader": {
+      "type": "agent",
+      "label": "Reader",
+      "parents": []
+    },
+    "writer": {
+      "type": "agent",
+      "label": "Writer",
+      "parents": []
+    },
+    "editor": {
+      "type": "agent",
+      "label": "Editor",
+      "parents": []
+    },
+    "s1": {
+      "type": "location",
+      "label": "S",
+      "parents": []
+    },
+    "s2": {
+      "type": "location",
+      "label": "S",
+      "parents": []
+    },
+    "s3": {
+      "type": "location",
+      "label": "S",
+      "parents": []
+    },
+    "t1": {
+      "type": "text",
+      "label": "read access",
+      "parents": []
+    },
+    "t2": {
+      "type": "text",
+      "label": "write access",
+      "parents": []
+    },
+    "t3": {
+      "type": "text",
+      "label": "read/write access",
+      "parents": []
+    }
+  },
+  "accesses": [
+    {
+      "id": "a1",
+      "agent": "reader",
+      "kind": "read",
+      "location": "s1"
+    },
+    {
+      "id": "a2",
+      "agent": "writer",
+      "kind": "write",
+      "location": "s2"
+    },
+    {
+      "id": "a3",
+      "agent": "editor",
+      "kind": "modify",
+      "location": "s3"
+    }
+  ],
+  "arcs": [],
+  "views": {
+    "v": {
+      "name": "Block diagram symbols",
+      "diagramType": "block",
+      "exportHeader": false,
+      "included": [
+        "agent",
+        "human",
+        "storage",
+        "variant",
+        "multi",
+        "reader",
+        "s1",
+        "t1",
+        "writer",
+        "s2",
+        "t2",
+        "editor",
+        "s3",
+        "t3"
+      ],
+      "boxes": {
+        "agent": {
+          "x": 40,
+          "y": 40,
+          "width": 120,
+          "height": 60
+        },
+        "human": {
+          "x": 237,
+          "y": 40,
+          "width": 45,
+          "height": 60
+        },
+        "storage": {
+          "x": 340,
+          "y": 40,
+          "width": 120,
+          "height": 60
+        },
+        "variant": {
+          "x": 520,
+          "y": 40,
+          "width": 160,
+          "height": 60
+        },
+        "multi": {
+          "x": 740,
+          "y": 40,
+          "width": 120,
+          "height": 60
+        },
+        "reader": {
+          "x": 40,
+          "y": 200,
+          "width": 120,
+          "height": 60
+        },
+        "s1": {
+          "x": 40,
+          "y": 340,
+          "width": 120,
+          "height": 60
+        },
+        "t1": {
+          "x": 40,
+          "y": 420,
+          "width": 120,
+          "height": 24
+        },
+        "writer": {
+          "x": 260,
+          "y": 200,
+          "width": 120,
+          "height": 60
+        },
+        "s2": {
+          "x": 260,
+          "y": 340,
+          "width": 120,
+          "height": 60
+        },
+        "t2": {
+          "x": 260,
+          "y": 420,
+          "width": 120,
+          "height": 24
+        },
+        "editor": {
+          "x": 480,
+          "y": 200,
+          "width": 120,
+          "height": 60
+        },
+        "s3": {
+          "x": 480,
+          "y": 340,
+          "width": 120,
+          "height": 60
+        },
+        "t3": {
+          "x": 480,
+          "y": 420,
+          "width": 140,
+          "height": 24
+        }
+      },
+      "nestedUnder": {},
+      "edgeWaypoints": {},
+      "guides": [],
+      "edgeBundles": {}
+    }
+  }
+}

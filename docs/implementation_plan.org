@@ -72,9 +72,9 @@ needs a decision recorded.
 - [X] Select all / cut / copy / paste by keyboard, on the whole selection
 - [X] Right-click context menu (delete/copy/cut/paste, waypoint removal)
 
-* Milestone A.5 — Formal FMC specification [0/2]
-- [ ] Formal, W3C-ReSpec-based specification of FMC's block diagram notation -- in progress: drafted in =spec/index.html= from the sources in =spec/SOURCES.md=
-- [ ] Petri net and ER/value-range sections, drafted normatively -- in progress, same file
+* Milestone A.5 — Formal FMC specification [2/2]
+- [X] Formal, W3C-ReSpec-based specification of FMC's block diagram notation (=spec/index.html=)
+- [X] Petri net and ER/value-range sections, normative, with symbol tables and figures drawn with Fumoco (=spec/figures/=, =npm run docs:figures=)
 
 * Milestone B — Petri nets [5/9]
 - [ ] Set an arc's weight -- the model stores it and draws it when != 1, but nothing can change it yet
@@ -95,8 +95,22 @@ needs a decision recorded.
 - [X] ER reification (relation -> entity set)
 - [X] Role labels on arcs (as connector annotations)
 
-* Milestone D — VS Code extension [0/1]
-- [ ] Open a Fumoco model file directly in VS Code, with the same editing experience as the standalone app
+* Milestone D — VS Code extension [0/10]
+Approach: a /custom text editor/ for =*.fumoco.json= hosting the built app
+in a webview. VS Code keeps owning the file -- save, dirty state, undo,
+git diffs, hot exit work as for any file -- and the app talks to the
+extension through a small message protocol instead of localStorage and
+file pickers.
+- [ ] D1 Webview-ready build: relative asset paths, no inline scripts (a CSP with a nonce), fonts bundled; a =build:vscode= target
+- [ ] D2 Extension scaffold in =vscode/=: =package.json= contributing the custom editor for =*.fumoco.json=, esbuild bundle, launch config for debugging
+- [ ] D3 =CustomTextEditorProvider=: load the document into the webview, apply the app's changes back as a =WorkspaceEdit=, reload when the document changes elsewhere (git checkout, text editor)
+- [ ] D4 Host bridge in the app: detect the webview (=acquireVsCodeApi=); open/save through VS Code instead of file pickers; no localStorage autosave; post the model on every change (debounced); apply incoming document updates
+- [ ] D5 Undo/redo is VS Code's (every change is a document edit); hide the app's own undo buttons there
+- [ ] D6 PNG/SVG export through the extension (save dialog + =workspace.fs=), since webview downloads don't work
+- [ ] D7 "Fumoco: New Model" command creating an empty =.fumoco.json=
+- [ ] D8 Tests: message-protocol unit tests; an =@vscode/test-electron= smoke test opening =docs/examples/=
+- [ ] D9 Packaging: =vsce package= on release tags (=fumoco-X.Y.Z=), the =.vsix= attached to the GitHub release; Marketplace / Open VSX publishing later
+- [ ] D10 Docs: README section; Lastenheft and Pflichtenheft entries
 
 * Backlog -- not prioritized [0/2]
 - [ ] Manual 90-degree turn for a relation (relations only turn automatically, between stacked entity sets)

@@ -69,10 +69,15 @@
       own. It is derived from, and should be read alongside, the FMC
       Consortium's own reference material at
       <a href="https://www.fmc-modeling.org/">fmc-modeling.org</a> — in
-      particular the Notation Reference, the Metamodel page, and the
-      Visualization Guidelines (see the References section). Where this
-      document and the FMC Consortium's own material disagree, the
-      Consortium's material is authoritative.
+      particular the Notation Reference [[FMC-NOTATION-REFERENCE]], the
+      Metamodel page [[FMC-METAMODEL]], and the Visualization Guidelines
+      [[FMC-VIZGUIDELINES]]. Where this document and the FMC Consortium's
+      own material disagree, the Consortium's material is authoritative.
+      This document covers the complete notation of all three diagram
+      types as given in the Notation Reference. It is maintained
+      alongside the Fumoco editor, whose support for each construct is
+      summarized in <a href="#fumoco-status">Implementation status in
+      Fumoco</a>; its figures are drawn with Fumoco.
     </p>
   </section>
 
@@ -157,35 +162,51 @@
         bipartite node kinds apart at a glance. A channel is typically
         drawn smaller than an ordinary storage (often near-circular)
         while keeping the same rounded family of outlines, since it still
-        needs to read as a location.
+        needs to read as a location. Beyond the angular/rounded
+        distinction, form, size, color and line weight of a node may be
+        adapted to stress its particular meaning
+        [[FMC-NOTATION-REFERENCE]].
+      </p>
+      <p>
+        <dfn>Identifier conventions</dfn>: agents, locations and entity
+        sets are named with nouns (entity sets and roles with singular
+        nouns); transitions with verbs; a relation with a verb when its
+        identifier implies a reading direction and with a noun otherwise
+        (see <a href="#er-cardinality">Cardinality and roles</a>).
       </p>
     </section>
 
     <section id="term-access">
       <h3>Access</h3>
       <p>
-        An agent connects to a location via an <dfn>access</dfn> edge of
-        one of three kinds:
+        An agent connects to a location via <dfn>access</dfn>. There are
+        two basic kinds, and their combination:
       </p>
       <dl>
         <dt><dfn>Read access</dfn></dt>
         <dd>The agent observes the location's current value without
           changing it.</dd>
         <dt><dfn>Write access</dfn></dt>
-        <dd>The agent replaces the location's value.</dd>
-        <dt><dfn>Modify access</dfn></dt>
-        <dd>A read followed by a write to the same location as one unit —
-          the agent needs the current value to compute the new one (an
-          increment is the canonical example).</dd>
+        <dd>The agent replaces the location's value — writing a storage
+          overwrites all information held in it.</dd>
+        <dt><dfn>Read/write access</dfn> (<dfn>modifying access</dfn>)</dt>
+        <dd>Read access and write access by the same agent to the same
+          location: the agent can change some particular information of
+          the location. It is not a third kind of access but the
+          combination of the two — there is never a separate read edge
+          and write edge between the same agent and location.</dd>
       </dl>
       <p>
-        By convention, read/write access to a storage is drawn as two
-        separate directed edges (one per direction actually used);
-        read/write access to a channel is drawn as a single undirected
-        edge instead, since a channel's smaller size makes two full
-        edges visually heavier than the distinction is worth. Modify
-        access is its own single edge kind regardless of which location
-        it targets.
+        Read access is drawn as a directed edge from the location to the
+        agent, write access as a directed edge from the agent to the
+        location. Read/write access to a <em>storage</em> is drawn as two
+        directed edges, one in each direction — conventionally two arcs
+        bowing apart between the facing sides of agent and storage, or,
+        where there is no room for that, one edge with an arrowhead at
+        each end. Read/write access to a <em>channel</em> is drawn as a
+        single undirected edge [[FMC-NOTATION-REFERENCE]]. All of these
+        denote the same access; the drawing varies, the meaning does
+        not.
       </p>
     </section>
 
@@ -284,11 +305,12 @@
     <section id="fm-access">
       <h3>Access</h3>
       <p>
-        Let <var>Kind = {read, write, modify}</var>. The access structure
-        is a relation
-        <var>Access ⊆ 𝒜 × Kind × ℒ</var>. Two laws hold on it,
-        corresponding to <a href="#term-components">System components</a>'
-        minimum-arity requirements:
+        Let <var>Kind = {read, write}</var>. The access structure is a
+        relation <var>Access ⊆ 𝒜 × Kind × ℒ</var>; read/write access of
+        <var>a</var> to <var>l</var> is simply
+        <var>{(a,read,l), (a,write,l)} ⊆ Access</var>. Two laws hold on
+        it, corresponding to <a href="#term-components">System
+        components</a>' minimum-arity requirements:
       </p>
       <ul>
         <li><strong>Channel arity</strong>:
@@ -348,9 +370,8 @@
           <var>writes(o,·) = ∅</var>.</li>
         <li><strong>Access consistency</strong>: an operation's reads and
           writes must be backed by the performing agent's actual access:
-          <var>(o,l) ∈ reads ⟹ (perf(o), read, l) ∈ Access ∨
-          (perf(o), modify, l) ∈ Access</var>, and symmetrically for
-          <var>writes</var> against <var>write</var>/<var>modify</var>.
+          <var>(o,l) ∈ reads ⟹ (perf(o), read, l) ∈ Access</var> and
+          <var>(o,l) ∈ writes ⟹ (perf(o), write, l) ∈ Access</var>.
           </li>
         <li>Let <var>producesEvents: 𝒪 → 𝒫(ℰ)</var> map each operation
           to the (possibly empty — a write that doesn't change the
@@ -389,6 +410,38 @@
       location.
     </p>
 
+    <section id="bd-symbols">
+      <h3>Symbols</h3>
+      <figure id="fig-bd-symbols">
+        <img src="figures/block-symbols.svg" alt="Block diagram symbols: agent, human agent, storage, channel, the access kinds, a dashed structure-variant storage and stacked multiple instances" />
+        <figcaption>Block diagram symbols, drawn with Fumoco.</figcaption>
+      </figure>
+      <table>
+        <tr><th>Element</th><th>Drawn as</th></tr>
+        <tr><td><a>Agent</a></td><td>angular box, labeled with a noun</td></tr>
+        <tr><td><a>Human agent</a></td><td>angular box holding a stick
+          figure; its identifier outside the box</td></tr>
+        <tr><td><a>Storage</a></td><td>rounded box</td></tr>
+        <tr><td><a>Channel</a></td><td>small circle on the connecting
+          edges; its label (such as the request/response shorthand) beside
+          it</td></tr>
+        <tr><td>Read / write access</td><td>directed edge
+          location&nbsp;→&nbsp;agent / agent&nbsp;→&nbsp;location</td></tr>
+        <tr><td><a>Read/write access</a></td><td>to a storage: two
+          directed edges, one each way (two arcs bowing apart, or one
+          edge with two arrowheads); to a channel: an undirected
+          edge</td></tr>
+        <tr><td>Structure-variant storage</td><td>rounded box with a
+          dashed (dotted) outline — see
+          <a href="#bd-structure-variance">Structure variance</a></td></tr>
+        <tr><td><a href="#term-containment">Containment</a></td><td>the part drawn nested inside
+          the whole</td></tr>
+        <tr><td><dfn>Multiple instances</dfn></td><td>one exemplar box with
+          copies stacked behind it, standing for several similar
+          components when their exact number doesn't matter</td></tr>
+      </table>
+    </section>
+
     <section id="bd-channel-notation">
       <h3>Channel notation</h3>
       <p>
@@ -403,7 +456,7 @@
           as an arrow into the channel from the writer and an arrow out
           of it to the reader.</li>
         <li><strong>Bidirectional channel</strong>: both agents have
-          modify access to the channel — information can flow either
+          read/write access to the channel — information can flow either
           way. Drawn as a plain undirected line through the channel, no
           arrowheads, since neither agent is fixed as sender or
           receiver.</li>
@@ -412,10 +465,20 @@
           as two unidirectional channels in opposite directions (a
           request leg and a response leg). Because this pattern is
           extremely common, a <dfn>shorthand</dfn> notation exists: a
-          single bold, direction-carrying glyph label (e.g. "R▶") in
-          place of separate request/response arrowheads and separate
-          REQ/RES labels.</li>
+          single channel with a bold "R" and a small triangle beside it,
+          pointing from the requesting agent to the responding one
+          ("R▶"), in place of separate request/response arrowheads and
+          separate REQ/RES labels.</li>
+        <li><strong>Shared storage</strong>: two agents with access to the
+          same storage can communicate through it much like through a
+          bidirectional channel — a storage is not only a channel's
+          alternative for keeping data, it is also a way to
+          communicate.</li>
       </ul>
+      <figure id="fig-bd-channels">
+        <img src="figures/block-channels.svg" alt="A unidirectional channel, a bidirectional channel, a request/response channel in long and short form, and a shared storage" />
+        <figcaption>Channels and shared storage.</figcaption>
+      </figure>
     </section>
 
     <section id="bd-structure-variance">
@@ -425,7 +488,9 @@
         variance</a>: a dashed-outline location marks where a structural
         change (an agent or location coming into or going out of
         existence) is observed, with the responsible agent's access to
-        it drawn as ordinary modify access.
+        it drawn as ordinary read/write access. The components that come
+        and go are typically drawn as <a>multiple instances</a> or
+        enumerated with an ellipsis ("A2 … An").
       </p>
     </section>
 
@@ -435,7 +500,8 @@
         A block diagram is a tuple <var>(N, τ, E)</var>: a finite node
         set <var>N</var>, a typing function
         <var>τ: N → {agent, storage, channel}</var>, and an edge set
-        <var>E ⊆ N × Kind × N</var>. It <dfn>denotes</dfn> an instance of
+        <var>E ⊆ N × {read, write, readwrite} × N</var> with at most one
+        edge between any agent and location. It <dfn>denotes</dfn> an instance of
         the <a href="#formal-model">Formal Model</a> under an
         interpretation <var>⟦·⟧: N → 𝒜 ∪ ℒ</var> respecting
         <var>τ</var> (<var>τ(n)=agent ⟹ ⟦n⟧∈𝒜</var>,
@@ -452,10 +518,12 @@
           the same side.</li>
         <li><strong>Faithful to <var>Access</var></strong>: for every
           edge <var>(n, k, n') ∈ E</var> with <var>τ(n)=agent</var>,
-          <var>(⟦n⟧, k, ⟦n'⟧) ∈ Access</var> (an edge drawn the other
-          way round, location first, denotes the same triple — the
-          agent, not the drawing order, is what <var>Access</var> is
-          indexed on).</li>
+          <var>(⟦n⟧, k, ⟦n'⟧) ∈ Access</var> for <var>k</var> read or
+          write, and both <var>(⟦n⟧, read, ⟦n'⟧)</var> and
+          <var>(⟦n⟧, write, ⟦n'⟧)</var> for <var>k = readwrite</var>
+          (an edge drawn the other way round, location first, denotes the
+          same triples — the agent, not the drawing order, is what
+          <var>Access</var> is indexed on).</li>
         <li>The channel-arity and storage-arity laws from
           <a href="#fm-access">Access</a> hold for every location in
           <var>⟦N⟧</var>, restricted to the accesses actually shown.</li>
@@ -491,6 +559,38 @@
       never transition to transition.
     </p>
 
+    <section id="pn-symbols">
+      <h3>Symbols</h3>
+      <figure id="fig-pn-symbols">
+        <img src="figures/petri-symbols.svg" alt="Petri net symbols: a start place, a transition, a place, a NOP bar, and a swimlane divider between two agents' transitions" />
+        <figcaption>Petri net symbols, drawn with Fumoco.</figcaption>
+      </figure>
+      <table>
+        <tr><th>Element</th><th>Drawn as</th></tr>
+        <tr><td><a>Transition</a></td><td>angular box, labeled with a
+          verb</td></tr>
+        <tr><td><a>Place</a></td><td>small circle; a token as a filled dot
+          inside it</td></tr>
+        <tr><td><dfn>Start place</dfn></td><td>the initially marked entry
+          place of a net: a place holding its token</td></tr>
+        <tr><td><a>Petri net arc</a></td><td>directed edge, weight written
+          beside it when not 1</td></tr>
+        <tr><td><a>NOP</a> transition</td><td>a thin, wide, unlabeled
+          bar</td></tr>
+        <tr><td><a>Swimlane</a> divider</td><td>dashed line between the
+          areas of competence of two agents</td></tr>
+        <tr><td><a>Multi-token place</a></td><td>enlarged place with its
+          capacity written in it; infinite capacity as a double
+          circle</td></tr>
+        <tr><td><a>Stack place</a>, <a>return place</a></td><td>places,
+          see <a href="#pn-recursion">Recursion elements</a></td></tr>
+      </table>
+      <p>
+        By convention a Petri net flows top to bottom: arcs leave a node
+        at its bottom and enter the next at its top.
+      </p>
+    </section>
+
     <section id="pn-marking">
       <h3>Marking and capacity</h3>
       <p>
@@ -514,7 +614,10 @@
         performs them (the same agent/location vocabulary as a block
         diagram, projected onto the dynamic-structure view); a
         transition crossing a swimlane boundary represents communication
-        between the two agents on either side.
+        between the two agents on either side. Whenever a swimlane
+        divider is crossed, communication takes place; every kind of
+        communication (synchronous, asynchronous, …) can be expressed this
+        way [[FMC-NOTATION-REFERENCE]].
       </p>
     </section>
 
@@ -540,6 +643,10 @@
         <dt><dfn>Concurrency</dfn></dt>
         <dd>Two or more transitions have no ordering constraint between
           them at all and may fire independently.</dd>
+        <dt><dfn>Communication</dfn></dt>
+        <dd>A flow crossing a <a>swimlane</a> divider: the operation
+          before it is performed by one agent, the one after it by
+          another.</dd>
       </dl>
     </section>
 
@@ -555,6 +662,10 @@
         first. Every recursive diagram has exactly one recursion entry
         point and exactly one transition representing the recursion's
         base case (the point where it stops calling itself again).
+        Stack places with the same name are coupled: their stack tokens,
+        though spread over several places, form one return stack. The
+        return stack only guides the recursion; data pushed, popped or
+        read along the way still has to be modeled explicitly.
       </p>
     </section>
 
@@ -637,6 +748,33 @@
       Reification</a> below).
     </p>
 
+    <section id="er-symbols">
+      <h3>Symbols</h3>
+      <figure id="fig-er-symbols">
+        <img src="figures/er-symbols.svg" alt="ER symbols: entity sets, a 1:n relation, a 1:1 relation turned vertically, a reified relation, and an orthogonal partitioning triangle" />
+        <figcaption>Entity-relationship symbols, drawn with Fumoco.</figcaption>
+      </figure>
+      <table>
+        <tr><th>Element</th><th>Drawn as</th></tr>
+        <tr><td><a>Entity set</a></td><td>rounded shape, labeled with a
+          singular noun; attributes (A1 … An) may be listed</td></tr>
+        <tr><td><a>Relation</a></td><td>small angular box; when its entity
+          sets sit above and below it, turned by 90°</td></tr>
+        <tr><td><a>Arc</a></td><td>undirected line, optionally annotated
+          with a <a>cardinality range</a> and a <a>role</a></td></tr>
+        <tr><td>1:n, 1:1</td><td>an arrow inside the relation pointing
+          toward the "1" side(s)</td></tr>
+        <tr><td><a>Reification</a></td><td>the relation drawn inside a new
+          entity set symbol (conventionally a circle) that stands for
+          it</td></tr>
+        <tr><td><a>Orthogonal partitioning</a></td><td>triangle: the
+          partitioned entity set attaches to its apex, the parts to its
+          base</td></tr>
+        <tr><td><a>Structure entity</a> set</td><td>entity set with a
+          dotted outline, containing a whole structure</td></tr>
+      </table>
+    </section>
+
     <section id="er-cardinality">
       <h3>Cardinality and roles</h3>
       <p>
@@ -678,7 +816,8 @@
         forcing a single hierarchy. A <dfn>structure entity</dfn> lets an
         entire sub-structure (a set of entity sets and relations) be
         folded into a single entity set for use one level up — most
-        useful for showing a level and its own meta-level together.
+        useful for showing a level and its own meta-level together. It is
+        drawn with a dotted outline around the structure it contains.
       </p>
     </section>
 
@@ -709,12 +848,16 @@
           participant <var>eᵢ</var> requires
           <var>∀x ∈ ⟦eᵢ⟧, min ≤ |{t ∈ ⟦r⟧ : tᵢ = x}| ≤ max</var>.</li>
         <li>A <strong>1:n relation</strong> between <var>e₁</var> and
-          <var>e₂</var> denotes a partial function
-          <var>⟦r⟧: ⟦e₁⟧ ⇀ ⟦e₂⟧</var> — i.e.
-          <var>∀x, |{y : (x,y) ∈ ⟦r⟧}| ≤ 1</var>; a
-          <strong>1:1 relation</strong> denotes an injective partial
-          function (the same condition additionally holding with the
-          roles of <var>e₁</var> and <var>e₂</var> swapped).</li>
+          <var>e₂</var>, its arrow pointing toward <var>e₂</var>, denotes
+          a function <var>⟦r⟧: ⟦e₁⟧ → ⟦e₂⟧</var> — every element of
+          <var>⟦e₁⟧</var> is associated with exactly one element of
+          <var>⟦e₂⟧</var>: <var>∀x ∈ ⟦e₁⟧, |{y : (x,y) ∈ ⟦r⟧}| = 1</var>.
+          A <strong>1:1 relation</strong> (arrows toward both sides)
+          denotes a bijection — the same condition also holding with
+          <var>e₁</var> and <var>e₂</var> swapped. Any deviating
+          cardinality (for instance an optional participation, making the
+          function partial) must be stated explicitly as a
+          <a>cardinality range</a> on the arc.</li>
         <li><strong>Reification</strong> of <var>r</var> introduces a
           fresh entity-set symbol <var>e_r</var> with a canonical
           bijection <var>⟦e_r⟧ ≅ ⟦r⟧</var> — each element of
@@ -730,6 +873,41 @@
           independent.</li>
       </ul>
     </section>
+  </section>
+
+  <section id="annotations">
+    <h2>Enumeration and Annotations</h2>
+    <aside class="note" title="Normative status">
+      <p>This section is normative.</p>
+    </aside>
+    <p>
+      The following may appear in a diagram of any type. None of them is
+      a node or edge of the diagram's bipartite graph: nothing connects
+      to them, and they don't change what the diagram denotes beyond what
+      is stated here.
+    </p>
+    <dl>
+      <dt><dfn>Enumeration</dfn></dt>
+      <dd>An ellipsis ("…", or vertical or diagonal where the elements
+        are laid out that way) between exemplars — "A1 … An" — stands for
+        a number of similar elements of the same kind, drawn without
+        drawing every one. It denotes the same as drawing all of them,
+        with the same connections as the exemplars.</dd>
+      <dt><dfn>Connector annotation</dfn></dt>
+      <dd>Text attached to an edge — in an ER diagram, the arc's
+        <a>role</a> or <a>cardinality range</a>; in a Petri net, an arc's
+        condition (see <a href="#pn-constructs">case</a> and
+        <a href="#pn-constructs">loop</a>); elsewhere, a free comment.</dd>
+      <dt><dfn>Free text</dfn> and plain lines</dt>
+      <dd>Comments and visual grouping. They carry no meaning in the
+        notation.</dd>
+    </dl>
+    <p>
+      A <a>swimlane</a> divider, though drawn as a line, is part of the
+      Petri net notation (see <a href="#pn-nop">NOP transitions and
+      swimlanes</a>); tools may offer it in the other diagram types to
+      separate areas of responsibility, where it is an annotation.
+    </p>
   </section>
 
   <section id="viz-appendix" class="informative">
@@ -797,7 +975,9 @@
         (see <a href="#bd-channel-notation">Channel notation</a>) rather
         than two directed ones, precisely because a channel is drawn
         small enough that two full edges would look heavier than the
-        distinction is worth. Grouping nodes purely to reduce edge count
+        distinction is worth; a storage's read/write access reads best as
+        two arcs bowing apart where agent and storage face each other, and
+        as one double-headed edge where they are too close for that. Grouping nodes purely to reduce edge count
         (rather than to show a real containment relationship) should be
         drawn with a lighter line weight than an ordinary agent/location,
         so the two purposes of a frame stay visually distinguishable.
@@ -872,14 +1052,59 @@
   <section id="conformance">
     <h2>Conformance</h2>
     <p>
-      A diagram <dfn>conforms</dfn> to this specification for a given
-      diagram type if it obeys that type's bipartite rule (every edge
-      connects the two designated node kinds and no others) and every
-      construct it uses matches that construct's definition in the
-      corresponding section above. The <a href="#viz-appendix">
-      Visualization Guidance</a> appendix is explicitly non-normative:
-      a diagram that ignores some or all of it is still a conforming FMC
-      diagram, just a harder-to-read one.
+      This specification has two conformance classes.
+    </p>
+    <dl>
+      <dt>Conforming diagram</dt>
+      <dd>A diagram <dfn>conforms</dfn> for a given diagram type if it
+        obeys that type's bipartite rule (every edge connects the two
+        designated node kinds and no others), every construct it uses
+        matches that construct's definition above, and — for a diagram
+        presented as complete — the well-formedness conditions of the
+        type's denotational semantics hold (for block diagrams, the
+        channel- and storage-arity laws).</dd>
+      <dt>Conforming editor</dt>
+      <dd>A tool for drawing FMC diagrams conforms if it
+        <ul>
+          <li>never lets an edit create an edge that breaks the diagram
+            type's bipartite rule, nor a cyclic containment;</li>
+          <li>represents read/write access as one access, however it is
+            drawn (see <a href="#term-access">Access</a>);</li>
+          <li>checks conditions that only hold of a finished diagram,
+            such as the arity laws, on request rather than blocking edits
+            that temporarily violate them;</li>
+          <li>and draws each construct it supports as defined in its
+            diagram type's Symbols section. A tool need not support every
+            construct; one it doesn't support it simply doesn't offer.</li>
+        </ul>
+      </dd>
+    </dl>
+    <p>
+      The <a href="#viz-appendix">Visualization Guidance</a> appendix is
+      explicitly non-normative: a diagram that ignores some or all of it
+      is still a conforming FMC diagram, just a harder-to-read one.
+    </p>
+  </section>
+
+  <section id="fumoco-status" class="informative">
+    <h2>Implementation status in Fumoco</h2>
+    <p>
+      Fumoco aims to be a conforming editor. It supports every construct
+      of this specification except the following, which are tracked as
+      open items in its implementation plan:
+    </p>
+    <ul>
+      <li>Petri nets: editing an arc's <a>weight</a> (weights are stored
+        and drawn, but can't yet be changed), <a>multi-token places</a>
+        with capacity annotations and infinite-capacity places, and the
+        <a href="#pn-recursion">recursion elements</a>.</li>
+      <li>ER diagrams: <a>structure entity</a> sets, and entity-set
+        attributes other than as free text.</li>
+    </ul>
+    <p>
+      Cardinality ranges and roles are written as <a>connector
+      annotations</a>; the 1:n / 1:1 shorthand is drawn by the editor
+      itself.
     </p>
   </section>
 </body>
