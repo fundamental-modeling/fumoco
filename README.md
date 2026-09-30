@@ -138,15 +138,15 @@ drawing on a [Konva](https://konvajs.org/) canvas.
 
 ### Repository layout
 
-| Path                                  | What it is                                                                                                                                           |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `app/`                                | The editor (an Ember app): `app/components/canvas-view.gjs` renders and edits the canvas; `app/utils/fmc-model.js` is the model and its JSON format. |
-| `tests/`                              | The QUnit suite.                                                                                                                                     |
-| `docs/spec/`                          | A formal, [ReSpec](https://respec.org/)-based specification of FMC's notation, written alongside the editor (work in progress).                      |
-| `docs/examples/`, `docs/screenshots/` | Example models and the screenshots above.                                                                                                            |
-| `docs/LASTENHEFT.md`                  | Requirements, as user stories.                                                                                                                       |
-| `docs/PFLICHTENHEFT.md`               | How each requirement is built.                                                                                                                       |
-| `docs/implementation_plan.org`        | Checklist of what's done and what's open, by milestone (Org mode).                                                                                   |
+| Path                                  | What it is                                                                                                                                                                      |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app/`                                | The editor (an Ember app): `app/components/canvas-view.gjs` renders and edits the canvas; `app/utils/fmc-model.js` is the model and its JSON format.                            |
+| `tests/`                              | The QUnit suite.                                                                                                                                                                |
+| `docs/spec/`                          | A formal, [ReSpec](https://respec.org/)-based specification of FMC's notation, written alongside the editor — [read it online](https://fundamental-modeling.github.io/fumoco/). |
+| `docs/examples/`, `docs/screenshots/` | Example models and the screenshots above.                                                                                                                                       |
+| `docs/LASTENHEFT.md`                  | Requirements, as user stories.                                                                                                                                                  |
+| `docs/PFLICHTENHEFT.md`               | How each requirement is built.                                                                                                                                                  |
+| `docs/implementation_plan.org`        | Checklist of what's done and what's open, by milestone (Org mode).                                                                                                              |
 
 ### Versioning
 
@@ -164,7 +164,7 @@ Packages).
 - **Milestones B and C — Petri nets and ER diagrams:** usable, with less
   polish than block diagrams (for example, their arcs can't be selected
   by clicking yet).
-- **Milestone A.5 — formal specification (`docs/spec/`):** in progress.
+- **Milestone A.5 — formal specification:** complete, [online](https://fundamental-modeling.github.io/fumoco/) and in `docs/spec/`.
 - **Milestone D — VS Code extension** (open a model file directly in VS
   Code): planned.
 

@@ -1090,6 +1090,13 @@ legs), and the human agent's stick figure scales its line width
 explicitly (the transform reset behind `strokeScaleEnabled: false` isn't
 recorded).
 
+## Spec on GitHub Pages (`.github/workflows/pages.yml`)
+
+`docs/spec/` is published as-is (ReSpec renders in the reader's browser)
+at https://fundamental-modeling.github.io/fumoco/ whenever it changes on
+`main`, or when the workflow is started by hand. Requires the
+repository's Pages source to be "GitHub Actions".
+
 ## Versioning
 
 Semantic-release style versions (from 0.1.0) derived from conventional

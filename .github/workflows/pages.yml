@@ -1,0 +1,42 @@
+# This file is part of Fumoco.
+#
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Holger Peters -- see the LICENSE file.
+
+# Publishes the FMC notation spec (docs/spec/) on GitHub Pages whenever
+# it changes on main. Needs Settings -> Pages -> Source: GitHub Actions.
+name: Spec on GitHub Pages
+
+on:
+  push:
+    branches:
+    - main
+    paths:
+    - docs/spec/**
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+    - uses: actions/checkout@v6
+    - uses: actions/configure-pages@v5
+    - uses: actions/upload-pages-artifact@v4
+      with:
+        path: docs/spec
+    - id: deployment
+      uses: actions/deploy-pages@v4
