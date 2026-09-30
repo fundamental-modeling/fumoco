@@ -1090,6 +1090,9 @@ export default class CanvasView extends Component {
           c: () => this.copySelection(),
           x: () => this.cutSelection(),
           v: () => this.pasteClipboard(null),
+          z: () =>
+            event.shiftKey ? this.modelStore.redo() : this.modelStore.undo(),
+          y: () => this.modelStore.redo(),
         }[event.key.toLowerCase()];
         if (command && this.modelStore.activeView) {
           event.preventDefault();

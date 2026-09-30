@@ -14,6 +14,8 @@ import Save from '@lucide/icons/icons/save';
 import SavePlus from '@lucide/icons/icons/save-plus';
 import SquarePlus from '@lucide/icons/icons/square-plus';
 import CircleCheckBig from '@lucide/icons/icons/circle-check-big';
+import Undo2 from '@lucide/icons/icons/undo-2';
+import Redo2 from '@lucide/icons/icons/redo-2';
 
 export default class ModelTree extends Component {
   @service modelStore;
@@ -108,6 +110,16 @@ export default class ModelTree extends Component {
   }
 
   @action
+  undo() {
+    this.modelStore.undo();
+  }
+
+  @action
+  redo() {
+    this.modelStore.redo();
+  }
+
+  @action
   dismissValidation() {
     this.validationIssues = null;
   }
@@ -132,6 +144,22 @@ export default class ModelTree extends Component {
           </button>
           <button type="button" title="Save As…" {{on "click" this.saveAs}}>
             <Icon @icon={{SavePlus}} />
+          </button>
+          <button
+            type="button"
+            title="Undo (⌘Z / Ctrl+Z)"
+            disabled={{if this.modelStore.canUndo false true}}
+            {{on "click" this.undo}}
+          >
+            <Icon @icon={{Undo2}} />
+          </button>
+          <button
+            type="button"
+            title="Redo (⇧⌘Z / Ctrl+Y)"
+            disabled={{if this.modelStore.canRedo false true}}
+            {{on "click" this.redo}}
+          >
+            <Icon @icon={{Redo2}} />
           </button>
           <button
             type="button"
