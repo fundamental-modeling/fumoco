@@ -2371,6 +2371,8 @@ export default class CanvasView extends Component {
       height: this.stage.height(),
     };
     this.transformer.nodes([]); // hide selection handles for the export
+    // an armed connector tool dims elements it can't pick -- not in exports
+    for (const node of this.nodesById.values()) node.opacity(1);
     this.guideLayer.hide(); // page frame, marquee
     this.stage.position({ x: -bounds.x + margin, y: -bounds.y + margin });
     this.stage.size({ width, height });
@@ -2395,6 +2397,7 @@ export default class CanvasView extends Component {
       this.stage.scale(originalScale);
       this.stage.position(originalPos);
       this.stage.size(originalSize);
+      this.refreshNodeStyling(); // restores the connector-tool dimming
       this.attachTransformer();
       this.stage.batchDraw();
     }
