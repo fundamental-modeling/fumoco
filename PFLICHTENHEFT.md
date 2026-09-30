@@ -965,6 +965,34 @@ the box on drag/transform (and with a dragged container's descendants),
 and `contentBounds` includes it so exports and scrollbars don't cut it
 off.
 
+## Undo/redo (`model-store.js`)
+
+Snapshot-based: `mutate` records the whole model's JSON before a change
+(`_recordUndo`), unless the previous change was under 600ms ago -- so a
+burst (a joint move's several mutations, typing a name) is one step.
+Undo/redo swap snapshots between two stacks (100 deep) and rebuild the
+model with `fromJSON`; New and Open are undoable too. Cmd/Ctrl+Z,
+Shift+Cmd/Ctrl+Z or Ctrl+Y, and toolbar buttons. Text inputs keep their
+own native undo.
+
+## Moving a multi-selection (`collectCompanions`)
+
+Dragging one selected box moves the other selected boxes (their nested
+content and outside labels too) by the same delta. Boxes displayed
+inside another selected box, or inside the dragged one, move with that
+one rather than twice; the dragged box's own containers stay put. On
+drop the stored boxes shift, and each moved box runs the ordinary
+`updateContainmentAfterDrag`, so the group nests into a box -- or leaves
+its parent -- together.
+
+## Resize snapping (`snapPoint`)
+
+The Transformer's `anchorDragBoundFunc` snaps a dragged handle to a guide
+within 6 screen px, else to the grid. `ignoreStroke` makes its frame the
+box geometry itself (otherwise the handle sits half a stroke outside and
+the edge lands off the guide), and `keepRatio: false` lets edges snap
+independently. Resized boxes are rounded to 1/1000 px.
+
 ## Clipboard and keyboard (`canvas-view.gjs`)
 
 Cmd (Mac) or Ctrl + A/X/C/V -- either modifier is accepted everywhere,

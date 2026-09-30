@@ -368,6 +368,11 @@ relation), growing with it.
 Nodes now stroke at =NODE_STROKE_WIDTH= (3, 4 when selected); edges stay
 at =strokeWidth: 2=.
 
+** DONE Move a multi-selection together, resize snapping, undo/redo
+Dragging one selected box moves the whole selection, into and out of
+boxes together. Resize handles snap to guides (else the grid). Snapshot
+undo/redo, 100 steps, changes within 600ms coalesced.
+
 ** DONE Free text, lines, connector annotations, display names
 Free text (multi-line) and plain lines as glyphs in every palette's new
 "Annotation" group, alongside the ellipsis (now with a direction:

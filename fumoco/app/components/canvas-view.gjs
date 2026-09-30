@@ -3298,6 +3298,54 @@ export default class CanvasView extends Component {
       });
     }
 
+    // Dragging one box of a multi-selection moves the rest along
+    // (companions: the other selected boxes, their nested content and
+    // outside labels); on drop, each moved box gets the same nesting
+    // treatment as a single dragged one, so the group moves into and out
+    // of boxes together. One undo step with this box's own drag.
+    let companions = [];
+    let jointStart = null;
+    group.on('dragstart', () => {
+      jointStart = { x: group.x(), y: group.y() };
+      companions =
+        this.selection.isSelected(element.id) &&
+        this.selection.selectedIds.length > 1
+          ? this.collectCompanions(element.id, view)
+          : [];
+    });
+    group.on('dragmove', () => {
+      const dx = group.x() - jointStart.x;
+      const dy = group.y() - jointStart.y;
+      for (const c of companions) {
+        c.node.position({ x: c.x0 + dx, y: c.y0 + dy });
+      }
+    });
+    group.on('dragend', () => {
+      if (!companions.length) return;
+      const dx = group.x() - jointStart.x;
+      const dy = group.y() - jointStart.y;
+      this.modelStore.mutate(() => {
+        const previous = new Map();
+        for (const c of companions) {
+          const stored = !c.labelOnly && view.boxes.get(c.id);
+          if (!stored) continue; // an auto-fit container follows its content
+          previous.set(c.id, stored);
+          view.boxes.set(c.id, {
+            ...stored,
+            x: stored.x + dx,
+            y: stored.y + dy,
+          });
+        }
+        for (const c of companions) {
+          if (c.root && previous.has(c.id)) {
+            this.updateContainmentAfterDrag(c.id, view, previous.get(c.id));
+          }
+        }
+      });
+      companions = [];
+      this.refreshEdges();
+    });
+
     // Shared by both leaf and container nodes: whichever box the 8 resize
     // handles are dragging (the leaf's own, or a container's manual
     // override -- see computeEffectiveBoxes) is committed the same way.
@@ -3328,6 +3376,51 @@ export default class CanvasView extends Component {
   // view's display relationship, not raw model containment, so dragging a
   // container never moves something the view currently shows un-nested
   // even though the model still contains it there.
+  // The other selected boxes that move along when `draggedId` is dragged
+  // as part of a multi-selection, with their nested content and outside
+  // labels. A box displayed inside another selected box (or inside the
+  // dragged one) isn't a root of its own -- it already moves with that
+  // one; the dragged box's own containers stay put.
+  collectCompanions(draggedId, view) {
+    const model = this.modelStore.model;
+    const includedSet = new Set(view.included);
+    const isInside = (id, ancestorId) => {
+      let parent = displayParentOf(model, view, id, includedSet);
+      while (parent != null) {
+        if (parent === ancestorId) return true;
+        parent = displayParentOf(model, view, parent, includedSet);
+      }
+      return false;
+    };
+    const selected = this.selection.selectedIds.filter(
+      (id) => id !== draggedId && includedSet.has(id),
+    );
+    const roots = selected.filter(
+      (id) =>
+        !isInside(id, draggedId) &&
+        !isInside(draggedId, id) &&
+        !selected.some((other) => other !== id && isInside(id, other)),
+    );
+    const entries = [];
+    for (const id of roots) {
+      const node = this.nodesById.get(id);
+      if (node)
+        entries.push({ id, node, x0: node.x(), y0: node.y(), root: true });
+      const label = this.outsideLabels.get(id);
+      if (label) {
+        entries.push({
+          id,
+          node: label,
+          x0: label.x(),
+          y0: label.y(),
+          labelOnly: true,
+        });
+      }
+      entries.push(...this.collectDescendantNodes(id, view));
+    }
+    return entries;
+  }
+
   collectDescendantNodes(containerId, view) {
     const model = this.modelStore.model;
     const displayChildren = buildDisplayChildIndex(model, view);

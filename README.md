@@ -34,9 +34,11 @@ parts. There is no auto-layout solver.
   accessing agents.
 
 **Layout and drawing**
-- Grid snapping, guide lines dragged in from the canvas edges, align /
-  distribute / same-size tools, and multi-select by marquee or
-  shift/cmd-click.
+- Grid snapping, guide lines dragged in from the canvas edges (moving
+  and resizing snap to both), align / distribute / same-size tools, and
+  multi-select by marquee or shift/cmd-click -- a selection moves
+  together, into and out of other boxes.
+- Undo / redo.
 - Orthogonal connectors with rounded corners and draggable waypoints.
 - Edge trees: edges entering the same box side can share one trunk
   (opt-in per side).
@@ -82,6 +84,7 @@ and add the host name you'll use to `server.allowedHosts` in
 
 | Action | Mac | Windows / Linux |
 | --- | --- | --- |
+| Undo / redo | <kbd>⌘</kbd> <kbd>Z</kbd> / <kbd>⇧</kbd> <kbd>⌘</kbd> <kbd>Z</kbd> | <kbd>Ctrl</kbd> <kbd>Z</kbd> / <kbd>Ctrl</kbd> <kbd>Y</kbd> |
 | Select all | <kbd>⌘</kbd> <kbd>A</kbd> | <kbd>Ctrl</kbd> <kbd>A</kbd> |
 | Cut / copy / paste the selection | <kbd>⌘</kbd> <kbd>X</kbd> / <kbd>C</kbd> / <kbd>V</kbd> | <kbd>Ctrl</kbd> <kbd>X</kbd> / <kbd>C</kbd> / <kbd>V</kbd> |
 | Add to / remove from the selection | <kbd>⇧</kbd> or <kbd>⌘</kbd> + click | <kbd>Shift</kbd> or <kbd>Ctrl</kbd> + click |

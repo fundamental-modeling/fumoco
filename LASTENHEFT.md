@@ -98,6 +98,10 @@ implementation notes here — that's the other two documents' job.
 
 - As a modeler, I want to multi-select boxes via shift-click, cmd/ctrl-
   click, and by dragging a selection rectangle over them.
+- As a modeler, I want to move several selected elements together, and
+  together into and out of another box.
+- As a modeler, I want resizing to snap to guide lines too.
+- As a modeler, I want undo/redo.
 - As a modeler, I want to select everything in a drawing with Cmd-A on a
   Mac (Ctrl-A on other keyboards), and cut/copy/paste the same way —
   Cmd/Ctrl-X/C/V — acting on the whole selection.
