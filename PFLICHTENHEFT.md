@@ -1008,7 +1008,9 @@ and drops the merged-away edges' waypoints. `kind` stays the file format.
 **Lens** (the default -- `lens` unset counts as true; `lens: false` via
 `FmcModel.setAccessLens` means straight): a modify edge
 between boxes that face each other (`lensEnds`: parallel sides with a
-gap and an overlapping extent), is drawn as two quadratic curves between
+gap and an overlapping extent, at least 48px apart -- closer, the curves
+and their arrowheads collapse into a ring that reads as two separate
+arrows), is drawn as two quadratic curves between
 the middle of that overlap on each facing side, bowing opposite ways,
 with one arrowhead each. `addRoutedEdge` takes a custom `draw` so the
 lens keeps the normal edge's click/select/context-menu behavior. Falls
