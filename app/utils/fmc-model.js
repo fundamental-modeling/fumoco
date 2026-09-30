@@ -347,6 +347,9 @@ export class View {
   @tracked contributors;
   // Overrides the view's `name` as the title shown in exports.
   @tracked displayName;
+  // Whether exports carry the title/author/date header (off for figures
+  // embedded in other documents).
+  @tracked exportHeader;
 
   constructor(
     id,
@@ -358,10 +361,12 @@ export class View {
       author = null,
       contributors = null,
       displayName = null,
+      exportHeader = true,
     } = {},
   ) {
     this.id = id;
     this.name = name;
+    this.exportHeader = exportHeader;
     this.diagramType = diagramType;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
@@ -789,6 +794,7 @@ export class FmcModel {
             author: view.author,
             contributors: view.contributors,
             displayName: view.displayName,
+            exportHeader: view.exportHeader,
             included: [...view.included],
             boxes: Object.fromEntries(view.boxes),
             nestedUnder: Object.fromEntries(view.nestedUnder),
@@ -857,6 +863,7 @@ export class FmcModel {
         author: view.author ?? null,
         contributors: view.contributors ?? null,
         displayName: view.displayName ?? null,
+        exportHeader: view.exportHeader ?? true,
       });
       for (const elementId of view.included ?? []) v.included.push(elementId);
       for (const [elementId, box] of Object.entries(view.boxes ?? {}))

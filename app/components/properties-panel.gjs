@@ -419,6 +419,15 @@ export default class PropertiesPanel extends Component {
   }
 
   @action
+  toggleExportHeader(event) {
+    const view = this.modelStore.activeView;
+    if (!view) return;
+    this.modelStore.mutate(() => {
+      view.exportHeader = event.target.checked;
+    });
+  }
+
+  @action
   updateViewAuthor(event) {
     const view = this.modelStore.activeView;
     if (!view) return;
@@ -717,6 +726,14 @@ export default class PropertiesPanel extends Component {
             value={{this.modelStore.activeView.displayName}}
             {{on "input" this.updateViewDisplayName}}
           />
+        </label>
+        <label class="properties-panel-field properties-panel-checkbox">
+          <input
+            type="checkbox"
+            checked={{this.modelStore.activeView.exportHeader}}
+            {{on "change" this.toggleExportHeader}}
+          />
+          Header in exports (title, author, dates)
         </label>
         <label class="properties-panel-field">
           Author

@@ -922,16 +922,31 @@ function nearestWaypointInsertIndex(point, anchorCenters) {
   return bestIndex;
 }
 
+// Each corner is cut `radius` back along both legs (at most half of
+// either leg) and joined with a quadratic curve through the corner --
+// reads as a rounded corner, and unlike arcTo, the SVG export's
+// recording context reproduces it faithfully at any angle and leg length.
 function drawRoundedPolyline(ctx, points, radius) {
   ctx.beginPath();
   ctx.moveTo(points[0].x, points[0].y);
   for (let i = 1; i < points.length - 1; i++) {
-    ctx.arcTo(
-      points[i].x,
-      points[i].y,
-      points[i + 1].x,
-      points[i + 1].y,
-      radius,
+    const [prev, corner, next] = [points[i - 1], points[i], points[i + 1]];
+    const legIn = Math.hypot(corner.x - prev.x, corner.y - prev.y);
+    const legOut = Math.hypot(next.x - corner.x, next.y - corner.y);
+    const r = Math.min(radius, legIn / 2, legOut / 2);
+    if (!r) {
+      ctx.lineTo(corner.x, corner.y);
+      continue;
+    }
+    ctx.lineTo(
+      corner.x + ((prev.x - corner.x) * r) / legIn,
+      corner.y + ((prev.y - corner.y) * r) / legIn,
+    );
+    ctx.quadraticCurveTo(
+      corner.x,
+      corner.y,
+      corner.x + ((next.x - corner.x) * r) / legOut,
+      corner.y + ((next.y - corner.y) * r) / legOut,
     );
   }
   ctx.lineTo(points.at(-1).x, points.at(-1).y);
@@ -2361,21 +2376,10 @@ export default class CanvasView extends Component {
     return header;
   }
 
-  // Export covers the whole diagram, not just whatever's currently
-  // scrolled into view: temporarily resize/reposition the stage to fit
-  // the full content plus a header (buildExportHeader), on a white page
-  // behind everything -- the stage itself has no background, and an
-  // export must never come out transparent. Runs `render(width,
-  // height)`, then restores. Synchronous start to finish, so it never
-  // paints on screen.
-  withExportStage(render) {
-    const view = this.modelStore.activeView;
-    if (!this.stage || !view) return null;
-    const content = this.contentBounds(view);
-    if (!content) return null;
-    const margin = 20;
+  // Puts the export header above `content` (adding the version credit and
+  // the rule under it) and returns the bounds of header + content.
+  placeExportHeader(header, content) {
     const headerGap = 16;
-    const header = this.buildExportHeader(view);
     const headerSize = header.getClientRect({ skipTransform: true });
     header.position({
       x: content.x,
@@ -2413,6 +2417,27 @@ export default class CanvasView extends Component {
       }),
     );
     this.shapeLayer.add(header);
+    return bounds;
+  }
+
+  // Export covers the whole diagram, not just whatever's currently
+  // scrolled into view: temporarily resize/reposition the stage to fit
+  // the full content plus a header (buildExportHeader), on a white page
+  // behind everything -- the stage itself has no background, and an
+  // export must never come out transparent. Runs `render(width,
+  // height)`, then restores. Synchronous start to finish, so it never
+  // paints on screen.
+  withExportStage(render) {
+    const view = this.modelStore.activeView;
+    if (!this.stage || !view) return null;
+    const content = this.contentBounds(view);
+    if (!content) return null;
+    const margin = 20;
+    // The header is optional per view (off for figures embedded
+    // elsewhere): without it, the export is just the content.
+    const header =
+      view.exportHeader === false ? null : this.buildExportHeader(view);
+    const bounds = header ? this.placeExportHeader(header, content) : content;
     const width = bounds.width + margin * 2;
     const height = bounds.height + margin * 2;
 
@@ -2445,7 +2470,7 @@ export default class CanvasView extends Component {
       return render(width, height);
     } finally {
       background.destroy();
-      header.destroy();
+      header?.destroy();
       this.guideLayer.show();
       this.stage.scale(originalScale);
       this.stage.position(originalPos);
@@ -3554,11 +3579,9 @@ export default class CanvasView extends Component {
       scaleX: scale,
       scaleY: scale,
     });
-    const line = {
-      stroke: '#000000',
-      strokeWidth: 1.5,
-      strokeScaleEnabled: false,
-    };
+    // 1.5px on screen whatever the scale (strokeScaleEnabled: false would
+    // do the same, but its transform reset is lost in SVG exports)
+    const line = { stroke: '#000000', strokeWidth: 1.5 / scale };
     group.add(new Konva.Circle({ y: -12, radius: 5, ...line }));
     group.add(new Konva.Line({ points: [0, -7, 0, 8], ...line }));
     group.add(new Konva.Line({ points: [-6, -2, 6, -2], ...line }));
