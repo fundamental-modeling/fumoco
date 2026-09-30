@@ -1,0 +1,83 @@
+# This file is part of Fumoco.
+#
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Holger Peters -- see the LICENSE file.
+
+# Pushing a tag fumoco-X.Y.Z (X.Y.Z = package.json's version) publishes
+# that version: a GitHub Release with the built app attached, and a
+# container image on GitHub Packages (ghcr.io).
+name: Release
+
+on:
+  push:
+    tags:
+    - fumoco-*
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write # create the release
+      packages: write # push the container image
+    env:
+      TAG: ${{ github.ref_name }}
+      IMAGE: ghcr.io/${{ github.repository }}
+
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0 # the release notes need the previous release tag
+    - name: Install Node
+      uses: actions/setup-node@v6
+      with:
+        node-version: 22
+        cache: npm
+    - name: Check the tag matches package.json
+      run: |
+        VERSION="${TAG#fumoco-}"
+        test "$VERSION" = "$(node -p "require('./package.json').version")" \
+          || { echo "tag $TAG doesn't match package.json's version"; exit 1; }
+        echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+    - name: Install Dependencies
+      run: npm ci
+    - name: Lint
+      run: npm run lint
+    - name: Test
+      run: npm test
+    - name: Build
+      run: npm run build
+    - name: Assemble release assets
+      run: |
+        (cd dist && zip -qr "../fumoco-$VERSION-web.zip" .)
+        PREVIOUS=$(git describe --tags --abbrev=0 --match 'fumoco-*' "$TAG^" 2>/dev/null || true)
+        {
+          echo "Container image: \`docker run -p 8080:80 $IMAGE:$VERSION\`"
+          echo
+          echo "## Changes${PREVIOUS:+ since $PREVIOUS}"
+          echo
+          git log --no-merges --format='- %s' "${PREVIOUS:+$PREVIOUS..}$TAG" \
+            | grep -v '^- chore(release):' || true
+        } > release-notes.md
+    - name: Create the GitHub release
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        gh release create "$TAG" --title "Fumoco $VERSION" \
+          --notes-file release-notes.md \
+          "fumoco-$VERSION-web.zip" docs/examples/*.fumoco.json
+    - name: Log in to GitHub Packages
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
+    - name: Build and push the container image
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        push: true
+        tags: |
+          ${{ env.IMAGE }}:${{ env.VERSION }}
+          ${{ env.IMAGE }}:latest

@@ -70,6 +70,18 @@ button in the editor.
 
 ## Getting started
 
+The quickest way is a released version: every
+[release](https://github.com/fundamental-modeling/fumoco/releases) has the
+built app as a zip (any static web server will do), and the same build as
+a container image:
+
+```sh
+docker run -p 8080:80 ghcr.io/fundamental-modeling/fumoco
+```
+
+Then open <http://localhost:8080>. To work on Fumoco itself, or run it from
+source:
+
 Requirements: [Node.js](https://nodejs.org/) 20.19 or newer, and npm.
 
 ```sh
@@ -141,7 +153,10 @@ drawing on a [Konva](https://konvajs.org/) canvas.
 Versions follow [semantic versioning](https://semver.org/), derived from
 [Conventional Commits](https://www.conventionalcommits.org/) in the style
 of semantic-release: `feat:` bumps the minor version, `fix:` the patch
-version. Each release is a `chore(release): X.Y.Z` commit tagged `vX.Y.Z`.
+version. Each release is a `chore(release): X.Y.Z` commit tagged
+`fumoco-X.Y.Z`; pushing that tag makes the release workflow publish it
+(a GitHub release with the built app, and the container image on GitHub
+Packages).
 
 ## Status and roadmap
 

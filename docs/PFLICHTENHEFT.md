@@ -1094,8 +1094,15 @@ recorded).
 
 Semantic-release style versions (from 0.1.0) derived from conventional
 commits, cut by hand: `npm version X.Y.Z --no-git-tag-version` in
-the repository root, a `chore(release): X.Y.Z` commit, and an annotated `vX.Y.Z`
-tag.
+the repository root, a `chore(release): X.Y.Z` commit, and an annotated
+`fumoco-X.Y.Z` tag. Pushing the tag runs `.github/workflows/release.yml`:
+it checks the tag against `package.json`'s version, lints, tests and
+builds, creates the GitHub release (notes: the commit subjects since the
+previous `fumoco-*` tag; assets: the built app zipped, and the example
+models) and pushes the container image -- nginx serving `dist/`
+(`Dockerfile`), labeled with the repository so it's listed under its
+Packages -- as `ghcr.io/fundamental-modeling/fumoco:X.Y.Z` and
+`:latest`.
 
 ## Containment (`Element.parents`)
 
