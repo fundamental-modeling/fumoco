@@ -14,6 +14,7 @@ import {
   formatDate,
   isGlyphType,
   isRoundedElementType,
+  shownName,
 } from 'fumoco/utils/fmc-model';
 import { ConnectorKind, connectorRule } from 'fumoco/services/connector-tool';
 import { defaultBoxSize } from 'fumoco/utils/box-layout';
@@ -680,17 +681,22 @@ export function branchPath(box, junction, side) {
   return [point(exit, center), point(junction[along], center), { ...junction }];
 }
 
-// An ellipsis's three dots, in box-local coordinates: spread along the
-// box's longer side (a tall box gives a vertical ellipsis).
-export function ellipsisDots({ width, height }) {
-  const horizontal = width >= height;
-  const long = horizontal ? width : height;
+// An ellipsis's three dots, in box-local coordinates, per `orientation`:
+// horizontal (…), vertical (⋮), diagonal-down (⋱) or diagonal-up (⋰);
+// unset, along the box's longer side.
+export function ellipsisDots({ width, height }, orientation = null) {
+  const direction =
+    orientation ?? (width >= height ? 'horizontal' : 'vertical');
   const radius = Math.min(Math.min(width, height) / 4, 3);
   return [1, 3, 5].map((sixths) => {
-    const along = (long * sixths) / 6;
-    return horizontal
-      ? { x: along, y: height / 2, radius }
-      : { x: width / 2, y: along, radius };
+    const t = sixths / 6;
+    const point = {
+      horizontal: { x: width * t, y: height / 2 },
+      vertical: { x: width / 2, y: height * t },
+      'diagonal-down': { x: width * t, y: height * t },
+      'diagonal-up': { x: width * t, y: (height * (6 - sixths)) / 6 },
+    }[direction];
+    return { ...point, radius };
   });
 }
 
@@ -750,6 +756,25 @@ export function outsideLabelPosition(box, size, where = 'above') {
         x: box.x + box.width / 2 - size.width / 2,
         y: box.y - OUTSIDE_LABEL_GAP - size.height,
       };
+}
+
+// The point halfway along a polyline's length.
+export function pathMidpoint(points) {
+  const lengths = points
+    .slice(1)
+    .map((p, i) => Math.hypot(p.x - points[i].x, p.y - points[i].y));
+  let remaining = lengths.reduce((sum, l) => sum + l, 0) / 2;
+  for (let i = 0; i < lengths.length; i++) {
+    if (remaining <= lengths[i] && lengths[i] > 0) {
+      const t = remaining / lengths[i];
+      return {
+        x: points[i].x + (points[i + 1].x - points[i].x) * t,
+        y: points[i].y + (points[i + 1].y - points[i].y) * t,
+      };
+    }
+    remaining -= lengths[i];
+  }
+  return { ...points.at(-1) };
 }
 
 // Joins an edge's legs (anchor to anchor) into one path. Each leg comes
@@ -1296,7 +1321,7 @@ export default class CanvasView extends Component {
       this.drawCardinalityArrow(
         effectiveBoxes.get(relationId),
         ends,
-        Boolean(model.elements.get(relationId)?.label),
+        Boolean(shownName(model.elements.get(relationId))),
       );
     }
   }
@@ -1442,6 +1467,13 @@ export default class CanvasView extends Component {
       event.cancelBubble = true;
       const items = [
         {
+          label: 'Annotate…',
+          action: () =>
+            this.promptAnnotation(arc.label, (model, text) =>
+              model.setArcLabel(arc.id, text),
+            ),
+        },
+        {
           label: 'Delete arc',
           action: () =>
             this.modelStore.mutate((model) => model.removeArc(arc.id)),
@@ -1482,6 +1514,7 @@ export default class CanvasView extends Component {
         }),
       );
     }
+    this.addEdgeAnnotation(pathMidpoint(path), arc.label);
     if (!isPartitionArc && arc.weight !== 1) {
       const mid = path[Math.floor(path.length / 2)];
       this.shapeLayer.add(
@@ -1612,6 +1645,11 @@ export default class CanvasView extends Component {
       lensEnds(agentBox, locationBox);
     if (lens) {
       this.drawLensEdge(access.id, lens, view);
+      // in the middle of the lens, between its two curves
+      this.addEdgeAnnotation(
+        { x: (lens.p.x + lens.q.x) / 2, y: (lens.p.y + lens.q.y) / 2 },
+        access.label,
+      );
       return;
     }
     const modify = access.kind === 'modify';
@@ -1681,6 +1719,29 @@ export default class CanvasView extends Component {
       edgeId: access.id,
       view,
     });
+    this.addEdgeAnnotation(pathMidpoint(path), access.label);
+  }
+
+  // A connector's annotation, centered on `point` on a white backing that
+  // interrupts the line, so it stays legible.
+  addEdgeAnnotation(point, text) {
+    if (!text) return;
+    const label = new Konva.Label({ name: 'fumoco-edge', listening: false });
+    label.add(new Konva.Tag({ fill: '#ffffff' }));
+    label.add(
+      new Konva.Text({
+        text,
+        fontSize: 13,
+        fontFamily: CANVAS_FONT_FAMILY,
+        fill: '#000000',
+        padding: 2,
+      }),
+    );
+    label.position({
+      x: point.x - label.width() / 2,
+      y: point.y - label.height() / 2,
+    });
+    this.shapeLayer.add(label);
   }
 
   // A modify edge as a lens: two curves between the facing sides' points,
@@ -2218,7 +2279,11 @@ export default class CanvasView extends Component {
   buildExportHeader(view) {
     const header = new Konva.Group({ listening: false });
     const lines = [
-      { text: view.name || 'Untitled view', fontSize: 18, fontStyle: 'bold' },
+      {
+        text: shownName(view) || 'Untitled view',
+        fontSize: 18,
+        fontStyle: 'bold',
+      },
       {
         text: `Author: ${view.author || '—'} · Contributors: ${view.contributors || '—'}`,
       },
@@ -2456,6 +2521,27 @@ export default class CanvasView extends Component {
     });
   }
 
+  // Turns each selected line/divider/ellipsis 90 degrees about its center
+  // (a vertical divider becomes horizontal, and back).
+  turnSelection() {
+    const view = this.modelStore.activeView;
+    if (!view) return;
+    this.modelStore.mutate(() => {
+      for (const id of this.selection.selectedIds) {
+        const box = view.boxes.get(id);
+        if (box) view.boxes.set(id, swapBoxAxes(box));
+      }
+    });
+  }
+
+  // Same native-prompt approach as promptRename; an empty answer removes
+  // the annotation.
+  promptAnnotation(current, apply) {
+    const next = window.prompt('Annotation', current ?? '');
+    if (next === null) return;
+    this.modelStore.mutate((model) => apply(model, next.trim()));
+  }
+
   selectAll() {
     const view = this.modelStore.activeView;
     if (!view) return;
@@ -2488,6 +2574,8 @@ export default class CanvasView extends Component {
           isNop: element.isNop,
           fill: element.fill,
           multiple: element.multiple,
+          displayName: element.displayName,
+          orientation: element.orientation,
           box: toStoredBox(boxes.get(id)),
         };
       }),
@@ -2609,6 +2697,11 @@ export default class CanvasView extends Component {
       { label: 'Rename', action: () => this.promptRename(id) },
       ...this.clipboardMenuItems(point, { withCutCopy: true }),
       { label: 'Reset size', action: () => this.resetSelectionSize() },
+      ...(element &&
+      isGlyphType(element.type) &&
+      element.type !== ElementType.TEXT
+        ? [{ label: 'Turn 90°', action: () => this.turnSelection() }]
+        : []),
     ];
     if (element?.type === ElementType.RELATION) {
       items.push({
@@ -2667,6 +2760,13 @@ export default class CanvasView extends Component {
         : [];
     return [
       ...lensItem,
+      {
+        label: 'Annotate…',
+        action: () =>
+          this.promptAnnotation(access?.label, (model, text) =>
+            model.setAccessLabel(edgeId, text),
+          ),
+      },
       {
         label: 'Insert waypoint here',
         action: () => this.insertWaypoint(edgeId, view, point),
@@ -2911,17 +3011,21 @@ export default class CanvasView extends Component {
     group.add(rect);
 
     if (element.type === ElementType.ELLIPSIS) {
-      for (const dot of ellipsisDots(box)) {
+      for (const dot of ellipsisDots(box, element.orientation)) {
         group.add(new Konva.Circle({ ...dot, fill: '#000000' }));
       }
     }
-    if (element.type === ElementType.DIVIDER) {
+    if (
+      element.type === ElementType.DIVIDER ||
+      element.type === ElementType.LINE
+    ) {
       group.add(
         new Konva.Line({
           points: dividerLine(box),
           stroke: '#000000',
           strokeWidth: 2,
-          dash: [8, 6],
+          // a swimlane divider is dashed, a plain line solid
+          dash: element.type === ElementType.DIVIDER ? [8, 6] : undefined,
         }),
       );
     }
@@ -2955,8 +3059,8 @@ export default class CanvasView extends Component {
     // place holds more than a handful.
     const labelText =
       isPlace && element.tokens
-        ? `${element.label ?? ''} (${element.tokens})`.trim()
-        : (element.label ?? '');
+        ? `${shownName(element) ?? ''} (${element.tokens})`.trim()
+        : (shownName(element) ?? '');
 
     let label;
     if (nested) {
@@ -3018,20 +3122,24 @@ export default class CanvasView extends Component {
       this.outsideLabels.set(element.id, outside);
       this.shapeLayer.add(outside);
     } else {
+      const isText = element.type === ElementType.TEXT;
       label = new Konva.Text({
         text: labelText,
         width: box.width,
         height: box.height,
-        align: 'center',
-        verticalAlign: 'middle',
+        // free text reads like text: top-left, wrapping, multi-line
+        align: isText ? 'left' : 'center',
+        verticalAlign: isText ? 'top' : 'middle',
         fontSize: 15,
         fontFamily: CANVAS_FONT_FAMILY,
-        padding: 8,
+        padding: isText ? 4 : 8,
       });
     }
-    // A NOP transition carries no label -- it's a solid bar, and any text
-    // on top of a black fill wouldn't read anyway.
-    if (label && !isNopTransition && !isGlyph) group.add(label);
+    // A NOP transition carries no label (a thin bar); of the glyphs, only
+    // free text has one.
+    const showsLabel =
+      !isNopTransition && (!isGlyph || element.type === ElementType.TEXT);
+    if (label && showsLabel) group.add(label);
 
     group.on('click', (event) => {
       event.cancelBubble = true;

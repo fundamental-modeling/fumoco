@@ -106,7 +106,8 @@ body {
   margin-bottom: 8px;
 }
 
-.properties-panel-field input[type="text"] {
+.properties-panel-field input[type="text"],
+.properties-panel-field textarea {
   display: block;
   width: 100%;
   max-width: 320px;

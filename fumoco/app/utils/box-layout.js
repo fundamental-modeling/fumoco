@@ -15,6 +15,8 @@ const DEFAULT_SIZES = {
   [ElementType.ELLIPSIS]: { width: 45, height: 15 },
   // A tall, thin (but still grabbable) strip; the line runs along it.
   [ElementType.DIVIDER]: { width: 10, height: 300 },
+  [ElementType.LINE]: { width: 200, height: 10 },
+  [ElementType.TEXT]: { width: 150, height: 40 },
   // A triangle glyph, not a label-sized box.
   [ElementType.PARTITION]: { width: 60, height: 50 },
 };

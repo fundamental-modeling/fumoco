@@ -196,7 +196,15 @@ implementation notes here — that's the other two documents' job.
 - As a modeler, I want an ellipsis symbol ("…") in all three diagram
   types, to enumerate elements as "A1 … An".
 - As a modeler, I want swimlane dividers in all three diagram types, to
-  separate the areas of competence of different agents.
+  separate the areas of competence of different agents — vertical or
+  horizontal.
+- As a modeler, I want the ellipsis horizontal, vertical, or diagonal.
+- As a modeler, I want free text and plain lines in all three diagram
+  types.
+- As a modeler, I want to annotate connecting arrows with text.
+- As a modeler, I want everything with a name (elements and views) to
+  also have an optional display name that replaces the name wherever a
+  view shows it.
 - As a modeler, I want a grouping/structuring box's fill to stay plain
   white by default, the same as any other box, and only turn muted/
   colored (from a small muted palette) when I explicitly set that myself

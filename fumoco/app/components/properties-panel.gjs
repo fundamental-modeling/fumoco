@@ -152,6 +152,47 @@ export default class PropertiesPanel extends Component {
     );
   }
 
+  get isEllipsis() {
+    return this.selectedElement?.type === 'ellipsis';
+  }
+
+  @action
+  updateOrientation(event) {
+    const element = this.selectedElement;
+    if (!element) return;
+    this.modelStore.mutate(() => {
+      element.orientation = event.target.value || null;
+    });
+  }
+
+  get isText() {
+    return this.selectedElement?.type === 'text';
+  }
+
+  // Everything with a name shown in views -- not the unlabeled glyphs,
+  // and not free text (its text *is* what's shown).
+  get showsDisplayName() {
+    return !isGlyphType(this.selectedElement?.type);
+  }
+
+  @action
+  updateDisplayName(event) {
+    const element = this.selectedElement;
+    if (!element) return;
+    this.modelStore.mutate(() => {
+      element.displayName = event.target.value || null;
+    });
+  }
+
+  @action
+  updateAccessLabel(event) {
+    const id = this.selectedAccess?.id;
+    if (!id) return;
+    this.modelStore.mutate((model) =>
+      model.setAccessLabel(id, event.target.value),
+    );
+  }
+
   get showsNopOption() {
     return this.selectedElement?.type === 'transition';
   }
@@ -343,6 +384,15 @@ export default class PropertiesPanel extends Component {
   }
 
   @action
+  updateViewDisplayName(event) {
+    const view = this.modelStore.activeView;
+    if (!view) return;
+    this.modelStore.mutate(() => {
+      view.displayName = event.target.value || null;
+    });
+  }
+
+  @action
   updateViewAuthor(event) {
     const view = this.modelStore.activeView;
     if (!view) return;
@@ -369,13 +419,48 @@ export default class PropertiesPanel extends Component {
           >{{this.selectedElement.type}}</span>
         </div>
         <label class="properties-panel-field">
-          Label
-          <input
-            type="text"
-            value={{this.selectedElement.label}}
-            {{on "input" this.updateLabel}}
-          />
+          {{#if this.isText}}
+            Text
+            <textarea
+              rows="4"
+              value={{this.selectedElement.label}}
+              {{on "input" this.updateLabel}}
+            ></textarea>
+          {{else}}
+            Name
+            <input
+              type="text"
+              value={{this.selectedElement.label}}
+              {{on "input" this.updateLabel}}
+            />
+          {{/if}}
         </label>
+        {{#if this.isEllipsis}}
+          <label class="properties-panel-field">
+            Direction
+            <select
+              value={{this.selectedElement.orientation}}
+              {{on "change" this.updateOrientation}}
+            >
+              <option value="">By shape</option>
+              <option value="horizontal">Horizontal …</option>
+              <option value="vertical">Vertical ⋮</option>
+              <option value="diagonal-down">Diagonal ⋱</option>
+              <option value="diagonal-up">Diagonal ⋰</option>
+            </select>
+          </label>
+        {{/if}}
+        {{#if this.showsDisplayName}}
+          <label class="properties-panel-field">
+            Display name
+            <input
+              type="text"
+              placeholder="(the name)"
+              value={{this.selectedElement.displayName}}
+              {{on "input" this.updateDisplayName}}
+            />
+          </label>
+        {{/if}}
         {{#if this.showsDashedOption}}
           <label class="properties-panel-field properties-panel-checkbox">
             <input
@@ -552,6 +637,14 @@ export default class PropertiesPanel extends Component {
             <option value="modify">modify</option>
           </select>
         </label>
+        <label class="properties-panel-field">
+          Annotation
+          <input
+            type="text"
+            value={{this.selectedAccess.label}}
+            {{on "input" this.updateAccessLabel}}
+          />
+        </label>
         {{#if this.showsLensOption}}
           <label class="properties-panel-field properties-panel-checkbox">
             <input
@@ -576,6 +669,15 @@ export default class PropertiesPanel extends Component {
             type="text"
             value={{this.modelStore.activeView.name}}
             {{on "input" this.updateViewName}}
+          />
+        </label>
+        <label class="properties-panel-field">
+          Display name
+          <input
+            type="text"
+            placeholder="(the name)"
+            value={{this.modelStore.activeView.displayName}}
+            {{on "input" this.updateViewDisplayName}}
           />
         </label>
         <label class="properties-panel-field">

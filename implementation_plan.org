@@ -368,6 +368,14 @@ relation), growing with it.
 Nodes now stroke at =NODE_STROKE_WIDTH= (3, 4 when selected); edges stay
 at =strokeWidth: 2=.
 
+** DONE Free text, lines, connector annotations, display names
+Free text (multi-line) and plain lines as glyphs in every palette's new
+"Annotation" group, alongside the ellipsis (now with a direction:
+horizontal, vertical, ⋱, ⋰) and swimlane dividers (vertical or
+horizontal; "Turn 90°" on lines/dividers/ellipses). Every connector
+takes an annotation drawn at its middle. Elements and views take a
+display name that replaces their name wherever a view shows it.
+
 ** DONE Swimlane dividers in all three diagram types
 Per the FMC Petri net stencil: a dashed line (vertical or horizontal,
 along the element's longer side), always drawn behind everything else;

@@ -48,12 +48,27 @@ export const ElementType = Object.freeze({
   // A swimlane divider: a dashed line separating the areas of competence
   // of different agents (FMC Petri net stencil), in any diagram type.
   DIVIDER: 'divider',
+  // A plain solid line, horizontal or vertical, for annotating.
+  LINE: 'line',
+  // Free text, in any diagram type.
+  TEXT: 'text',
 });
 
-// Drawn glyphs rather than graph nodes: no connections, no label, no
-// fill, nothing nests inside them.
+// Drawn glyphs rather than graph nodes: no connections, no fill, no
+// outline, nothing nests inside them. Only free text shows its label.
 export function isGlyphType(type) {
-  return type === ElementType.ELLIPSIS || type === ElementType.DIVIDER;
+  return [
+    ElementType.ELLIPSIS,
+    ElementType.DIVIDER,
+    ElementType.LINE,
+    ElementType.TEXT,
+  ].includes(type);
+}
+
+// What a view shows for a named thing: its display name if set, else its
+// name. (Elements' names are `label`, views' are `name`.)
+export function shownName(thing) {
+  return thing?.displayName || (thing?.label ?? thing?.name ?? null);
 }
 
 // The "rounded" bipartite kind in each diagram type (agent/transition/
@@ -105,6 +120,12 @@ export class Element {
   // "N similar boxes": drawn as a stack of copies, one exemplar standing
   // for several instances when the exact count doesn't matter.
   @tracked multiple;
+  // Overrides what views show for this element (canvas, exports); `label`
+  // stays its name in the model and the tree. null = show the name.
+  @tracked displayName;
+  // ellipsis only: 'horizontal' | 'vertical' | 'diagonal-down' (⋱) |
+  // 'diagonal-up' (⋰); null = along the box's longer side.
+  @tracked orientation;
 
   constructor(
     id,
@@ -119,6 +140,8 @@ export class Element {
       isNop = false,
       fill = null,
       multiple = false,
+      displayName = null,
+      orientation = null,
     } = {},
   ) {
     this.id = id;
@@ -132,6 +155,8 @@ export class Element {
     this.isNop = isNop;
     this.fill = fill;
     this.multiple = multiple;
+    this.displayName = displayName;
+    this.orientation = orientation;
   }
 }
 
@@ -316,6 +341,8 @@ export class View {
   @tracked updatedAt;
   @tracked author;
   @tracked contributors;
+  // Overrides the view's `name` as the title shown in exports.
+  @tracked displayName;
 
   constructor(
     id,
@@ -326,6 +353,7 @@ export class View {
       updatedAt = null,
       author = null,
       contributors = null,
+      displayName = null,
     } = {},
   ) {
     this.id = id;
@@ -335,6 +363,7 @@ export class View {
     this.updatedAt = updatedAt;
     this.author = author;
     this.contributors = contributors;
+    this.displayName = displayName;
   }
 }
 
@@ -448,6 +477,13 @@ export class FmcModel {
 
   // Arcs are recreated wholesale on edit (see makeAccessEdge's comment for
   // the same pattern on access edges) rather than field-mutated.
+  // A connector's annotation: free text drawn at its middle (null = none).
+  setArcLabel(id, label) {
+    const index = this.arcs.findIndex((a) => a.id === id);
+    if (index === -1) return;
+    this.arcs.splice(index, 1, { ...this.arcs[index], label: label || null });
+  }
+
   updateArcCardinality(id, cardinality) {
     const index = this.arcs.findIndex((a) => a.id === id);
     if (index === -1) return;
@@ -579,6 +615,15 @@ export class FmcModel {
   // Modify access only: whether to draw it as two curved arrows forming a
   // lens (the default -- `lens` unset counts as true) or as one straight
   // double-headed line (see canvas-view's lensEnds).
+  setAccessLabel(id, label) {
+    const index = this.accesses.findIndex((a) => a.id === id);
+    if (index === -1) return;
+    this.accesses.splice(index, 1, {
+      ...this.accesses[index],
+      label: label || null,
+    });
+  }
+
   setAccessLens(id, lens) {
     const index = this.accesses.findIndex((a) => a.id === id);
     if (index === -1) return;
@@ -722,6 +767,8 @@ export class FmcModel {
             isNop: element.isNop,
             fill: element.fill,
             multiple: element.multiple,
+            displayName: element.displayName,
+            orientation: element.orientation,
           },
         ]),
       ),
@@ -737,6 +784,7 @@ export class FmcModel {
             updatedAt: view.updatedAt,
             author: view.author,
             contributors: view.contributors,
+            displayName: view.displayName,
             included: [...view.included],
             boxes: Object.fromEntries(view.boxes),
             nestedUnder: Object.fromEntries(view.nestedUnder),
@@ -770,6 +818,8 @@ export class FmcModel {
           isNop: element.isNop ?? false,
           fill: element.fill ?? null,
           multiple: element.multiple ?? false,
+          displayName: element.displayName ?? null,
+          orientation: element.orientation ?? null,
         }),
       );
     }
@@ -802,6 +852,7 @@ export class FmcModel {
         updatedAt: view.updatedAt ?? null,
         author: view.author ?? null,
         contributors: view.contributors ?? null,
+        displayName: view.displayName ?? null,
       });
       for (const elementId of view.included ?? []) v.included.push(elementId);
       for (const [elementId, box] of Object.entries(view.boxes ?? {}))

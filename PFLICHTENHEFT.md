@@ -886,6 +886,21 @@ content's top-left -- a default PowerPoint slide in landscape (1280x720
 at 96dpi) minus the export's margins and header -- turning orange with a
 note when the content outgrows it. On the guide layer; never exported.
 
+## Display names and annotations (`shownName`, `addEdgeAnnotation`)
+
+- **Display names**: `Element.displayName` and `View.displayName`
+  (null = unset). `shownName(thing)` -- the display name if set, else the
+  name -- is what the canvas, exports and the export header's title show;
+  the name (`label` / `name`) stays the model identity and is what the
+  tree lists. Edited in the properties panel ("Name" / "Display name");
+  not offered for glyphs.
+- **Connector annotations**: an optional `label` on access edges
+  (`FmcModel.setAccessLabel`) and on Petri/ER arcs (`setArcLabel`), set
+  from the connector's properties panel (access edges) or the "Annotate…"
+  context-menu item (all connectors). Drawn centered at `pathMidpoint` --
+  halfway along the route's length -- on a white `Konva.Label` backing
+  that interrupts the line; a lens edge's goes in the middle of the lens.
+
 ## Element appearance (`Element.fill`, `Element.multiple`, `defaultBoxSize`)
 
 - **Default sizes** live in one place, `defaultBoxSize(element)` in
@@ -903,6 +918,16 @@ note when the content outgrows it. On the guide layer; never exported.
   transparent, clickable body with no outline except while selected.
   Not part of any bipartite graph: no connector accepts it, no label is
   drawn, no fill option.
+- **Free text and lines**: `ElementType.TEXT` (default 150x40, label
+  drawn top-left and wrapping, multi-line via a textarea in the panel)
+  and `ElementType.LINE` (default 200x10, a solid 2px line along the
+  longer side, drawn by the same `dividerLine`). Both glyphs.
+- **Ellipsis direction**: `Element.orientation` -- horizontal, vertical,
+  diagonal-down (⋱), diagonal-up (⋰), or unset (along the longer side) --
+  picked in the properties panel; `ellipsisDots` places the dots.
+- **Turning**: the context menu's "Turn 90°" swaps a selected line/
+  divider/ellipsis's width and height about its center. The palette also
+  has a horizontal divider button.
 - **Swimlane divider**: `ElementType.DIVIDER`, in every palette, default
   10x300 -- a dashed 2px line through the middle of the box along its
   longer side (`dividerLine`), so it can run vertically or horizontally

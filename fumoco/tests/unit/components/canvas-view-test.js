@@ -12,6 +12,7 @@ import {
   nestingDepth,
   joinLegs,
   orthogonalPath,
+  pathMidpoint,
   outsideLabelPosition,
   snapBox,
   swapBoxAxes,
@@ -991,11 +992,45 @@ module('Unit | Component | canvas-view (ellipsis)', function () {
       'a tall ellipsis runs vertically',
     );
   });
+
+  test('an explicit orientation overrides the shape, including diagonals', function (assert) {
+    const box = { width: 30, height: 30 };
+    const at = (o) => ellipsisDots(box, o).map((d) => [d.x, d.y]);
+    assert.deepEqual(at('diagonal-down'), [
+      [5, 5],
+      [15, 15],
+      [25, 25],
+    ]);
+    assert.deepEqual(at('diagonal-up'), [
+      [5, 25],
+      [15, 15],
+      [25, 5],
+    ]);
+    assert.deepEqual(at('vertical'), [
+      [15, 5],
+      [15, 15],
+      [15, 25],
+    ]);
+  });
 });
 
 module('Unit | Component | canvas-view (swimlane divider)', function () {
   test('the dashed line runs through the middle along the longer side', function (assert) {
     assert.deepEqual(dividerLine({ width: 10, height: 300 }), [5, 0, 5, 300]);
     assert.deepEqual(dividerLine({ width: 300, height: 10 }), [0, 5, 300, 5]);
+  });
+});
+
+module('Unit | Component | canvas-view (connector annotations)', function () {
+  test('pathMidpoint is halfway along the whole route, not the middle vertex', function (assert) {
+    // 100 across, then 300 down: halfway (200) is 100 into the second leg
+    assert.deepEqual(
+      pathMidpoint([
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+        { x: 100, y: 300 },
+      ]),
+      { x: 100, y: 100 },
+    );
   });
 });
