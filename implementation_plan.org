@@ -372,7 +372,8 @@ at =strokeWidth: 2=.
 Free text (multi-line) and plain lines as glyphs in every palette's new
 "Annotation" group, alongside the ellipsis (now with a direction:
 horizontal, vertical, ⋱, ⋰) and swimlane dividers (vertical or
-horizontal; "Turn 90°" on lines/dividers/ellipses). Every connector
+horizontal, chosen by a Direction property like the ellipsis's; "Turn
+90°" on lines/dividers/ellipses). Every connector
 takes an annotation drawn at its middle. Elements and views take a
 display name that replaces their name wherever a view shows it.
 

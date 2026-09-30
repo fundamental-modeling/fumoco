@@ -925,9 +925,12 @@ note when the content outgrows it. On the guide layer; never exported.
 - **Ellipsis direction**: `Element.orientation` -- horizontal, vertical,
   diagonal-down (⋱), diagonal-up (⋰), or unset (along the longer side) --
   picked in the properties panel; `ellipsisDots` places the dots.
-- **Turning**: the context menu's "Turn 90°" swaps a selected line/
-  divider/ellipsis's width and height about its center. The palette also
-  has a horizontal divider button.
+- **Direction**: like the ellipsis's, a line's or swimlane divider's
+  direction is a property in the panel (horizontal / vertical); for these
+  the line always runs along the box's longer side, so choosing a
+  direction turns the box about its center (`swapBoxAxes`). One palette
+  button each. The context menu's "Turn 90°" does the same for a
+  selection.
 - **Swimlane divider**: `ElementType.DIVIDER`, in every palette, default
   10x300 -- a dashed 2px line through the middle of the box along its
   longer side (`dividerLine`), so it can run vertically or horizontally

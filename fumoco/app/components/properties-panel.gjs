@@ -4,6 +4,7 @@ import { service } from '@ember/service';
 import { on } from '@ember/modifier';
 import { fn } from '@ember/helper';
 import { modifier } from 'ember-modifier';
+import { swapBoxAxes } from 'fumoco/components/canvas-view';
 import {
   BOX_FILLS,
   FmcModelError,
@@ -154,6 +155,26 @@ export default class PropertiesPanel extends Component {
 
   get isEllipsis() {
     return this.selectedElement?.type === 'ellipsis';
+  }
+
+  // Lines and swimlane dividers: which way the line runs is simply the
+  // box's longer side, so picking a direction turns the box if needed.
+  get isStraightGlyph() {
+    return ['line', 'divider'].includes(this.selectedElement?.type);
+  }
+
+  get straightGlyphDirection() {
+    const box = this.modelStore.activeView?.boxes.get(this.selectedElement?.id);
+    return box && box.width > box.height ? 'horizontal' : 'vertical';
+  }
+
+  @action
+  updateLineDirection(event) {
+    const element = this.selectedElement;
+    const view = this.modelStore.activeView;
+    const box = view?.boxes.get(element?.id);
+    if (!box || event.target.value === this.straightGlyphDirection) return;
+    this.modelStore.mutate(() => view.boxes.set(element.id, swapBoxAxes(box)));
   }
 
   @action
@@ -447,6 +468,18 @@ export default class PropertiesPanel extends Component {
               <option value="vertical">Vertical ⋮</option>
               <option value="diagonal-down">Diagonal ⋱</option>
               <option value="diagonal-up">Diagonal ⋰</option>
+            </select>
+          </label>
+        {{/if}}
+        {{#if this.isStraightGlyph}}
+          <label class="properties-panel-field">
+            Direction
+            <select
+              value={{this.straightGlyphDirection}}
+              {{on "change" this.updateLineDirection}}
+            >
+              <option value="horizontal">Horizontal ─</option>
+              <option value="vertical">Vertical │</option>
             </select>
           </label>
         {{/if}}

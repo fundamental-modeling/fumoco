@@ -46,12 +46,12 @@ export default class Palette extends Component {
       : `Click the ${rule.sourceLabel}…`;
   }
 
-  addElement(type, label, elementOpts = {}, size = null) {
+  addElement(type, label, elementOpts = {}) {
     const view = this.modelStore.activeView;
     this.modelStore.mutate((model) => {
       const id = model.addElement(type, { label, ...elementOpts });
       if (view) {
-        size ??= defaultBoxSize(model.elements.get(id));
+        const size = defaultBoxSize(model.elements.get(id));
         const { x, y } = nextFreeBoxPosition(view, size.width, size.height);
         view.included.push(id);
         view.boxes.set(id, { x, y, ...size });
@@ -111,11 +111,6 @@ export default class Palette extends Component {
   }
 
   @action
-  addHorizontalDivider() {
-    this.addElement(ElementType.DIVIDER, null, {}, { width: 300, height: 10 });
-  }
-
-  @action
   addText() {
     this.addElement(ElementType.TEXT, 'Text');
   }
@@ -162,7 +157,7 @@ export default class Palette extends Component {
       <button type="button" {{on "click" this.addText}}>Text</button>
       <button
         type="button"
-        title="A plain line (right-click → Turn 90° for vertical)"
+        title="A plain line (direction in its properties)"
         {{on "click" this.addLine}}
       >Line</button>
       <button
@@ -174,12 +169,7 @@ export default class Palette extends Component {
         type="button"
         title="Swimlane divider: separates the areas of competence of agents"
         {{on "click" this.addDivider}}
-      >Swimlane divider │</button>
-      <button
-        type="button"
-        title="Horizontal swimlane divider"
-        {{on "click" this.addHorizontalDivider}}
-      >Swimlane divider ─</button>
+      >Swimlane divider</button>
 
       <h3>Connectors</h3>
       {{#each this.connectorButtons as |option|}}
