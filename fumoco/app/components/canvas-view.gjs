@@ -157,7 +157,19 @@ function circleAround(box) {
 // them and an overlapping extent -- for a lens-drawn modify edge: the
 // midpoint of that overlap on each box's facing side (`p` on `a`, `q` on
 // `b`) and the overlap's length. null when they don't face each other.
+// Shorter than this, the two curves and their 9px arrowheads collapse
+// into a small ring that reads as two separate hooked arrows, not a lens;
+// the edge stays a straight double-headed line instead.
+const MIN_LENS_LENGTH = 48;
+
 export function lensEnds(a, b) {
+  const ends = facingSides(a, b);
+  if (!ends) return null;
+  const length = Math.hypot(ends.q.x - ends.p.x, ends.q.y - ends.p.y);
+  return length >= MIN_LENS_LENGTH ? ends : null;
+}
+
+function facingSides(a, b) {
   const overlap = (a0, a1, b0, b1) => [Math.max(a0, b0), Math.min(a1, b1)];
   const [y0, y1] = overlap(a.y, a.y + a.height, b.y, b.y + b.height);
   const [x0, x1] = overlap(a.x, a.x + a.width, b.x, b.x + b.width);

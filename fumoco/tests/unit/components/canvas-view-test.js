@@ -800,6 +800,13 @@ module('Unit | Component | canvas-view (lens edges)', function () {
     });
   });
 
+  test('boxes too close for a legible lens do not (Evaluator and SP in the user model)', function (assert) {
+    // SP's bottom at 53.5, Evaluator's top at 79: a 26px gap
+    const sp = { x: 632, y: 13, width: 63, height: 40.5 };
+    const evaluator = { x: 631, y: 79, width: 203, height: 60 };
+    assert.strictEqual(lensEnds(evaluator, sp), null);
+  });
+
   test('diagonally offset boxes (no overlapping sides) do not', function (assert) {
     const a = { x: 0, y: 0, width: 100, height: 60 };
     const b = { x: 200, y: 100, width: 100, height: 60 };
