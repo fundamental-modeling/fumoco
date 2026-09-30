@@ -1,774 +1,108 @@
 #+TITLE: Implementation Plan — Fumoco
-#+TODO: TODO(t) INPROGRESS(i) OPEN(o) | DONE(d)
 
-Milestone-by-milestone build status. Each entry mirrors a requirement in
-=LASTENHEFT.md= (the actual user stories, in the user's own terms).
-=OPEN= means a decision is needed before it can become =TODO=.
-=PFLICHTENHEFT.md= is the /how/ (technical approach, architecture
-decisions) for whatever's marked =DONE= here.
-
-Update this file whenever a requirement's status changes — it should
-always reflect the current backlog, not a historical log (git history is
-the log).
-
-* Milestone A — Block diagrams (standalone editor)
-
-** DONE Model tree listing all agents/human agents/storages and all views
-So a model bigger than one screen can still be navigated.
-
-** DONE Create agents, human agents, and storage elements from the tree
-
-** DONE Create and switch between multiple views ("viewpoints") over the same model
-
-** DONE Drag elements onto a view's canvas and reposition them freely (no auto-layout)
-
-** DONE Resize a box by dragging its corner/edge handles
-
-** DONE Boxes snap to a grid while dragging
-Grid snap only. Automatic box-to-box smart guides (visual alignment lines
-against other boxes) were tried and then explicitly disabled — with more
-boxes on a view they were too invasive. See the =OPEN= draggable-ruler-guide
-item below for the replacement approach (guides you drag in deliberately,
-not automatic).
-
-** DONE Select multiple boxes and see clearly which ones are selected
-Shift-click, cmd/ctrl-click, or drag a rectangle over them.
-
-** DONE Make selected boxes the same width/height/both, matching the last one selected
-
-** DONE Align a selection (left/center/right, top/middle/bottom) and distribute it evenly
-
-** DONE Rename an element or a view in place
-From the tree, or directly on the canvas, without a separate dialog
-taking over the screen.
-
-** DONE Draw access edges (read/write/modify) and channels between elements
-Directed/bidirectional/req-res, long or shorthand form; pick a tool,
-click source then target.
-
-** DONE Connector tool shows which elements are valid picks for the armed kind
-So a bipartite-rule mistake surfaces before it's made, not as a cryptic
-error after.
-
-** DONE Edges routed as horizontal/vertical lines with rounded corners
-Not diagonal straight lines.
-
-** DONE Edges automatically follow a box when it moves
-No manual "refresh" step.
-
-** DONE Freely reposition a channel's place (the small circle)
-Instead of it always sitting at the auto-computed midpoint. Its default
-size on creation was also shrunk (50px -> 28px square) after it read as
-too large next to a typical 120x60 agent/location box; an existing
-place can be resized like anything else via the 8 resize handles.
-
-** DONE Remove an element from just the current view without deleting it from the model/tree
-Delete key does this; Backspace instead deletes the selection from the
-model entirely (same as the tree's own delete button) — two different,
-discoverable actions.
-
-** DONE App laid out like Archi
-Model tree on the left, a palette of element/connector tools on the
-right, a properties panel along the bottom for editing the selected
-item's label/flags.
-
-** DONE Save the model to a file and reopen it later; survive an accidental reload
-New/Open/Save/Save As in the tree's toolbar; localStorage autosave.
-
-** DONE Nest locations and actors as a many-to-many relationship, not a strict tree
-E.g. a shared resource nested under two different composites at once.
-
-** DONE A way to actually establish nesting from the UI
-Two ways: the properties panel lists an element's current containers
-(with a way to remove each) and a dropdown to add another; dragging a
-box so its center ends up inside another box's bounds nests it there (in
-the smallest overlapping candidate, if several), while dragging it back
-out un-nests it (view display only — see below). Both routes go through
-the same model validation (no self-containment, no cycles); an invalid
-drag-nest is silently skipped rather than erroring.
-
-** DONE A container visually shows its nested content on the canvas
-A container with children present in the same view is drawn as a box
-auto-fit around them, with its label moved to the top-left corner so it
-doesn't sit on the content.
-
-** DONE Drag a container and have its nested content move along with it
-
-** DONE Distinguish world-model containment from per-view display of nesting
-Containment (=Element.parents=) is a fact of the model, shared across
-every view. Whether an element is /displayed/ nested is a separate,
-per-view choice (=View.nestedUnder=) dependent on the model fact but not
-required to match it everywhere. Dragging a box into another establishes
-containment in *both* the model and this view's display; dragging it
-back out only changes this view's display — the model relationship (and
-its appearance in every other view, and in the tree) stays untouched.
-
-Known v1 limitation: an element nested in *two* containers that are both
-in the same view still renders as a single box at one position, and
-*both* containers auto-fit to include that one location, rather than the
-element being drawn once per container. Full "draw once per occurrence"
-needs the instance-based view schema (see the open item below).
-
-** DONE Export a view as PNG
-An "Export PNG" button overlays the canvas (top-right, =canvas-view.gjs=)
-and exports the whole diagram, not just whatever's currently scrolled
-into view: the content bounds come from =computeEffectiveBoxes= over the
-active view, the stage is temporarily resized/repositioned to fit that
-(plus a margin) with a white background rect behind everything (the
-stage itself has no background of its own), rendered via
-=stage.toDataURL({ pixelRatio: 2 })=, then everything is restored --
-synchronous start to finish, so it never paints on screen. Not yet
-visually verified in a live browser (no Claude-in-Chrome connection
-available this session) -- confirmed via code review and the existing
-test suite only.
-
-** DONE Export a view as SVG
-An "Export SVG" button next to "Export PNG". Rather than a hand-written
-serializer duplicating =buildShape=/=drawArc=, the shape layer is
-redrawn once into =svgcanvas='s recording Canvas2D context (swapped in
-for the layer's native context), so every shape -- custom edge
-=sceneFunc=s, dashes, arcs, text -- goes through the exact same draw
-code as the canvas. Shares its fit-to-content stage setup with PNG
-(=withExportStage=). Verified in headless Chromium: agents, human agent
-glyph, channel, dashed location, rounded edges and arrowheads all come
-out as vector =<path>=/=<text>=. Text references Barlow by name
-(not embedded), so a viewer without it falls back to sans-serif.
-
-** DONE "Fumoco vX.Y.Z" in the palette footer and on exports
-The version comes from =package.json= (=config.APP.version=); shown in a
-small footer at the bottom of the right-hand palette and right-aligned
-on the title line of every PNG/SVG export header.
-
-** DONE Exports carry a header and are never transparent
-Every PNG/SVG export gets a header above the diagram -- view title,
-author, contributors, created and last-modified dates, separated by a
-thin rule (=buildExportHeader=) -- and a white page behind the whole
-exported area, header included. Verified: the exported PNG's alpha is
-255 everywhere.
-
-** DONE Delete a connector, not just an element
-Selecting an access edge on the canvas (click) already worked
-(=selection.selectedEdgeId=) and the right-click "Delete connector" menu
-item already existed -- but pressing Delete/Backspace with an edge
-selected did nothing, since the keydown handler only ever acted on
-=selection.selectedIds= (elements). Fixed with a =deleteSelectedEdge=
-check ahead of the existing element-deletion branches: an edge has no
-view-vs-model split the way an element does (an access edge only exists
-in the model at all), so either key deletes it outright, matching the
-context menu's single action. Petri/ER arcs still have no click-to-
-select at all (deliberately, per "primitive support" -- right-click
-delete is their only path), so this only covers block-diagram access
-edges for now.
-
-** DONE Channel places become ordinary location elements, not a separate concept
-"Channel" is now a rendering style a location can have (=Element.channel=:
-=null= or ={ shorthand }=; drawn as a near-circle via a squashed
-=cornerRadius=, not a dedicated Konva.Circle) rather than a separate model
-concept. =addChannel=/=addReqRes= now create an ordinary =Location=
-element and connect it to its agents via ordinary read/write/modify
-access edges; =FmcModel.channels= and =View.channelPlaces= are gone.
-Also renamed =ElementType.STORAGE= to =ElementType.LOCATION= (and
-=AccessEdge.storage= to =AccessEdge.location=) to match FMC's actual
-notation-reference terminology: "Location" is the general term for the
-passive component, with "Storage" and "Channel" as its two specific
-kinds, not two unrelated concepts (confirmed against
-https://www.fmc-modeling.org/notation_reference).
-
-** DONE Draggable guide lines that boxes snap to
-No ruler strip: thin highlighted strips along the canvas's top and left
-edges; drag from one to add a horizontal/vertical guide (grid-snapped),
-drag a guide back onto its strip to remove it. Stored per view
-(=View.guides=, serialized). While dragging a box, its left/center/right
-(top/middle/bottom) snaps to a guide within 6 screen px, else to the
-grid (=snapBox=). Guides live on the guide layer, so they're never
-exported. Resizing doesn't snap to guides yet.
-
-** DONE Zoom in / zoom out / reset to 100%
-Bottom-right canvas buttons (−, current %, +); the % button resets to
-100%. Steps of 1.25x, clamped to 25%-400%, zooming around the viewport
-center. Grid snapping (=dragBoundFunc=) and the resize minimum now work
-in diagram units rather than screen px, so they hold at any zoom and pan
-offset (snapping was already slightly off after panning by a non-multiple
-of 10); the dotted CSS grid follows pan and zoom. Exports always render
-at 100%.
-
-** DONE Visible scrollbars for the canvas viewport
-Native, always-visible scrollbars (styled so macOS doesn't hide them in
-Chromium/Safari) along the bottom and right edges: each is a thin
-overflow strip whose spacer is the scroll extent in screen px -- the
-diagram's bounds plus one viewport of slack, always covering the current
-viewport (=syncScrollbars=). Scrolling a bar pans the stage; wheel
-panning and zooming move the bars.
-
-** DONE Selecting a container shows the same 8 resize handles a plain box gets
-Resolved the earlier open design question in favor of "yes, make it
-resizable": a manual resize is respected as long as it's still big enough
-to contain the container's current children (per =computeEffectiveBoxes='
-new =boxContains= check); shrinking/moving children past that falls back
-to auto-fit again, silently, same as an invalid drag-nest.
-
-** DONE Dragging a nested box out of its parent should place it visibly outside the parent's box
-Full clearance: a dragged child un-nests (view only, =nestedUnder = null=)
-once its box no longer overlaps its parent's box at all; any overlap
-keeps it nested. The parent's box is measured *without* the child
-(=containerBoxWithout=) -- previously the check used the parent's
-auto-fit box, which had already grown to follow the child, so dragging
-out of an auto-fit parent never un-nested at all. A parent losing its
-last child keeps a default-size box where it was.
-
-** DONE Clicking the empty canvas background shows the view's own properties
-Already works: a background click (stage mouseup with no marquee) calls
-=selection.clear()=, and the properties panel falls back to the active
-view's fields when nothing is selected. Verified by code trace
-2026-09-29.
-
-** DONE Model tree row: rename/delete buttons on the same line as the title, right-aligned
-Confirmed done (2026-09-29): compact icon buttons sit right-aligned on
-the title's line.
-
-** DONE Human agents: stick figure in a portrait box, name outside above it
-Per the FMC stencil library: 45x60 default box, stick figure centered and
-scaled, name centered above the box as its own layer node (so resize
-handles cover only the box); included in export/scroll bounds.
-
-** DONE One access edge per agent/location pair: read + write = modify
-=addAccess= merges a second direction into the existing edge (read +
-write -> modify) instead of adding a second edge, via the connector tool,
-paste, and file loading (=fromJSON= folds duplicates in older files).
-
-** DONE Modify (read/write) edges drawable as a lens of two curved arrows
-Per edge, lens by default (=access.lens !== false=; switch to straight via
-the connector's properties panel or its right-click menu): instead of
-one straight =<->= line, two curves bowing
-opposite ways between the boxes' facing sides, one arrowhead each. Only
-where the two boxes face each other -- parallel sides with a gap and an
-overlapping extent (=lensEnds=); drawn from the middle of that overlap.
-Anywhere else, or with routing waypoints, it falls back to the straight
-line. Not for channel places.
-
-** DONE Select an arrow; properties panel lets its access kind be changed
-Click an edge's path on the canvas or a row under the tree's new "Arrows"
-section; the properties panel shows its endpoints and a read/write/modify
-dropdown, plus a delete button.
-
-** DONE Manipulate an arrow's routing via addable/movable waypoints
-Stays strictly horizontal/vertical (rectangular); no free-angle segments.
-Double-click a selected edge's path to insert a waypoint near that point;
-drag the small blue handle to move it; double-click a handle to remove it.
-
-Fixed a real bug in this after initial delivery: dragging a handle (and
-double-clicking one right after) didn't work, because =syncEdgeSelection=
-called =syncEdgeHandles= synchronously in its own autotracked body, which
-reads =view.edgeWaypoints= -- so a handle's own live drag-write into that
-same array re-fired the modifier and destroyed/recreated the handle mid-
-drag. Deferred into a queued microtask, same fix as the earlier
-=syncShapes= click/dblclick bug. Also bumped the handle's hit radius
-5px -> 7px for an easier grab target.
-
-** DONE Arrows (access edges) are addressable world-model entities, listed in the tree
-Not just lines implied by two elements' ids: each access edge now has its
-own stable =id=, survives being selected/edited/deleted independently of
-its endpoints, and appears in the model tree under a new "Arrows" section
-(clicking one selects it and pulls both endpoints into the active view,
-same as clicking an unplaced element).
-
-** DONE The properties panel lists a selected box's connections
-Every access edge touching the selected element (either end), labeled
-with the other endpoint and direction; click one to select that arrow,
-or delete it directly from the list.
-
-** DONE Canvas text renders in Barlow
-Self-hosted via =@fontsource/barlow= (imported in =app.js=, not a CDN
-link, so it works offline too), weights 400 and 700 (the latter for a
-shorthand channel label's bold glyph). Every =Konva.Text= node in
-=canvas-view.gjs= now sets =fontFamily: CANVAS_FONT_FAMILY= (=Barlow,
-sans-serif=). Canvas text doesn't retroactively re-render once a webfont
-finishes loading the way DOM text does, so =setupStage= also does one
-=document.fonts.ready.then(() => shapeLayer.batchDraw())= to redraw once
-Barlow is actually available, rather than silently sticking with the
-=sans-serif= fallback forever on a cold page load. Narrow-variant width
-configurability (e.g. a Barlow Condensed/Semi-Condensed option) is not
-built -- the user asked for plain Barlow specifically this round; a
-narrower cut is its own follow-up if wanted later.
-
-** DONE A diagram (view) carries a creation date, a last-updated date, an author, and contributor fields
-(Title was already covered by =View.name=.) =View= gained =createdAt=/
-=updatedAt= (ISO strings, =null= for a view loaded from a file saved
-before this existed, rather than a fabricated date) and free-text
-=author=/=contributors= fields. =FmcModel.createView= stamps both dates
-to "now"; =model-store.js='s =mutate= bumps the *active* view's
-=updatedAt= on every edit -- a best-effort "last edited while this view
-was open", not precise per-view dirty tracking (a mutation could touch
-an element shown only in some other view while this one happens to be
-active; distinguishing that would need tracking which view(s) a given
-mutation actually affects, which nothing else in the model does either).
-Shown/editable in the properties panel when nothing else is selected,
-alongside the existing view-name field.
-
-** DONE Box size only ever changes via the 8 resize handles, never any other gesture
-Already held given the current interaction model (dragging only ever
-translates x/y via =group.draggable=, never touches width/height) --
-confirmed, not changed, once the rotation handle below was disabled too
-(=rotateEnabled: false= means Konva's =Transformer= now exposes exactly
-the 8 corner/edge anchors and nothing else).
-
-** DONE A container's label never renders smaller than its children's labels
-Was actually backwards (container label was 12px vs. a leaf's 15px) until
-fixed — same fontSize as a leaf now, just top-left-positioned and gray so
-it still reads as a container label. A real complaint about the old
-Python auto-layouter too, not a new one.
-
-** DONE Remove the non-functional rotation handle from the Transformer
-Rotation isn't persisted (=buildShape='s =transformend= only reads
-scale, not rotation) and isn't wanted at all — axis-aligned only.
-Disabled outright (=rotateEnabled: false= on the shared =Konva.Transformer=
-in =canvas-view.gjs=) rather than implementing working rotation.
-
-** DONE A freshly-added or newly-shown element always draws on top
-=buildDrawOrder= (in =canvas-view.gjs=) replaced the old "every depth-0
-element, then every depth-1 element, ..." global sort with a DFS over
-=view.included= (parent immediately before its own displayed children,
-otherwise view-registration order) — a new element pushed to the end of
-=view.included= now always ends up drawn last, i.e. on top, instead of
-possibly rendering underneath an unrelated container's nested content.
-
-** DONE New/re-shown elements don't land on top of an existing box
-=utils/box-layout.js='s =nextFreeBoxPosition= replaces the old
-=40 + 20 * (view.boxes.size % 10)= formula duplicated across
-=palette.gjs=/=model-tree-node.gjs=/=arrow-row.gjs= — that formula wraps
-(and therefore silently overlaps) every 10 elements; the new one keeps
-stepping outward until it finds a spot that doesn't overlap any box
-already in the view.
-
-** DONE Edges converging on the same box side merge into a shared trunk ("edge trees"), opt-in
-Derived from screening the Visualization Guidelines (2026-09-27, see
-=spec/SOURCES.md=). Opt-in per element and side, per view
-(=View.edgeBundles=; "Merge edges into a trunk" checkboxes in the
-properties panel of an agent/storage). Every access edge whose other end
-(the other box, or the nearest waypoint) lies beyond a bundled side
-(=bundledSideToward=) branches into that side's junction, 24px out from
-its midpoint (=trunkPoints=): it leaves its own box on the side facing
-the junction, runs parallel to the trunk to the junction's level, then
-joins it (=branchPath=). One trunk per bundled side carries the rest of
-the way, with the arrowhead only if every merged edge points into the
-box. Block-diagram access edges only; Petri/ER arcs don't bundle.
-
-** DONE New boxes default to a per-type size, plus a "reset size" action
-=defaultBoxSize= (=utils/box-layout.js=) is the single source for every
-"place this element" call site (palette, model tree, arrow rows) and for
-the element context menu's "Reset size" (back to the type default,
-keeping the box's center; a container's manual size is dropped so it
-auto-fits again). An empty relation is ~1em x 3em (45x15 at the 15px
-canvas font); =MIN_SIZE= dropped to 10 so it (and the 17px NOP bar)
-stays resizable. A reified relation's entity set auto-fits as a circle
-twice the relation's longer side across (~6em around a default
-relation), growing with it.
-
-** DONE Node line weight reads heavier than edge line weight
-Nodes now stroke at =NODE_STROKE_WIDTH= (3, 4 when selected); edges stay
-at =strokeWidth: 2=.
-
-** DONE Move a multi-selection together, resize snapping, undo/redo
-Dragging one selected box moves the whole selection, into and out of
-boxes together. Resize handles snap to guides (else the grid). Snapshot
-undo/redo, 100 steps, changes within 600ms coalesced.
-
-** DONE Free text, lines, connector annotations, display names
-Free text (multi-line) and plain lines as glyphs in every palette's new
-"Annotation" group, alongside the ellipsis (now with a direction:
-horizontal, vertical, ⋱, ⋰) and swimlane dividers (vertical or
-horizontal, chosen by a Direction property like the ellipsis's; "Turn
-90°" on lines/dividers/ellipses). Every connector
-takes an annotation drawn at its middle. Elements and views take a
-display name that replaces their name wherever a view shows it.
-
-** DONE Swimlane dividers in all three diagram types
-Per the FMC Petri net stencil: a dashed line (vertical or horizontal,
-along the element's longer side), always drawn behind everything else;
-palette button in block, Petri net and ER views. Lane names aren't part
-of it -- there's no free-text element yet.
-
-** DONE Ellipsis ("…") element in all three diagram types
-For "A1 … An" enumeration: three dots along the box's longer side (so it
-can stand vertically too), no outline, no connections; palette button in
-block, Petri net and ER views.
-
-** DONE "N similar boxes" marker: stacked-box style on one element
-=Element.multiple= (properties panel checkbox, agents/storages): the box
-is drawn with two copies stacked behind it, offset 8px down-right. The
-Transformer's handles enclose the whole stack (a resize scales it
-slightly inexactly by the stack offset) -- fine for now.
-
-** DONE Opt-in box fill color from a small muted palette
-=Element.fill= (null = white) from =BOX_FILLS= (five low-saturation
-colors), picked via swatches in the properties panel, for any box but
-a partition triangle. Copied with the element.
-
-** DONE Warn (don't block) when deleting an access edge would leave a channel/storage under FMC's minimum arity
-Resolved via a general "Validate model" action (=FmcModel.validate()=,
-wired to a button in the model tree toolbar) rather than a delete-time
-guard specifically — checks every location's accessing-agent count on
-demand against the two Access-arity laws in =spec/index.html= and lists
-violations, each clickable to select the offending element. Deliberately
-on-demand, not enforced eagerly like the bipartite/acyclic-containment
-rules, since arity is a well-formedness condition on a *finished*
-diagram, not a live editing invariant.
-
-** DONE Soft diagram-size nudge: landscape-slide page outline
-A faint dashed frame anchored at the diagram's top-left, sized 1240x610:
-a default PowerPoint slide, landscape (13.33in x 7.5in = 1280x720px at
-96dpi), minus the export's 20px margins and ~64px title header, so
-content that fits exports to exactly one slide. Turns orange with a
-"Diagram exceeds a landscape slide" note when the content outgrows it.
-Advisory only; drawn on the guide layer, never exported.
-
-** DONE Select all / cut / copy / paste by keyboard, on the whole selection
-Cmd (Mac) or Ctrl (elsewhere; either works everywhere) + A/X/C/V.
-Copy/cut take the whole selection: elements with their boxes plus every
-access edge/arc running between two copied elements (nesting isn't
-copied). Paste recreates them as a group -- centered on the click point
-from the context menu, or offset 20px further per paste from the
-keyboard -- and selects them. Cut = copy + delete from model. Element
-and background context menus list Cut/Copy/Paste (and Select all) with
-their shortcut hints; right-clicking inside a multi-selection keeps it.
-In-app clipboard only, not the system clipboard.
-
-** DONE Right-click context menu (delete/copy/cut/paste, waypoint removal)
-Per-target menus on =canvas-view.gjs=: a box (rename/copy/cut/delete-
-from-view/delete-from-model), an arrow (insert waypoint here/delete
-connector), a waypoint handle (remove point), and empty canvas (paste,
-shown only when something's been copied/cut). Copy/cut capture just an
-element's own type/label/dashed/channel (not id, containment, or access
-edges) into in-memory =clipboard= state; paste creates a fresh,
-disconnected element. Rendered as a small HTML =<ul>= overlay positioned
-via a modifier (not an inline =style=, which =ember-template-lint=
-disallows), closed on Escape, an outside click, or running an item.
-
-* Milestone A.5 — Formal FMC specification
-
-** INPROGRESS Formal, W3C-ReSpec-based specification of FMC's block diagram notation
-Terminology, bipartite rules, channel notation — grounded in what
-Milestone A actually implements. Source material screened and
-shortlisted in =spec/SOURCES.md=; =spec/index.html= drafted from it.
-
-** INPROGRESS Petri net and ER/value-range diagram spec sections drafted normatively first
-Before Milestones B/C implement them, so there's something to conform
-to. Drafted alongside the block diagram section in the same
-=spec/index.html= pass.
-
-* Milestone B — Petri nets
-
-** DONE Create places, transitions, and arcs, laid out manually like block diagrams (primitive)
-=Place=/=Transition= element types; palette buttons shown when the
-active view's =diagramType= is =petri=; "+ View" gained a diagram-type
-select. Arcs are directed, carry a weight (default 1, shown as a label
-only when != 1), drawn via the shared =FmcModel.arcs=/=addArc= mechanism
-(see Milestone C below) rather than a Petri-specific one. Not yet built:
-swimlanes, multi-token/infinite-capacity place styling, recursion
-elements, the standard-construct stencils tracked separately under
-Milestone A's visualization-guidance items — all deliberately out of
-scope for this pass per "primitive support is okay for now" (NOP
-transitions are now DONE, see below).
-
-Reference measurements from a screenshot the user analyzed (em units,
-text height = 1.0em as the reference): place diameter ~1.33em; start-
-place's filled inner circle ~0.6-0.67em (used for the isStart marker
-below); transition box height ~2.4em, width ~4.5em; a NOP-transition bar
-~0.67em tall, ~12.0em wide (used for the NOP transition entry below).
-Both ratios are now applied -- see the isStart entry below for the inner
-circle.
-
-For the place/transition size ratio, an initial attempt anchored the
-place's *existing* 60px diameter and scaled the transition up to match
-(~200x110) -- but the user found the resulting transition too large
-relative to the label text. Inverted instead: the transition box went
-back to =addElement='s plain 120x60 default (its original size, which
-reads right against the text), and the *place* was sized down to match
-the ~2.4em-transition-height/~1.33em-place-diameter ratio against that:
-=60 * (1.33/2.4) ~= 33=. =addPlace= now creates a 33x33 place instead of
-60x60; the isStart inner-circle ratio (0.47x the place's own diameter)
-already scales automatically, so no separate change was needed there.
-
-Follow-up fix: a Petri arc almost always exits its source's bottom
-(south) and enters its target's top (north), perpendicular to that edge,
-via a dedicated =verticalArcPath= rather than the generic shortest-route
-=orthogonalPath= (which ER arcs still use, since ER has no fixed reading
-direction). Two motivations: FMC's standard Petri net flow is top-to-
-bottom, and a naive single-bend route could (a) draw two opposite-
-direction arcs between the same pair as one perfectly overlapping line
-with an arrowhead at each end — reading as a forbidden bidirectional
-edge — and (b) cut straight through a box when the target isn't below
-the source.
-
-Refined further for the loop-back case (a transition beside, not above/
-below, a place -- the common shape of a self-loop's return arc): instead
-of forcing the due-south exit to loop all the way around, the whole
-detour routes *above* both boxes, so both ends leave/arrive diagonally
-(north-west/north-east, whichever faces the other box) via a short 45°
-stub right at the shape's own boundary, then bend onto ordinary
-horizontal/vertical routing for the transit between them -- only that
-stub is a free-angle segment, never the whole path, and it's still the
-particular case, not the default. For a place (drawn as a circle via
-=buildShape='s =cornerRadius= trick), the stub's anchor point is the
-actual point on the circle at that 45° angle, not the invisible bounding
-box's corner -- =diagonalBoundaryPoint= handles both circular and
-rectangular shapes with one formula.
-
-Also widened the diagonal stub (16px -> 28px) so canvas =arcTo='s
-rounding has enough room to render the *same* corner radius at a
-diagonal-to-orthogonal bend as it already does at a plain
-orthogonal-to-orthogonal one -- =arcTo= silently shrinks the radius it
-draws when the adjacent segment is too short to fit it.
-
-Corrected again: an intermediate version made *both* ends leave/arrive
-via a top corner (reasoning that since the transit routes above both
-boxes, a bottom entry would force a loop-under). That reintroduced
-exactly the bidirectional-overlap bug this whole =verticalArcPath=
-exists to prevent -- for a reciprocal pair of arcs between the same two
-nodes (A->B and B->A), the corner-selection formula only depends on
-which side the *other* box is on, not on which arc is being drawn, so
-both arcs landed on the identical top corner of each box and traced the
-same line. A second attempt fixed the overlap (source always exits top,
-target always enters bottom) but reintroduced real box-crossings for
-some layouts and, per direct user feedback tracing a concrete example,
-attached the arc to a *corner* on both ends when only one of them (the
-place) should ever get diagonal treatment at all.
-
-Corrected a third time, now matching a traced example precisely: a
-Petri arc is always place<->transition (the bipartite rule), so exactly
-one endpoint is circular. Only that endpoint (the place) gets the
-diagonal "leave/arrive on its own circle" corner; the transition always
-keeps the plain south(if source)/north(if target) center port the
-forward case already uses -- a rectangle's edge midpoint needs no corner
-cut. The place's diagonal side (top when it's this arc's source, bottom
-when it's the target) always matches the transition's plain port for
-the same role, so both ends of one arc land on the same side (above both
-boxes, or below both) -- and a reciprocal arc, which swaps source and
-target, swaps which end is the place and therefore swaps top<->bottom
-too, so the pair never coincides. Two shapes now exist side by side:
-when the two boxes are genuinely beside each other (disjoint x-ranges),
-this short diagonal-corner/straight-port route applies directly; when
-their x-ranges overlap (a reversed arc along a shared column, not really
-"beside"), a short corner-cut can't stay clear of both boxes, so it falls
-back to the original plain-ports, route-around-via-a-west-lane shape
-that predates any of the diagonal work.
-
-Fixed a precision bug in the beside case, caught by tracing an actual
-example by hand: the transition end was given its own short vertical
-"bend" (via =ARC_ROUTE_MARGIN=), and the shared lane was the min/max of
-*both* bends -- but that margin (20px) almost never lined up exactly with
-the diagonal stub's own height (28px, measured from a different anchor
-point), leaving a near-zero-length leftover segment between the two.
-Visually that read as the diagonal overshooting into a spurious, almost
-invisible vertical hop before snapping back to horizontal instead of a
-clean 45°-to-horizontal bend, and the degenerate segment gave canvas
-=arcTo= an undefined direction to round against at the *next* corner too,
-so a turn several segments later rendered as a sharp point instead of
-curved. Fixed by dropping the straight end's own bend entirely -- since
-only the circular end ever needs a detour, the lane is simply that
-diagonal stub's own height (only nudged further out if the straight
-box's own edge would otherwise stick past it), and the straight end
-connects to that lane directly with a single plain segment. Down to
-exactly 4 points now (diagonal stub, one bend onto the lane, one bend
-into the straight port) instead of 6.
-
-Fixed a second bug in the *forward* case, also caught by tracing a
-hand-provided example ("Reg test 3"): a plumb-line shortcut had just been
-added there too (drop a straight vertical line instead of forcing the
-entry to the target's own center, whenever the source's exit x already
-lands safely on the target's edge) -- but the first version applied it
-unconditionally, including when the *target* was a place. A place's only
-valid attachment point is its own circle pole (center-x); landing
-anywhere else along its bounding box's flat top edge doesn't read as
-"arriving at the circle" at all, corner margin or not. Fixed by treating
-a circular end's own center as non-negotiable and only ever letting a
-*rectangular* end's attachment point shift to meet the other side --
-when the source is a transition and the target a place, it's the
-transition's exit that shifts to line up with the place's fixed pole
-(not the reverse), still only when that shift lands safely inside the
-transition's own edge.
-
-Fixed a third bug in the loop-back branch, again caught by a
-hand-provided example ("Reg test 4"): the "genuinely beside" diagonal
-shape assumes the diagonal stub's fixed 28px reach is enough to clear
-the far box's near edge -- true when there's a comfortable horizontal
-gap between the two boxes, but not when they're pushed flush against
-each other (a real, traced case: a place and a transition with the
-place's right edge exactly meeting the transition's left edge, zero
-gap). The stub landed *inside* the far box, and the connecting segment
-cut straight through it. Fixed by measuring the actual gap between the
-two x-ranges and only taking the diagonal shape when it's at least
-=ARC_DIAGONAL_STUB= wide; anything narrower (including overlapping
-ranges, the case this check replaces) falls back to the safe
-route-around-via-a-west-lane shape, which stays clear of both boxes
-regardless of how tightly they're packed.
-
-Fixed a fourth bug, and a fifth: after the =xGap= fix above, a further
-hand-provided example ("Reg test 5") found that the diagonal shape can
-still cut through the straight box even *with* a sufficient horizontal
-gap, if the two boxes' vertical offset is large enough that the
-diagonal stub's fixed reach falls well short of the lane height --
-jumping straight from the stub to the lane point was then a genuinely
-diagonal segment (not axis-aligned), which sliced through the straight
-box's near corner. Fixed by inserting one more point (at the stub's own
-x) when the stub doesn't already clear, keeping every segment
-axis-aligned; that x is provably always clear of the straight box given
-the =xGap >= ARC_DIAGONAL_STUB= gate already in place, so the extra
-vertical leg never enters it.
-
-At the user's request, a systematic swept regression test (many
-place/transition placements, both arc directions, asserting no crossing
-in any of them) was added as a standing guard rather than waiting for
-the next one-off report -- and it immediately caught a *fifth* bug of
-the same family, this time in the route-around-via-a-west-lane branch
-(the one the =xGap= fix falls back to): its clearance margins were each
-measured off only the *nearer* box's own edge (=exit.y + MARGIN= for
-the bottom lane, =enter.y - MARGIN= for the top lane), which was correct
-back when this branch was only reached for a target cleanly above the
-source, but broke once it also started covering merely-touching
-x-ranges, where the two boxes can overlap substantially in y. Fixed by
-measuring both lane heights against *both* boxes
-(=Math.max(sourceBottom, targetBottom) + MARGIN= and
-=Math.min(sourceBox.y, targetBox.y) - MARGIN=), matching the same
-"clear of both, not just the nearer one" principle the diagonal branch
-already relies on. The sweep (12,748 checked placements at a finer
-10px grid, run standalone) now finds zero crossings.
-
-Extended with two more swept regression tests, per the user's follow-up
-ask for "any other sweeping tests" (also raised specifically for block
-diagrams): one sweeps place/transition *sizes* as well as positions
-(tiny places, very wide/narrow transitions) against =verticalArcPath=,
-and one sweeps =orthogonalPath= -- the routing function block-diagram
-access/channel edges and ER arcs actually use, which had zero prior test
-coverage of any kind. Both came back clean (no crossings found in either
-a standalone finer sweep or the in-suite coarser one), so these are
-pure standing regression guards, not fixes -- =orthogonalPath= is now
-exported (like =verticalArcPath=) purely so the test can call it
-directly.
-
-** DONE Petri net starting-place notation
-A place's new =isStart= flag (toggled via the properties panel) draws a
-small filled black circle concentric with the place, with a visible
-white gap to the place's own outline -- distinct from just holding
-tokens (a place can have a nonzero marking without being where the
-net's flow is considered to begin).
-
-Corrected after an initial wrong attempt (a short, unconnected stub
-arrow pointing into the place's left side, which isn't FMC's actual
-convention): the real notation is the concentric-circle marker above.
-Sized from a measured reference screenshot (analyzed by the user, in em
-units relative to text height): place diameter ~1.33em, filled inner
-circle diameter ~0.6-0.67em -- a ratio of ~0.45-0.5, applied here as
-=Math.min(box.width, box.height) * 0.47= for the inner circle's
-diameter, so it scales with the place's own size rather than being a
-fixed pixel value.
-
-A new place is created unlabeled (=null= label, palette's =addPlace=)
-rather than "New place" -- consistent with how a partition is already
-created unlabeled, and matching a place's usual role as an unnamed
-marking-holder rather than a named entity.
-
-** DONE NOP (no-operation) transitions
-=Element.isNop= (transition-only, default =false=, toggled via the
-properties panel's "NOP transition" checkbox) marks a transition with no
-real action, used purely for routing/synchronization -- the standard
-Petri-net convention for this is a wide, thin, unlabeled bar rather than
-an ordinary transition box; `buildShape` skips the label entirely when
-set (text wouldn't read meaningfully on a bar this thin anyway) but
-keeps the ordinary white-fill/black-outline styling -- distinguished by
-proportion, not by a solid fill (an initial attempt used a solid black
-bar, corrected after the user pointed out a NOP bar is not filled).
-Palette's dedicated "NOP transition" button (=addNopTransition=) creates
-one pre-sized to the measured reference screenshot's ratio (bar ~0.67em
-tall, ~12.0em wide, against the ~2.4em transition height that's 60px
-here -- scale ~25px/em): 300x17. Routing (=verticalArcPath=) treats it
-identically to any other transition -- =isNop= only affects rendering,
-not the bipartite rule or arc geometry.
-
-** DONE Editor enforces the place/transition bipartite rule
-The same way it enforces agent/storage today -- =FmcModel.addArc=
-rejects anything that isn't a place<->transition or entity_set<->relation
-pair with an =FmcModelError=, surfaced the same =alert= way as every
-other bipartite violation.
-
-** DONE A place shows its marking (token count)
-Editable via the properties panel (a plain number input, place-only,
-minimum 0) when a place is selected; rendered inline with the label on
-canvas as =\"label (n)\"= rather than one dot per token, which stops
-being legible past a handful of tokens.
-
-* Milestone C — ER / value-range diagrams
-
-** DONE Create entity sets and (possibly n-ary) relations (primitive)
-=EntitySet=/=Relation= element types, palette buttons shown when the
-active view's =diagramType= is =er=. Arcs connect them via the same
-generic =FmcModel.arcs=/=addArc= mechanism Petri nets use (one bipartite-
-pair check per diagram type, not two parallel arc concepts). Role labels
-and n-ary relations beyond what the generic arc already allows are still
-deferred -- cardinality, reification, and orthogonal partitioning are now
-DONE (see below).
-
-An entity set's corner rounding is =min(width, height) / 2= (a stadium/
-pill shape on a non-square box, a full circle on a square one) rather
-than a plain location's smaller fixed 12px rounding, so it reads visibly
-different from an ordinary location box.
-
-** DONE ER cardinality arrows (1:n / n:1 / 1:1)
-Entity-set<->relation arcs are undirected (no arrowhead). Each arc's
-=cardinality= (=null= or ='one'=) marks that entity set as a "1" side;
-the relation box then carries one small arrow inside it (shaft as fine as
-the arcs, stopping inside a slightly concave-dented head) pointing
-toward each "1" side -- =->=, =<-=, or =<->= (1:1) for a binary relation,
-a short arrow from the center per "1" side for an n-ary one; offset
-beside/below the label when the relation is named. Set per entity set in
-the relation's properties panel ("Cardinality" checkboxes), or via the
-arc's right-click menu. New relations are unnamed by default.
-** DONE ER independent (orthogonal) partitioning, drawn as a triangle node
-Superseded an earlier, incorrect first attempt (a =kind: 'inheritance'=
-arc connecting two entity sets directly with a hollow-triangle
-*arrowhead*, modeled on UML generalization) after direct feedback that
-what FMC/ER partitioning actually calls for is a triangle *node*, not an
-arrow decoration: the partitioned (super)set connects to the triangle's
-apex, and each part (subset) connects to its base -- see
-=spec/index.html='s "Orthogonal partitioning" section, which already
-defined the =part= relation formally but had no visual notation for it
-yet. =ElementType.PARTITION= is a new node type (rendered as an actual
-triangle shape in =buildShape=, apex up); it joins the general
-=FmcModel.arcs=/=addArc= bipartite mechanism as a third valid pair
-(=entity_set<->partition=, alongside =place<->transition= and
-=entity_set<->relation=) -- direction carries the meaning, an
-=entity_set->partition= arc is the superset (apex side), a
-=partition->entity_set= arc is one part (base side). A partitioning arc
-draws as a plain line with no arrowhead (the triangle itself already
-carries the meaning) via =drawArc='s new =isPartitionArc= flag. The old
-=kind: 'inheritance'= special case, its palette button, and
-=ConnectorKind.INHERITANCE= were removed entirely rather than kept
-alongside the new mechanism.
-
-** DONE Relations turn 90 degrees automatically between stacked entity sets
-A relation whose entity sets sit above/below it (binary: the line
-between the two entity sets is steeper than 45 degrees; n-ary: summed
-offsets more vertical than horizontal) is displayed turned -- width and
-height swapped about its center, in =computeEffectiveBoxes=, so routing,
-drawing and export all see the turned box. The stored box stays
-unturned; drag/resize turn it back before writing (=toStoredBox=). The
-cardinality arrow always snaps to horizontal/vertical. No manual
-orientation override yet -- add one if automatic isn't always right.
-
-** DONE ER reification (relation -> entity set)
-=FmcModel.reifyRelation(relationId)= creates a fresh entity set and
-nests the relation inside it via the existing generic containment
-mechanism, per =spec/index.html='s Reification section -- "the elements
-of a relation become the elements of a new entity set, which can then
-participate in further relations of its own." Reachable via a relation's
-right-click menu ("Reify into entity set").
-
-* Milestone D — VS Code extension
-
-** OPEN Manual 90-degree turn for a relation (backlog, not prioritized)
-Relations currently turn automatically between vertically stacked
-entity sets (see above). A manual override only if automatic turns out
-not to be enough.
-
-** TODO Open a Fumoco model file directly in VS Code
-Same editing experience as the standalone app.
+What's built and what's left, per milestone: =[ ]= open, =[X]= done, open
+items first; the heading counts are done/total. =LASTENHEFT.md= has the
+requirements behind each item, =PFLICHTENHEFT.md= how each done item is
+built, and git history the story of how it got there. Keep this a
+checklist -- one line per item, a short note only where an open item
+needs a decision recorded.
+
+* Milestone A — Block diagrams (standalone editor) [63/63]
+- [X] Model tree listing all agents/human agents/storages and all views
+- [X] Create agents, human agents, and storage elements from the tree
+- [X] Create and switch between multiple views ("viewpoints") over the same model
+- [X] Drag elements onto a view's canvas and reposition them freely (no auto-layout)
+- [X] Resize a box by dragging its corner/edge handles
+- [X] Boxes snap to a grid while dragging
+- [X] Select multiple boxes and see clearly which ones are selected
+- [X] Make selected boxes the same width/height/both, matching the last one selected
+- [X] Align a selection (left/center/right, top/middle/bottom) and distribute it evenly
+- [X] Rename an element or a view in place
+- [X] Draw access edges (read/write/modify) and channels between elements
+- [X] Connector tool shows which elements are valid picks for the armed kind
+- [X] Edges routed as horizontal/vertical lines with rounded corners
+- [X] Edges automatically follow a box when it moves
+- [X] Freely reposition a channel's place (the small circle)
+- [X] Remove an element from just the current view without deleting it from the model/tree
+- [X] App laid out like Archi
+- [X] Save the model to a file and reopen it later; survive an accidental reload
+- [X] Nest locations and actors as a many-to-many relationship, not a strict tree
+- [X] A way to actually establish nesting from the UI
+- [X] A container visually shows its nested content on the canvas
+- [X] Drag a container and have its nested content move along with it
+- [X] Distinguish world-model containment from per-view display of nesting
+- [X] Export a view as PNG
+- [X] Export a view as SVG
+- [X] "Fumoco vX.Y.Z" in the palette footer and on exports
+- [X] Exports carry a header and are never transparent
+- [X] Delete a connector, not just an element
+- [X] Channel places become ordinary location elements, not a separate concept
+- [X] Draggable guide lines that boxes snap to
+- [X] Zoom in / zoom out / reset to 100%
+- [X] Visible scrollbars for the canvas viewport
+- [X] Selecting a container shows the same 8 resize handles a plain box gets
+- [X] Dragging a nested box out of its parent should place it visibly outside the parent's box
+- [X] Clicking the empty canvas background shows the view's own properties
+- [X] Model tree row: rename/delete buttons on the same line as the title, right-aligned
+- [X] Human agents: stick figure in a portrait box, name outside above it
+- [X] One access edge per agent/location pair: read + write = modify
+- [X] Modify (read/write) edges drawable as a lens of two curved arrows
+- [X] Select an arrow; properties panel lets its access kind be changed
+- [X] Manipulate an arrow's routing via addable/movable waypoints
+- [X] Arrows (access edges) are addressable world-model entities, listed in the tree
+- [X] The properties panel lists a selected box's connections
+- [X] Canvas text renders in Barlow
+- [X] A diagram (view) carries a creation date, a last-updated date, an author, and contributor fields
+- [X] Box size only ever changes via the 8 resize handles, never any other gesture
+- [X] A container's label never renders smaller than its children's labels
+- [X] Remove the non-functional rotation handle from the Transformer
+- [X] A freshly-added or newly-shown element always draws on top
+- [X] New/re-shown elements don't land on top of an existing box
+- [X] Edges converging on the same box side merge into a shared trunk ("edge trees"), opt-in
+- [X] New boxes default to a per-type size, plus a "reset size" action
+- [X] Node line weight reads heavier than edge line weight
+- [X] Move a multi-selection together, resize snapping, undo/redo
+- [X] Free text, lines, connector annotations, display names
+- [X] Swimlane dividers in all three diagram types
+- [X] Ellipsis ("…") element in all three diagram types
+- [X] "N similar boxes" marker: stacked-box style on one element
+- [X] Opt-in box fill color from a small muted palette
+- [X] Warn (don't block) when deleting an access edge would leave a channel/storage under FMC's minimum arity
+- [X] Soft diagram-size nudge: landscape-slide page outline
+- [X] Select all / cut / copy / paste by keyboard, on the whole selection
+- [X] Right-click context menu (delete/copy/cut/paste, waypoint removal)
+
+* Milestone A.5 — Formal FMC specification [0/2]
+- [ ] Formal, W3C-ReSpec-based specification of FMC's block diagram notation -- in progress: drafted in =spec/index.html= from the sources in =spec/SOURCES.md=
+- [ ] Petri net and ER/value-range sections, drafted normatively -- in progress, same file
+
+* Milestone B — Petri nets [5/9]
+- [ ] Set an arc's weight -- the model stores it and draws it when != 1, but nothing can change it yet
+- [ ] Select Petri/ER arcs by clicking, with a properties panel and waypoints (right-click menu only so far)
+- [ ] Multi-token places: an enlarged place with a capacity annotation; infinite capacity as a double circle
+- [ ] Recursion notation: stack places and return places
+- [X] Create places, transitions, and arcs, laid out manually like block diagrams (primitive)
+- [X] Petri net starting-place notation
+- [X] NOP (no-operation) transitions
+- [X] Editor enforces the place/transition bipartite rule
+- [X] A place shows its marking (token count)
+
+* Milestone C — ER / value-range diagrams [6/6]
+- [X] Create entity sets and (possibly n-ary) relations (primitive)
+- [X] ER cardinality arrows (1:n / n:1 / 1:1)
+- [X] ER independent (orthogonal) partitioning, drawn as a triangle node
+- [X] Relations turn 90 degrees automatically between stacked entity sets
+- [X] ER reification (relation -> entity set)
+- [X] Role labels on arcs (as connector annotations)
+
+* Milestone D — VS Code extension [0/1]
+- [ ] Open a Fumoco model file directly in VS Code, with the same editing experience as the standalone app
+
+* Backlog -- not prioritized [0/2]
+- [ ] Manual 90-degree turn for a relation (relations only turn automatically, between stacked entity sets)
+- [ ] Embed the Barlow font in SVG exports (they reference it by name; viewers without it fall back to sans-serif)
+
+* Out of scope
+See =LASTENHEFT.md='s "Out of scope" section: a one-click standard
+block-diagram arrangement, Petri-net layout stencils, importing the old
+text DSL.

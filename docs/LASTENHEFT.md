@@ -322,8 +322,10 @@ Dropped on 2026-09-29, kept here so they aren't re-raised by accident:
 - As the maintainer, I want a Lastenheft (this file, in user-story form)
   and a Pflichtenheft (the technical how) maintained alongside the actual
   work, not written up after the fact.
-- As the maintainer, I want the implementation plan kept in Org mode,
-  using Org's own TODO-state keywords, not a Markdown checklist.
+- As the maintainer, I want the implementation plan kept in Org mode as
+  a checklist — one line per item, `[ ]` open and `[X]` done, open items
+  first, done/total counts per milestone — so it's obvious at a glance
+  what's finished and what's left.
 - As the maintainer, I want semantic-release style version numbers (from
   0.1.0), derived from conventional commits.
 - As the maintainer, I want the repository presentable for publication on

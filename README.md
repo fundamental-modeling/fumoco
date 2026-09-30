@@ -134,7 +134,7 @@ drawing on a [Konva](https://konvajs.org/) canvas.
 | `docs/examples/`, `docs/screenshots/` | Example models and the screenshots above.                                                                                                            |
 | `docs/LASTENHEFT.md`                  | Requirements, as user stories.                                                                                                                       |
 | `docs/PFLICHTENHEFT.md`               | How each requirement is built.                                                                                                                       |
-| `docs/implementation_plan.org`        | Build status per requirement, by milestone (Org mode).                                                                                               |
+| `docs/implementation_plan.org`        | Checklist of what's done and what's open, by milestone (Org mode).                                                                                   |
 
 ### Versioning
 

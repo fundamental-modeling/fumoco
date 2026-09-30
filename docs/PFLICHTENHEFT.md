@@ -699,8 +699,8 @@ density is kept modest in-suite (the full run happens in a real browser
 via testem, where too many assertions in one test risks the runner's own
 timeout) -- a finer standalone sweep (plain Node, no browser) is what
 actually found bug five and confirmed zero crossings at higher
-resolution afterward; see `implementation_plan.org`'s entry for this
-section for the exact counts.
+resolution afterward (12,748 checked placements on a 10px grid, zero
+crossings).
 
 - `connector-tool.js`'s new `ConnectorKind.ARC` covers both diagram
   types' arcs with one rule (`source`/`target` both accept
@@ -1156,8 +1156,7 @@ Tried, then explicitly disabled (`showSnapGuides` and its `dragmove`
 listener deleted from `canvas-view.gjs`): with more than a few boxes on a
 view, a guide line flashing on every nearby-box alignment was too
 invasive. Grid snap (`dragBoundFunc`/`snapToGrid`) is unaffected and still
-active. The `implementation_plan.org` "draggable ruler guide lines" item
-is the intended replacement — a guide you drag in deliberately, not one
+active. Guide lines (see "Canvas viewport" above) are the replacement — a guide you drag in deliberately, not one
 the canvas throws up automatically.
 
 ## Process note
