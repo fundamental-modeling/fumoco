@@ -1,14 +1,13 @@
-// Fumoco's in-memory model: a JS port of attic/src/fmc/model.py's shape,
-// normalized to reference elements by a stable `id` (from crypto.randomUUID)
-// instead of Python's direct object references, and made reactive with
-// tracked-built-ins so Ember components re-render on mutation.
+// Fumoco's in-memory model: elements referenced by a stable `id` (from
+// crypto.randomUUID), made reactive with tracked-built-ins so Ember
+// components re-render on mutation.
 //
 // Terminology per FMC's own notation reference (fmc-modeling.org): the
 // passive system component is a "Location", with "Storage" and "Channel"
 // as its two specific kinds -- not two unrelated concepts. A channel is
-// NOT a distinct edge type here (unlike attic/src/fmc/model.py, where it
-// was): per explicit request, a channel's "place" (the small circle) is
-// an ordinary Location Element with `channel` rendering metadata set,
+// NOT a distinct edge type: per explicit request, a channel's "place"
+// (the small circle) is an ordinary Location Element with `channel`
+// rendering metadata set,
 // connected to its agents via ordinary access edges. Direction is carried
 // by which agents have read/write access to it (arrow-circle-arrow) or
 // modify access (line-circle-line, no arrowheads) -- not by a `directed`

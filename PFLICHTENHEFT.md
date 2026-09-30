@@ -56,7 +56,7 @@ View {
 ```
 
 Bipartite validation (`_require`) and containment cycle-checking
-(`_isAncestor`) are ports of `attic/src/fmc/model.py`'s equivalents.
+(`_isAncestor`) guard every structural edit.
 Ids are `crypto.randomUUID()` (native, no dependency).
 
 Terminology per FMC's own notation reference
@@ -240,9 +240,8 @@ box).
   native `alert`.
 - Edge routing (`orthogonalPath`) is a single-bend rectilinear path
   (straight segment if the boxes already share an axis, otherwise one
-  right-angle bend) — no obstacle avoidance yet (see
-  `attic/src/fmc/render.py`'s `_orthogonal_path` for the fancier
-  candidate-scoring version, not ported).
+  right-angle bend) — no obstacle avoidance yet (scoring candidate
+  routes against every other box would be the next step).
 - Corners are rounded via a custom `Konva.Shape` using native canvas
   `arcTo` (`Konva.Arrow` doesn't support this) plus hand-drawn triangle
   arrowheads.

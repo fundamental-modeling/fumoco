@@ -359,10 +359,9 @@ function pointInBox(point, box) {
 
 // A simple rectilinear (horizontal/vertical only) path between two boxes'
 // boundaries: a straight segment when they already share an axis,
-// otherwise a single right-angle bend. No obstacle avoidance -- see
-// attic/src/fmc/render.py's `_orthogonal_path` for the fancier version
-// this is deliberately not porting yet (candidate-path scoring against
-// every other box in the view); add it if crossings become a real problem.
+// otherwise a single right-angle bend. No obstacle avoidance (scoring
+// candidate paths against every other box in the view); add it if
+// crossings become a real problem.
 // Exported (like verticalArcPath) purely so the swept regression test can
 // call it directly.
 // `flip` bends the other way when a bend is needed (vertical first
