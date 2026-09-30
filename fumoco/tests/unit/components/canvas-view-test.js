@@ -15,6 +15,7 @@ import {
   pathMidpoint,
   outsideLabelPosition,
   snapBox,
+  snapPoint,
   swapBoxAxes,
   trunkPoints,
   verticalArcPath,
@@ -1038,6 +1039,24 @@ module('Unit | Component | canvas-view (connector annotations)', function () {
         { x: 100, y: 300 },
       ]),
       { x: 100, y: 100 },
+    );
+  });
+});
+
+module('Unit | Component | canvas-view (resize snapping)', function () {
+  test('a resize handle snaps to a nearby guide, else to the grid', function (assert) {
+    const guides = [
+      { axis: 'x', pos: 303 },
+      { axis: 'y', pos: 147 },
+    ];
+    assert.deepEqual(snapPoint(guides, { x: 300, y: 151 }, 6), {
+      x: 303,
+      y: 147,
+    });
+    assert.deepEqual(
+      snapPoint(guides, { x: 286, y: 171 }, 6),
+      { x: 290, y: 170 },
+      'out of tolerance: grid',
     );
   });
 });

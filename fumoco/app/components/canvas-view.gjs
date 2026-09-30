@@ -194,6 +194,22 @@ function facingSides(a, b) {
   return null;
 }
 
+// A resize handle's position, snapped per axis: onto the nearest guide
+// within `tolerance` diagram units, else onto the grid.
+export function snapPoint(guides, point, tolerance) {
+  const snapAxis = (axis, value) => {
+    let best = null;
+    for (const guide of guides) {
+      const distance = Math.abs(value - guide.pos);
+      if (guide.axis === axis && distance < tolerance) {
+        if (!best || distance < best.distance) best = { distance, guide };
+      }
+    }
+    return best ? best.guide.pos : snapToGrid(value);
+  };
+  return { x: snapAxis('x', point.x), y: snapAxis('y', point.y) };
+}
+
 // A dragged box's top-left, snapped: its left/center/right edge
 // (top/middle/bottom for horizontal guides) onto the nearest guide within
 // `tolerance` diagram units, else onto the grid.
@@ -972,6 +988,24 @@ export default class CanvasView extends Component {
       // shows by default did nothing but confuse users into thinking
       // rotation was a supported gesture.
       rotateEnabled: false,
+      // edges snap independently (below), so no forced aspect ratio
+      keepRatio: false,
+      // the frame is the box geometry itself, not geometry + stroke, so a
+      // snapped handle puts the box's edge exactly on the guide
+      ignoreStroke: true,
+      // A dragged resize handle snaps to a guide within GUIDE_SNAP screen
+      // px, else to the grid -- the same rule as moving a box. Konva
+      // passes absolute (screen) positions.
+      anchorDragBoundFunc: (oldPos, pos) => {
+        const scale = this.stage.scaleX();
+        const { x, y } = this.stage.position();
+        const snapped = snapPoint(
+          this.modelStore.activeView?.guides ?? [],
+          { x: (pos.x - x) / scale, y: (pos.y - y) / scale },
+          GUIDE_SNAP / scale,
+        );
+        return { x: snapped.x * scale + x, y: snapped.y * scale + y };
+      },
     });
     this.stage.add(this.shapeLayer);
     this.stage.add(this.guideLayer);
@@ -3268,11 +3302,13 @@ export default class CanvasView extends Component {
     // handles are dragging (the leaf's own, or a container's manual
     // override -- see computeEffectiveBoxes) is committed the same way.
     group.on('transformend', () => {
+      // Konva's scale math leaves float noise (300.00000000000006)
+      const round = (v) => Math.round(v * 1000) / 1000;
       const newBox = toStoredBox({
-        x: group.x(),
-        y: group.y(),
-        width: Math.max(MIN_SIZE, rect.width() * group.scaleX()),
-        height: Math.max(MIN_SIZE, rect.height() * group.scaleY()),
+        x: round(group.x()),
+        y: round(group.y()),
+        width: round(Math.max(MIN_SIZE, rect.width() * group.scaleX())),
+        height: round(Math.max(MIN_SIZE, rect.height() * group.scaleY())),
         rotated: box.rotated,
       });
       group.scaleX(1);
