@@ -1,3 +1,8 @@
+// This file is part of Fumoco.
+//
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Holger Peters -- see the LICENSE file.
+
 // Which kind of edge, if any, canvas clicks should currently create instead
 // of selecting. "Armed" (kind set) survives across multiple edges so the
 // user can draw several of the same kind in a row; a canvas-view click on

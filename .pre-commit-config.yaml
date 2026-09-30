@@ -1,0 +1,77 @@
+# This file is part of Fumoco.
+#
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Holger Peters -- see the LICENSE file.
+
+# The JS hooks (local, below) use the project's own tools and configs:
+# run `npm ci` in fumoco/ once before committing.
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v6.0.0
+  hooks:
+  - id: trailing-whitespace
+  - id: check-added-large-files
+    args: [--maxkb=500]
+    exclude: ^fumoco/package-lock\.json$
+  - id: check-case-conflict
+  - id: check-json
+  - id: check-merge-conflict
+  - id: check-yaml
+  - id: mixed-line-ending
+  - id: check-symlinks
+  - id: end-of-file-fixer
+- repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
+  rev: v2.16.0
+  hooks:
+  - id: pretty-format-yaml
+    args: [--autofix, --indent, '2']
+- repo: https://github.com/Lucas-C/pre-commit-hooks
+  rev: v1.5.6
+  hooks:
+  - id: insert-license
+    name: insert-license (js)
+    files: \.(js|mjs|cjs|gjs)$
+    args:
+    - --license-filepath
+    - ./etc/license-header.txt
+    - --comment-style
+    - //
+  - id: insert-license
+    name: insert-license (css)
+    files: \.css$
+    args:
+    - --license-filepath
+    - ./etc/license-header.txt
+    - --comment-style
+    - /*| *| */
+  - id: insert-license
+    name: insert-license (hash)
+    files: \.(sh|yaml|yml)$
+    args:
+    - --license-filepath
+    - ./etc/license-header.txt
+- repo: local
+  hooks:
+  # pre-commit passes paths from the repo root; the tools run inside
+  # fumoco/ (where their configs live), so the prefix is stripped.
+  - id: prettier
+    name: prettier
+    entry: bash -c 'cd fumoco && npx prettier --write --ignore-unknown "${@#fumoco/}"' --
+    language: system
+    files: ^fumoco/.*\.(js|mjs|cjs|gjs|css|json|md|yaml|yml)$
+    exclude: ^fumoco/package-lock\.json$
+  - id: eslint
+    name: eslint
+    entry: bash -c 'cd fumoco && npx eslint --fix "${@#fumoco/}"' --
+    language: system
+    files: ^fumoco/.*\.(js|mjs|cjs|gjs)$
+  - id: ember-template-lint
+    name: ember-template-lint
+    entry: bash -c 'cd fumoco && npx ember-template-lint --fix "${@#fumoco/}"' --
+    language: system
+    files: ^fumoco/.*\.(gjs|hbs)$
+  - id: stylelint
+    name: stylelint
+    entry: bash -c 'cd fumoco && npx stylelint --fix "${@#fumoco/}"' --
+    language: system
+    files: ^fumoco/.*\.css$

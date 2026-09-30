@@ -1,3 +1,8 @@
+// This file is part of Fumoco.
+//
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Holger Peters -- see the LICENSE file.
+
 import loadConfigFromMeta from '@embroider/config-meta-loader';
 import { assert } from '@ember/debug';
 

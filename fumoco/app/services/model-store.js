@@ -1,3 +1,8 @@
+// This file is part of Fumoco.
+//
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Holger Peters -- see the LICENSE file.
+
 import Service, { service } from '@ember/service';
 import { tracked } from '@glimmer/tracking';
 import { FmcModel } from 'fumoco/utils/fmc-model';

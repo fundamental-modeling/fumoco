@@ -1,3 +1,8 @@
+// This file is part of Fumoco.
+//
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Holger Peters -- see the LICENSE file.
+
 // Ordered selection: which element ids are selected on the current canvas,
 // in the order they were picked. Order matters because "same width/height"
 // copies from the *last*-selected box -- plain Set-based selection can't

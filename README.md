@@ -107,6 +107,17 @@ npm run lint
 npm run build     # production build into fumoco/dist
 ```
 
+Commits are checked with [pre-commit](https://pre-commit.com/): whitespace,
+JSON/YAML checks, the MIT license header on every source file, and
+prettier, eslint, ember-template-lint and stylelint (auto-fixing where
+they can, using the project's own configs, so run `npm ci` in `fumoco/`
+first):
+
+```sh
+pre-commit install          # once per clone
+pre-commit run --all-files  # check everything by hand
+```
+
 The app is an [Ember](https://emberjs.com/) application built with
 [Vite](https://vite.dev/) and [Embroider](https://github.com/embroider-build/embroider),
 drawing on a [Konva](https://konvajs.org/) canvas.

@@ -1,3 +1,8 @@
+// This file is part of Fumoco.
+//
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Holger Peters -- see the LICENSE file.
+
 import Component from '@glimmer/component';
 import { tracked } from '@glimmer/tracking';
 import { action } from '@ember/object';

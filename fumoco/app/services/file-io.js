@@ -1,3 +1,8 @@
+// This file is part of Fumoco.
+//
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Holger Peters -- see the LICENSE file.
+
 // Standalone-browser persistence: File System Access API where available,
 // falling back to a download link / <input type=file> pair. Kept as its
 // own service (rather than folded into model-store) purely so Milestone D

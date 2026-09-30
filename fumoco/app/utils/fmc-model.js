@@ -1,3 +1,8 @@
+// This file is part of Fumoco.
+//
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Holger Peters -- see the LICENSE file.
+
 // Fumoco's in-memory model: elements referenced by a stable `id` (from
 // crypto.randomUUID), made reactive with tracked-built-ins so Ember
 // components re-render on mutation.
