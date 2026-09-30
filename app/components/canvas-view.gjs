@@ -450,7 +450,7 @@ export function orthogonalPath(a, b, flip = false) {
 // fixed ports makes the forward and reverse arcs take visibly different
 // paths (a straight line down vs. an S-curve back up) instead of ever
 // coinciding. ER arcs keep using orthogonalPath -- an ER diagram has no
-// such fixed reading direction (see spec/index.html's ER section).
+// such fixed reading direction (see docs/spec/index.html's ER section).
 const ARC_ROUTE_MARGIN = 20;
 // Comfortably longer than EDGE_CORNER_RADIUS so drawRoundedPolyline's
 // arcTo-based rounding has room to render the *same* radius at a
@@ -3036,7 +3036,7 @@ export default class CanvasView extends Component {
     // An orthogonal-partitioning node is a triangle, not a box: apex at
     // the top (where the partitioned superset's arc attaches) and base at
     // the bottom (where each part/subset's arc attaches) -- see
-    // spec/index.html's "Orthogonal partitioning" section.
+    // docs/spec/index.html's "Orthogonal partitioning" section.
     const rect = isPartition
       ? new Konva.Line({
           points: [box.width / 2, 0, box.width, box.height, 0, box.height],

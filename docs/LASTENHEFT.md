@@ -1,10 +1,10 @@
 # Lastenheft — Fumoco
 
 The requirements, as user stories, in the user's own terms — this file is
-the *what/why*, drawn directly from requests made in conversation. It
+the _what/why_, drawn directly from requests made in conversation. It
 carries no build status; that belongs in `implementation_plan.org`, which
 tracks each of these through done/in-progress/planned/open-question.
-`PFLICHTENHEFT.md` is the *how* for whatever's been built.
+`PFLICHTENHEFT.md` is the _how_ for whatever's been built.
 
 Update this file when a genuinely new requirement is raised, phrased as a
 user story close to what was actually asked. Don't add status markers or
@@ -150,7 +150,7 @@ implementation notes here — that's the other two documents' job.
   lens — the latter where the two boxes face each other (overlapping
   parallel sides), and the default.
 - As a modeler, I don't want read + write between the same agent and
-  location tracked differently from modify — modify *is* read + write, so
+  location tracked differently from modify — modify _is_ read + write, so
   adding the other direction to an existing arrow turns it into modify.
 
 ## Nesting / containment
@@ -170,7 +170,7 @@ implementation notes here — that's the other two documents' job.
   container.
 - As a modeler, I want to distinguish two different things: containment
   is a fact of the model (the world), shared by every view; whether an
-  element is *displayed* nested inside its parent is a separate,
+  element is _displayed_ nested inside its parent is a separate,
   per-view choice that depends on the model fact but doesn't have to
   match it everywhere. Dragging a box into another establishes the
   nesting relationship in both the model and the current view's display.

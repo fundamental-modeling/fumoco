@@ -1,15 +1,24 @@
-# external/generated reference material, not project source
+# compiled output
+/dist/
+/tmp/
+
+# dependencies
+/node_modules/
+
+# misc
+*.local
+/.pnp*
+/.eslintcache
+/coverage/
+/npm-debug.log*
+/testem.log
+/yarn-error.log
+
+# broccoli-debug
+/DEBUG/
+
+# external reference material, not project source
 ext/
 
 # macOS
 .DS_Store
-
-# Python
-__pycache__/
-*.pyc
-.venv/
-*.egg-info/
-.pytest_cache/
-dist/
-build/
-_build/

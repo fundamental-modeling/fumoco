@@ -34,7 +34,8 @@ const esmParserOptions = {
 };
 
 export default defineConfig([
-  globalIgnores(['dist/', 'coverage/', '!**/.*']),
+  // ext/: downloaded reference material; examples/: old, untracked
+  globalIgnores(['dist/', 'coverage/', 'ext/', 'examples/', '!**/.*']),
   js.configs.recommended,
   eslintConfigPrettier,
   ember.configs.base,

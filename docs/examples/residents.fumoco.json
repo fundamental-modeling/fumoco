@@ -48,9 +48,7 @@
     "employs": {
       "type": "relation",
       "label": null,
-      "parents": [
-        "employment"
-      ]
+      "parents": ["employment"]
     }
   },
   "accesses": [],

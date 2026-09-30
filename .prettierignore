@@ -1,0 +1,22 @@
+# unconventional js
+/blueprints/*/files/
+
+# compiled output
+/dist/
+
+# misc
+/coverage/
+!.*
+.*/
+/pnpm-lock.yaml
+ember-cli-update.json
+*.html
+
+# downloaded reference material; old untracked files
+/ext/
+/examples/
+/thoughts.md
+
+# YAML is formatted by pretty-format-yaml (pre-commit)
+*.yaml
+*.yml

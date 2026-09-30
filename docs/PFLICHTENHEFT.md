@@ -26,7 +26,7 @@ folded in here too.
     of the shape layer when any of it changes.
   - **Interactive per-shape changes** (drag, resize) commit their new
     box/position into the tracked model
-    as usual, but *also* call `refreshEdges()`/etc. directly, right in
+    as usual, but _also_ call `refreshEdges()`/etc. directly, right in
     the same event handler — not relying on the reactive rebuild to
     happen in time, and specifically avoiding tearing down the shape
     that's mid-interaction (which would detach the Transformer from it).
@@ -98,7 +98,7 @@ for autosave) also sets `this.activeView.updatedAt = new Date().toISOString()`
 after every mutation, whenever there is an active view. This is a
 best-effort "last edited while this view was open", not precise
 per-view dirty tracking — a mutation could touch an element shown only
-in some *other* view while this one happens to be active, and it would
+in some _other_ view while this one happens to be active, and it would
 still bump this view's timestamp. Distinguishing that would need
 tracking which view(s) a given mutation actually affects, which nothing
 else in the model does either, so this trades precision for not needing
@@ -116,7 +116,7 @@ covers both the brief window before the webfont loads and any glyph
 Barlow itself doesn't have).
 
 Canvas text is a real gotcha here: unlike DOM text, it's rasterized with
-whatever font is loaded at that *exact instant* and never retroactively
+whatever font is loaded at that _exact instant_ and never retroactively
 re-renders once a webfont finishes loading later. Since `setupStage`'s
 first draw can easily happen before Barlow has loaded on a cold page
 load, every label would otherwise silently and permanently render in
@@ -133,7 +133,7 @@ pass, plain Barlow is what was actually asked for.
 
 ## Visual nesting (`canvas-view.gjs`: `computeEffectiveBoxes`, `nestingDepth`)
 
-Deliberately *not* real Konva group-nesting (child coordinates relative
+Deliberately _not_ real Konva group-nesting (child coordinates relative
 to a parent group) -- that would touch drag/resize/connector/edge-routing
 code throughout the file all at once, right after fixing a subtle
 reactivity bug there. Instead:
@@ -146,13 +146,13 @@ reactivity bug there. Instead:
 - `computeEffectiveBoxes(model, view)`: for every included id, its
   rendered box is either its own stored `view.boxes` entry, or — if it
   has at least one child also in the view — a bounding box around those
-  children's *effective* boxes plus `NESTING_PADDING` (30px) on every
-  side (the "auto-fit" box), *unless* its own stored `view.boxes` entry
+  children's _effective_ boxes plus `NESTING_PADDING` (30px) on every
+  side (the "auto-fit" box), _unless_ its own stored `view.boxes` entry
   (set by a manual resize -- see below) still fully contains that auto-fit
   box (`boxContains`), in which case the manual box wins instead. Computed
   deepest-first (via `nestingDepth`, descending) so a grandparent's fit
   sees its already-fit parent. Also exported/tested.
-- `syncShapes` builds shapes in *ascending* depth order (outermost first)
+- `syncShapes` builds shapes in _ascending_ depth order (outermost first)
   so containers draw behind their content, and passes the same
   `effectiveBoxes` map into `buildEdges` so edge endpoints agree with
   what's actually on screen (not stale `view.boxes` positions).
@@ -166,7 +166,7 @@ reactivity bug there. Instead:
   no separate "detach from auto-fit" mode to manage. Its label still
   moves to the top-left corner (small, gray) instead of centered.
 - Dragging a container (`buildShape`'s `nested` branch) moves every
-  currently *displayed*-nested descendant along with it by the same
+  currently _displayed_-nested descendant along with it by the same
   delta: `collectDescendantNodes` walks `buildDisplayChildIndex`
   recursively (children, grandchildren, ...) collecting each one's live
   Konva node and starting position; `dragmove` repositions all of them by
@@ -189,7 +189,7 @@ reactivity bug there. Instead:
 ### World-model containment vs. per-view display (`View.nestedUnder`)
 
 `Element.parents` is the world-model fact, shared by every view.
-Whether an element is *displayed* nested inside a parent is a separate,
+Whether an element is _displayed_ nested inside a parent is a separate,
 per-view choice: `View.nestedUnder` (`elementId -> parentId | null`,
 `TrackedMap`). No entry means "default to the first model parent also
 present in this view"; `displayParentOf(model, view, id, includedSet)` is
@@ -200,16 +200,17 @@ can't drift out of sync between them.
 
 Dragging a plain (non-container) element (`buildShape`'s non-nested
 branch) runs `updateContainmentAfterDrag` after committing its new box:
-- If its new center lands inside some *other* element's box (the
+
+- If its new center lands inside some _other_ element's box (the
   smallest one, if several overlap, excluding its current display
-  parent) — `addContainment` (world model) *and* `view.nestedUnder.set`
+  parent) — `addContainment` (world model) _and_ `view.nestedUnder.set`
   to that parent (this view's display). Establishing containment always
   does both, whether triggered by a drag or by the properties panel's
   "add to container" dropdown (same two calls, same order).
 - Else, if it's no longer inside the box of the parent it was
-  *displayed* nested under — `view.nestedUnder.set(elementId, null)`
+  _displayed_ nested under — `view.nestedUnder.set(elementId, null)`
   only. `Element.parents` (and every other view's display, and the tree)
-  is untouched. Dragging out is explicitly *not* the same action as the
+  is untouched. Dragging out is explicitly _not_ the same action as the
   properties panel's "remove from container" (×), which does call
   `removeContainment` on the model.
 - `FmcModelError` from a rejected `addContainment` (e.g. a would-be
@@ -254,6 +255,7 @@ box).
 An `AccessEdge` now carries its own `id` (`makeAccessEdge`), not just its
 `agent`/`kind`/`location` fields — it's an addressable entity like an
 `Element`, not just an implicit line between two of them:
+
 - `FmcModel.updateAccessKind(id, kind)`: splices in a new edge object with
   the same id/endpoints and a different kind (edges are recreated
   wholesale on edit, same as everywhere else — see `makeAccessEdge`'s
@@ -283,6 +285,7 @@ duplicate leading point.
 
 Interaction, all on `addRoutedEdge`'s main path shape (the arrowhead
 triangles stay `listening: false`, purely decorative):
+
 - `hitStrokeWidth: 16` makes a 2px stroke practically clickable.
 - Click selects the edge (`selection.selectEdge`, mutually exclusive with
   element selection — see `selection.js`); the selected edge's stroke
@@ -300,7 +303,7 @@ triangles stay `listening: false`, purely decorative):
   `nearestWaypointInsertIndex` — whichever straight segment (agent center
   → each waypoint in order → location center) the click point is closest
   to, via ordinary point-to-segment distance. This approximates against
-  anchor *centers* rather than the actual rendered rounded/orthogonal
+  anchor _centers_ rather than the actual rendered rounded/orthogonal
   path — close enough to feel natural without reproducing the rendering
   geometry just to pick an insertion index.
 - `syncEdgeHandles` draws a small draggable `Konva.Circle` (radius 7, a
@@ -316,7 +319,7 @@ triangles stay `listening: false`, purely decorative):
   rather than calling them synchronously in its own body — same fix, and
   same reason, as `syncShapes`' deferred styling calls (see "Draw order /
   z-index" above): `syncEdgeHandles` reads `view.edgeWaypoints`, and
-  calling it synchronously would make *this modifier* depend on that
+  calling it synchronously would make _this modifier_ depend on that
   array too. Since a handle's own `dragmove` live-writes into that same
   array (for the immediate-feedback line redraw), every pixel of a drag
   would re-fire this modifier and destroy-and-recreate the very handle
@@ -332,7 +335,7 @@ triangles stay `listening: false`, purely decorative):
 
 The properties panel (`properties-panel.gjs`) shows a selected edge's
 endpoints (read-only) and a `kind` `<select>` bound to
-`updateAccessKind`, plus a delete button; when an *element* is selected
+`updateAccessKind`, plus a delete button; when an _element_ is selected
 instead, it lists every access edge touching it (either end) via
 `incidentAccesses`, each row clickable to select that edge and a `×`
 button to delete it directly.
@@ -348,7 +351,7 @@ lone element.
 ## Model validation (`FmcModel.validate`, `model-tree.gjs`)
 
 Checks the well-formedness conditions that only make sense on a
-*finished* diagram -- currently just the two Access-arity laws from
+_finished_ diagram -- currently just the two Access-arity laws from
 `spec/index.html` (a channel needs ≥2 accessing agents, a storage needs
 ≥1) -- run on demand rather than enforced eagerly. This is deliberately
 different from the bipartite and acyclic-containment rules, which reject
@@ -374,8 +377,8 @@ panel, each issue clickable to `selection.select` the offending element.
 `syncShapes` used to add shapes to the Konva layer in "every depth-0
 element, then every depth-1 element, then every depth-2 element, ..."
 order (a global sort by `nestingDepth`). That had a real bug: since a
-later-added Konva node draws on top, it meant *every* deeply-nested
-descendant of some container drew above *every* unrelated top-level
+later-added Konva node draws on top, it meant _every_ deeply-nested
+descendant of some container drew above _every_ unrelated top-level
 element -- including a brand new, entirely unrelated box just added from
 the palette, which could render underneath existing nested content it
 had no relationship to at all.
@@ -385,10 +388,10 @@ had no relationship to at all.
 `view.included` order, and immediately recurse into its own displayed
 children before moving to the next top-level element. This keeps the one
 ordering constraint FMC nesting actually requires (a container draws
-behind its own children) while giving two *unrelated* elements exactly
+behind its own children) while giving two _unrelated_ elements exactly
 the z-order their relative position in `view.included` implies -- and
 since every "add this element to the view" call site (`palette.gjs`,
-`model-tree-node.gjs`, `arrow-row.gjs`) pushes to the *end* of
+`model-tree-node.gjs`, `arrow-row.gjs`) pushes to the _end_ of
 `view.included`, a freshly-added element's whole (single-node) subtree
 is always visited dead last, i.e. always on top.
 
@@ -470,7 +473,7 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
 - `FmcModel.addArc(sourceId, targetId, weight = 1)`: one method handling
   both a Petri arc and an ER arc, since both are "a directed edge between
   the two bipartite kinds of one diagram type, with no read/write/modify
-  distinction." Validates against *both* valid type pairs
+  distinction." Validates against _both_ valid type pairs
   (place<->transition, entity_set<->relation) rather than needing the
   caller to know which diagram type it's in; throws `FmcModelError` on
   anything else, same as every other bipartite check. `removeArc(id)` and
@@ -508,7 +511,7 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
     can't shift to line up with the other end; a rectangular end (a
     transition) can attach anywhere along its flat edge, so it's free to
     shift and meet the other end's x with a single straight vertical
-    line, *if* that lands safely inside its own edge (inboard of each
+    line, _if_ that lands safely inside its own edge (inboard of each
     corner by `EDGE_CORNER_RADIUS`, the same radius every bend in this
     path already rounds to, so a "straight" line never reads as clipping
     the corner). When both ends are rectangular, the source's own center
@@ -517,18 +520,18 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
     midpoint (already guaranteed clear of both boxes, since it sits below
     the source's bottom and above the target's top by construction).
 
-    When the target *isn't* below the source, two distinct shapes apply,
+    When the target _isn't_ below the source, two distinct shapes apply,
     chosen by the actual gap between the boxes' x-ranges, not merely
     whether they overlap:
 
     If that gap is narrower than `ARC_DIAGONAL_STUB` -- including
     overlapping ranges (a reversed-direction arc along a shared column,
     not really "beside", just running against the usual top-to-bottom
-    flow) *and* disjoint-but-touching ranges (two boxes pushed flush
+    flow) _and_ disjoint-but-touching ranges (two boxes pushed flush
     against each other, a real traced case: a place's right edge exactly
     meeting a transition's left edge) -- a short diagonal corner-cut
     can't stay clear of both boxes: the stub's fixed reach isn't enough
-    to clear the far box's near edge, so it would land *inside* that box
+    to clear the far box's near edge, so it would land _inside_ that box
     and the connecting segment would cut straight through it. This falls
     back to the original plain-ports shape that predates the diagonal
     work entirely: down from the source, out to a lane west of both
@@ -571,24 +574,24 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
     transit lane sits above both boxes, so a bottom entry would loop
     underneath the target) -- but that reintroduced the exact
     bidirectional-overlap bug this mechanism exists to prevent, since the
-    corner formula only depended on which side the *other* box was on,
+    corner formula only depended on which side the _other_ box was on,
     not on which arc was being drawn. A second attempt fixed the overlap
     (source always top, target always bottom) with a route fully
     enclosing both boxes, but a traced example showed it attached the arc
-    to a corner on *both* ends when only the circular one should ever get
+    to a corner on _both_ ends when only the circular one should ever get
     diagonal treatment.
 
     A further precision bug in that fix, also caught by tracing an actual
     example by hand: the transition end was given its own short vertical
     "bend" via `ARC_ROUTE_MARGIN` (20px) too, and the shared lane was the
-    min/max of *both* bends -- but that margin almost never lined up
+    min/max of _both_ bends -- but that margin almost never lined up
     exactly with the diagonal stub's own height (`ARC_DIAGONAL_STUB`,
     28px, measured from a different anchor point), leaving a
     near-zero-length leftover segment between the two. Visually that read
     as the diagonal overshooting into a spurious, nearly invisible
     vertical hop before snapping back to horizontal instead of a clean
     45°-to-horizontal bend, and the degenerate segment gave canvas
-    `arcTo` an undefined direction to round against at the *next* corner
+    `arcTo` an undefined direction to round against at the _next_ corner
     too, so a turn several segments later rendered as a sharp point
     instead of curved. Fixed by dropping the straight end's own bend
     entirely: since only the circular end ever needs a detour, the lane
@@ -600,7 +603,7 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
     straight port) instead of 6, or 5 when `circularBendClears` is false
     (see the fifth bug below, which needed an extra point here too).
 
-    A second bug turned up in the *forward* case's plumb-line shortcut,
+    A second bug turned up in the _forward_ case's plumb-line shortcut,
     caught the same way (tracing a hand-provided example, "Reg test 3"):
     the first version applied it unconditionally, so when the target was
     a place, the line's x came from the source's own center regardless
@@ -611,7 +614,7 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
     non-negotiable and only ever letting a rectangular end's attachment
     point shift to meet the other side: `fixedX` is the circular end's
     center when either end is circular (or the source's center when
-    neither is), and only the *other*, rectangular box (`flexBox`) is
+    neither is), and only the _other_, rectangular box (`flexBox`) is
     checked for whether that x fits inside it.
 
     A third bug turned up in the loop-back branch's "genuinely beside"
@@ -634,7 +637,7 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
     inserting one more point at the stub's own x when
     `!circularBendClears`, keeping every segment axis-aligned; that x is
     provably always clear of the straight box given the `xGap >=
-    ARC_DIAGONAL_STUB` gate already in place (the stub can reach at most
+ARC_DIAGONAL_STUB` gate already in place (the stub can reach at most
     `ARC_DIAGONAL_STUB - circularBox's own radius * (1 - cos 45°)` past
     the circular box's own edge, strictly less than `ARC_DIAGONAL_STUB`
     itself), so the extra vertical leg down/up to the lane never enters
@@ -647,16 +650,17 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
     crossing in any of them, run at both a coarse grid in the test suite
     and a much finer one standalone) rather than waiting for the next
     one-off report. That branch's clearance margins were each measured
-    off only the *nearer* box's own edge (`exit.y + ARC_ROUTE_MARGIN` for
+    off only the _nearer_ box's own edge (`exit.y + ARC_ROUTE_MARGIN` for
     the bottom lane, `enter.y - ARC_ROUTE_MARGIN` for the top lane) --
     correct back when this branch was only reached for a target cleanly
     above the source, but broken once the `xGap` fix (bug three) also
     routed merely-touching x-ranges through it, where the two boxes can
     overlap substantially in y. Fixed by measuring both lane heights
-    against *both* boxes (`Math.max(sourceBottom, targetBottom) +
-    ARC_ROUTE_MARGIN` and `Math.min(sourceBox.y, targetBox.y) -
-    ARC_ROUTE_MARGIN`), the same "clear of both, not just the nearer one"
+    against _both_ boxes (`Math.max(sourceBottom, targetBottom) +
+ARC_ROUTE_MARGIN` and `Math.min(sourceBox.y, targetBox.y) -
+ARC_ROUTE_MARGIN`), the same "clear of both, not just the nearer one"
     principle the diagonal branch already relies on.
+
   - An **ER arc** (entity_set<->relation) keeps using `orthogonalPath` --
     an ER diagram has no fixed reading direction (see `spec/index.html`'s
     ER section), so the shortest-route logic that access edges already
@@ -671,19 +675,20 @@ after the five Petri-routing bugs above were each found by a one-off
 hand-traced example, the user asked for a standing guard instead of
 waiting for the next report, plus "any other sweeping tests" including
 for block diagrams. Three exist now:
-  - `verticalArcPath` swept across many place/transition *positions*
-    (the guard that caught bug five above).
-  - `verticalArcPath` swept across many place/transition *sizes* too
-    (tiny places, very wide/narrow transitions) -- came back clean, a
-    standing guard against the diagonal stub's fixed margins
-    (`ARC_DIAGONAL_STUB` vs. `EDGE_CORNER_RADIUS`) breaking at extreme
-    proportions, not a fix for a found bug.
-  - `orthogonalPath` swept across many placements and sizes -- this
-    function (block-diagram access/channel edges and ER arcs) had zero
-    prior test coverage of any kind before this. Also came back clean.
-    `orthogonalPath` is now `export`ed (it wasn't previously) purely so
-    the test can call it directly, the same reason `verticalArcPath`
-    already was.
+
+- `verticalArcPath` swept across many place/transition _positions_
+  (the guard that caught bug five above).
+- `verticalArcPath` swept across many place/transition _sizes_ too
+  (tiny places, very wide/narrow transitions) -- came back clean, a
+  standing guard against the diagonal stub's fixed margins
+  (`ARC_DIAGONAL_STUB` vs. `EDGE_CORNER_RADIUS`) breaking at extreme
+  proportions, not a fix for a found bug.
+- `orthogonalPath` swept across many placements and sizes -- this
+  function (block-diagram access/channel edges and ER arcs) had zero
+  prior test coverage of any kind before this. Also came back clean.
+  `orthogonalPath` is now `export`ed (it wasn't previously) purely so
+  the test can call it directly, the same reason `verticalArcPath`
+  already was.
 
 Each sweep excludes placements where the two boxes' bounding boxes
 already overlap (not a real diagram layout, and not a property either
@@ -696,6 +701,7 @@ timeout) -- a finer standalone sweep (plain Node, no browser) is what
 actually found bug five and confirmed zero crossings at higher
 resolution afterward; see `implementation_plan.org`'s entry for this
 section for the exact counts.
+
 - `connector-tool.js`'s new `ConnectorKind.ARC` covers both diagram
   types' arcs with one rule (`source`/`target` both accept
   place/transition/entity_set/relation) -- the specific pairing is
@@ -715,7 +721,7 @@ section for the exact counts.
   with a visible white gap to the place's own outline -- independent of
   `tokens` (a place can hold a nonzero marking without being where the
   net's flow is considered to begin). Sized as `Math.min(box.width,
-  box.height) * 0.47` for the inner circle's diameter, so it scales with
+box.height) * 0.47` for the inner circle's diameter, so it scales with
   the place rather than a fixed pixel value -- the ratio comes from a
   measured reference screenshot (place diameter ~1.33em, filled inner
   circle ~0.6-0.67em, i.e. ~0.45-0.5x). An earlier version instead drew a
@@ -728,10 +734,10 @@ section for the exact counts.
   60px and scaled the transition up (~200x110) to match, but that read
   too large relative to the label text. Inverted instead: `addTransition`
   no longer passes an explicit box at all (back to `addElement`'s plain
-  120x60 default, its original size), and `addPlace` was sized *down* to
+  120x60 default, its original size), and `addPlace` was sized _down_ to
   `60 * (1.33/2.4) ~= 33` (33x33, was 60x60) to keep the same ratio
   against that. The isStart inner-circle sizing (`0.47 *
-  Math.min(box.width, box.height)`) is already relative to the place's
+Math.min(box.width, box.height)`) is already relative to the place's
   own size, so it scales down automatically with no separate change.
   `addPlace` also now creates a place with `null` label instead of "New
   place", matching `addPartition`'s already-unlabeled default -- a place
@@ -784,15 +790,16 @@ section for the exact counts.
   covers whichever pair `addArc` itself validates.
 
   This replaces a first, incorrect attempt at "ER is-a": a `kind:
-  'inheritance'` arc connecting two entity sets directly with a hollow
-  triangle *arrowhead*, modeled on UML generalization. That confused two
+'inheritance'` arc connecting two entity sets directly with a hollow
+  triangle _arrowhead_, modeled on UML generalization. That confused two
   distinct things -- subtyping via nesting one entity set inside another
   (the "subset" approach, already covered by ordinary containment) versus
   independent partitioning of one entity set into several (which needs
-  its own triangle *node*, not a decorated line) -- so it was removed
+  its own triangle _node_, not a decorated line) -- so it was removed
   outright (the `kind` field, `ConnectorKind.INHERITANCE`, and the
   palette's "Inheritance (is-a)" button all deleted) rather than kept
   alongside the corrected mechanism.
+
 - ER reification: `FmcModel.reifyRelation(relationId, { label })` creates
   a fresh entity set and nests the relation inside it via the existing
   generic containment mechanism (`addContainment` already allows any type
@@ -824,6 +831,7 @@ Konva stage, not anything diagram-specific.
 "The whole diagram" is `contentBounds(view)`: the bounding box over every
 box in `computeEffectiveBoxes(model, view)`. `withExportStage(render)`
 then, synchronously (so nothing ever paints on screen):
+
 1. Builds the header (`buildExportHeader`): view title (bold), "Author ·
    Contributors", "Created · Last modified" (dates only), a thin rule
    below, and "Fumoco vX.Y.Z" right-aligned on the title line. The export
@@ -857,7 +865,7 @@ stage transform.
 **Zoom** (`setZoom`): bottom-right buttons (−, current %, +; the % resets
 to 100%), steps of 1.25x clamped to 25%–400%, around the viewport center.
 Anything that turns screen positions into diagram units divides by the
-stage scale: `dragBoundFunc` (Konva hands it *absolute* positions) snaps
+stage scale: `dragBoundFunc` (Konva hands it _absolute_ positions) snaps
 in diagram units, and the Transformer's minimum size is checked in
 diagram units. The dotted grid is a CSS background on the container;
 `syncGridBackground` scales and offsets it with the stage.
@@ -1070,7 +1078,7 @@ back to the straight line otherwise, or when the edge has waypoints.
 
 Semantic-release style versions (from 0.1.0) derived from conventional
 commits, cut by hand: `npm version X.Y.Z --no-git-tag-version` in
-`fumoco/`, a `chore(release): X.Y.Z` commit, and an annotated `vX.Y.Z`
+the repository root, a `chore(release): X.Y.Z` commit, and an annotated `vX.Y.Z`
 tag.
 
 ## Containment (`Element.parents`)
@@ -1081,7 +1089,7 @@ of container ids. `FmcModel.addContainment(parentId, childId)`/
 graph search (DFS/BFS over all parent links, not one chain) so cycles are
 still blocked even through an indirect ancestor. `childrenOf(id)` filters
 by `element.parents.includes(id)`. The model tree renders an element once
-under *each* of its parents (and at the root only if it has none) --
+under _each_ of its parents (and at the root only if it has none) --
 `ModelTreeNode`'s existing recursive `childrenOf` call already does this
 for free, no changes needed there.
 
@@ -1098,6 +1106,7 @@ Not started. Current `View.included: elementId[]` / `boxes: Map<elementId,
 Box>` assume exactly one box per element id per view -- this needs to
 become `View.instances: Map<instanceId, { elementId, containerInstanceId,
 box }>` (an instance id distinct from the element id) so:
+
 - the same element can have more than one box in one view (e.g. nested
   under two different container instances, or just placed twice to avoid
   line crossings);
@@ -1115,6 +1124,7 @@ Done. `Channel { id, source, target, directed, place }` as a distinct
 edge type is gone; a channel's place is an ordinary `Location` `Element`
 with `channel: { shorthand }` set, connected to its agents via ordinary
 `addAccess` edges instead of a `directed` flag on a separate concept:
+
 - `addChannel(source, target, directed)`: one location; directed gives
   source `write`/target `read` (draws arrow-circle-arrow); bidirectional
   gives both `modify` (draws line-circle-line, no arrowheads).

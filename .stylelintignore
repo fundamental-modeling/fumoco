@@ -1,0 +1,9 @@
+# unconventional files
+/blueprints/*/files/
+
+# compiled output
+/dist/
+
+# downloaded reference material; old untracked examples
+/ext/
+/examples/

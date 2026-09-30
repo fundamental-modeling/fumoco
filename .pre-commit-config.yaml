@@ -4,7 +4,7 @@
 # Copyright (c) 2026 Holger Peters -- see the LICENSE file.
 
 # The JS hooks (local, below) use the project's own tools and configs:
-# run `npm ci` in fumoco/ once before committing.
+# run `npm ci` once before committing.
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
   rev: v6.0.0
@@ -12,7 +12,7 @@ repos:
   - id: trailing-whitespace
   - id: check-added-large-files
     args: [--maxkb=500]
-    exclude: ^fumoco/package-lock\.json$
+    exclude: ^package-lock\.json$
   - id: check-case-conflict
   - id: check-json
   - id: check-merge-conflict
@@ -52,26 +52,25 @@ repos:
     - ./etc/license-header.txt
 - repo: local
   hooks:
-  # pre-commit passes paths from the repo root; the tools run inside
-  # fumoco/ (where their configs live), so the prefix is stripped.
+  # YAML is formatted by pretty-format-yaml above, not prettier.
   - id: prettier
     name: prettier
-    entry: bash -c 'cd fumoco && npx prettier --write --ignore-unknown "${@#fumoco/}"' --
+    entry: npx prettier --write --ignore-unknown
     language: system
-    files: ^fumoco/.*\.(js|mjs|cjs|gjs|css|json|md|yaml|yml)$
-    exclude: ^fumoco/package-lock\.json$
+    files: \.(js|mjs|cjs|gjs|css|json|md)$
+    exclude: ^package-lock\.json$
   - id: eslint
     name: eslint
-    entry: bash -c 'cd fumoco && npx eslint --fix "${@#fumoco/}"' --
+    entry: npx eslint --fix
     language: system
-    files: ^fumoco/.*\.(js|mjs|cjs|gjs)$
+    files: \.(js|mjs|cjs|gjs)$
   - id: ember-template-lint
     name: ember-template-lint
-    entry: bash -c 'cd fumoco && npx ember-template-lint --fix "${@#fumoco/}"' --
+    entry: npx ember-template-lint --fix
     language: system
-    files: ^fumoco/.*\.(gjs|hbs)$
+    files: \.(gjs|hbs)$
   - id: stylelint
     name: stylelint
-    entry: bash -c 'cd fumoco && npx stylelint --fix "${@#fumoco/}"' --
+    entry: npx stylelint --fix
     language: system
-    files: ^fumoco/.*\.css$
+    files: \.css$

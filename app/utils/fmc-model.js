@@ -17,7 +17,7 @@
 // by which agents have read/write access to it (arrow-circle-arrow) or
 // modify access (line-circle-line, no arrowheads) -- not by a `directed`
 // flag on a separate concept. See addChannel/addReqRes below and
-// PFLICHTENHEFT.md for the rendering side. Petri/ER element types are added
+// docs/PFLICHTENHEFT.md for the rendering side. Petri/ER element types are added
 // in Milestones B/C without changing this shape's spirit -- see the plan.
 
 import { tracked } from '@glimmer/tracking';
@@ -43,7 +43,7 @@ export const ElementType = Object.freeze({
   // arrowhead), also connected to entity sets via `arcs` -- an arc from
   // the partitioned (super)set to the triangle attaches at its apex, an
   // arc from the triangle to each part (subset) attaches along its base.
-  // See spec/index.html's "Orthogonal partitioning" section.
+  // See docs/spec/index.html's "Orthogonal partitioning" section.
   PARTITION: 'partition',
   // "…" between exemplars (A1 … An), in any diagram type: enumerates
   // similar elements without drawing each one. Not part of the bipartite
@@ -468,7 +468,7 @@ export class FmcModel {
       // or 'one' to mark this entity set's side of the relation as
       // functional -- drawn as a small arrow near the relation, FMC's
       // notation for a 1:n/1:1 relation's arrow-inside-the-symbol
-      // convention (see spec/index.html's Cardinality and roles section).
+      // convention (see docs/spec/index.html's Cardinality and roles section).
       cardinality,
     };
     this.arcs.push(arc);
@@ -496,7 +496,7 @@ export class FmcModel {
 
   // ER reification: "the elements of a relation become the elements of a
   // new entity set, which can then participate in further relations of
-  // its own" (spec/index.html's Reification section). Modeled here as
+  // its own" (docs/spec/index.html's Reification section). Modeled here as
   // nesting the relation inside a fresh entity set via the existing
   // generic containment mechanism (addContainment already allows any
   // type mix), rather than a bespoke reification concept -- the new
@@ -635,7 +635,7 @@ export class FmcModel {
   }
 
   // Checks well-formedness conditions that only make sense on a
-  // *finished* diagram (see spec/index.html's Access-arity laws) rather
+  // *finished* diagram (see docs/spec/index.html's Access-arity laws) rather
   // than as a live editing invariant -- a storage/channel is allowed to
   // sit unconnected while you're still wiring the rest of the diagram up,
   // same as an element is allowed to exist before it's placed in any
