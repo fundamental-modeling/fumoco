@@ -317,14 +317,14 @@ Dropped on 2026-09-29, kept here so they aren't re-raised by accident:
 
 ## Process
 
-- As the person paying for this, I want changes committed regularly, not
-  batched up across many features at once.
-- As the person paying for this, I want a Lastenheft (this file, in user-
-  story form) and a Pflichtenheft (the technical how) maintained
-  alongside the actual work, not written up after the fact.
-- As the person paying for this, I want the implementation plan kept in
-  Org mode, using Org's own TODO-state keywords, not a Markdown checklist.
-- As the person paying for this, I want semantic-release style version
-  numbers (from 0.1.0), derived from conventional commits.
-- As the person paying for this, I want the repository presentable for
-  publication on GitHub.
+- As the maintainer, I want changes committed regularly, not batched up
+  across many features at once.
+- As the maintainer, I want a Lastenheft (this file, in user-story form)
+  and a Pflichtenheft (the technical how) maintained alongside the actual
+  work, not written up after the fact.
+- As the maintainer, I want the implementation plan kept in Org mode,
+  using Org's own TODO-state keywords, not a Markdown checklist.
+- As the maintainer, I want semantic-release style version numbers (from
+  0.1.0), derived from conventional commits.
+- As the maintainer, I want the repository presentable for publication on
+  GitHub.
