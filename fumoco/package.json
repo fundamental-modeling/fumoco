@@ -3,7 +3,7 @@
   "version": "0.7.0",
   "private": true,
   "description": "A browser-based editor for FMC (Fundamental Modeling Concepts) diagrams",
-  "repository": "",
+  "repository": "github:fundamental-modeling/fumoco",
   "license": "MIT",
   "author": "",
   "exports": {

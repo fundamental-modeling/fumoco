@@ -70,7 +70,8 @@ button in the editor.
 Requirements: [Node.js](https://nodejs.org/) 20.19 or newer, and npm.
 
 ```sh
-cd fumoco
+git clone https://github.com/fundamental-modeling/fumoco.git
+cd fumoco/fumoco
 npm ci
 npm start
 ```
@@ -140,5 +141,4 @@ version. Each release is a `chore(release): X.Y.Z` commit tagged `vX.Y.Z`.
 
 ## License
 
-No license has been chosen yet. Until a `LICENSE` file is added, all
-rights are reserved.
+[MIT](LICENSE).
