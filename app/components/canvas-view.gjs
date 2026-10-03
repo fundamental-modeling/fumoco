@@ -23,7 +23,14 @@ import {
 } from 'fumoco/utils/fmc-model';
 import { ConnectorKind, connectorRule } from 'fumoco/services/connector-tool';
 import { defaultBoxSize } from 'fumoco/utils/box-layout';
-import { fittedOutline, labelArea, outlineEntry } from 'fumoco/utils/outline';
+import {
+  fittedOutline,
+  labelArea,
+  outlineBounds,
+  outlineEntry,
+  pushSegment,
+  rectOutline,
+} from 'fumoco/utils/outline';
 import config from 'fumoco/config/environment';
 
 const GRID = 10;
@@ -1209,6 +1216,10 @@ export default class CanvasView extends Component {
         this.contextMenu = null;
         return;
       }
+      if (event.key === 'Escape' && this.shapeEdit) {
+        this.stopShapeEdit();
+        return;
+      }
       // Enter-to-rename doesn't depend on double-click/double-tap timing
       // at all -- useful since Konva suppresses click/dblclick on a
       // draggable node once it detects even a sub-pixel drag between the
@@ -1328,6 +1339,7 @@ export default class CanvasView extends Component {
       this.refreshNodeStyling();
       this.refreshEdgeStyling();
       this.syncEdgeHandles(); // they sit on the (possibly moved) connector
+      this.syncShapeEditor();
       this.syncScrollbars();
     });
   });
@@ -1980,6 +1992,10 @@ export default class CanvasView extends Component {
   syncSelection = modifier(() => {
     this.attachTransformer();
     this.refreshNodeStyling();
+    // selecting anything else ends editing a shape
+    if (this.shapeEdit && !this.selection.isSelected(this.shapeEdit.id)) {
+      queueMicrotask(() => this.stopShapeEdit());
+    }
   });
 
   // Re-runs whenever the selected edge changes -- highlights its path and
@@ -2824,6 +2840,196 @@ export default class CanvasView extends Component {
     });
   }
 
+  // ---- shaped locations: editing the outline ----
+  //
+  // In edit mode the location's outline edges are handles: two clicks on
+  // one edge mark a section of it; dragging that section (or, without
+  // marks, the whole edge) perpendicular to the edge pushes it in or out
+  // (pushSegment), adding the two joining edges. Snaps to the grid; a
+  // push that would make the outline cross itself is refused. Escape or
+  // "Done editing shape" ends it.
+  shapeEdit = null; // { id, marks: [{ edge, at }] }
+
+  shapeMenuItems(id) {
+    const view = this.modelStore.activeView;
+    const element = this.modelStore.model.elements.get(id);
+    const box = view?.boxes.get(id);
+    const hasNested = (
+      buildDisplayChildIndex(this.modelStore.model, view).get(id) ?? []
+    ).length;
+    if (element?.type !== ElementType.LOCATION || element.channel || !box) {
+      return [];
+    }
+    if (hasNested) return []; // a container's box fits its content
+    const items = [];
+    if (this.shapeEdit?.id === id) {
+      items.push({
+        label: 'Done editing shape',
+        action: () => this.stopShapeEdit(),
+      });
+    } else {
+      items.push({
+        label: 'Edit shape',
+        action: () => this.startShapeEdit(id),
+      });
+    }
+    if (box.outline) {
+      items.push({
+        label: 'Reset shape',
+        action: () =>
+          this.modelStore.mutate(() => {
+            const plain = { ...box };
+            delete plain.outline;
+            view.boxes.set(id, plain);
+          }),
+      });
+    }
+    return items;
+  }
+
+  startShapeEdit(id) {
+    this.shapeEdit = { id, marks: [] };
+    this.selection.select(id);
+    this.syncShapeEditor();
+  }
+
+  stopShapeEdit() {
+    this.shapeEdit = null;
+    this.syncShapeEditor();
+  }
+
+  syncShapeEditor() {
+    if (!this.shapeLayer) return;
+    this.shapeLayer.find('.fumoco-shape-edit').forEach((n) => n.destroy());
+    const view = this.modelStore.activeView;
+    const edit = this.shapeEdit;
+    const box = edit && view?.boxes.get(edit.id);
+    if (!box) {
+      this.shapeEdit = null;
+      this.shapeLayer.batchDraw();
+      return;
+    }
+    const outline = (
+      fittedOutline(box) ?? rectOutline(box.width, box.height)
+    ).map((p) => ({ x: p.x + box.x, y: p.y + box.y }));
+    const preview = new Konva.Line({
+      name: 'fumoco-shape-edit',
+      closed: true,
+      stroke: '#0078ff',
+      strokeWidth: 1,
+      dash: [5, 4],
+      listening: false,
+      visible: false,
+    });
+    this.shapeLayer.add(preview);
+    outline.forEach((p, i) => {
+      const q = outline[(i + 1) % outline.length];
+      const horizontal = p.y === q.y;
+      const along = horizontal ? 'x' : 'y';
+      const marks = edit.marks.filter((m) => m.edge === i);
+      const edge = new Konva.Line({
+        name: 'fumoco-shape-edit',
+        points: [p.x, p.y, q.x, q.y],
+        stroke:
+          marks.length === 2 ? 'rgba(0,120,255,0.25)' : 'rgba(0,120,255,0.6)',
+        strokeWidth: 3,
+        hitStrokeWidth: 14,
+        draggable: true,
+        // pushed perpendicular to itself only
+        dragBoundFunc: (pos) =>
+          horizontal
+            ? { x: edge.absolutePosition().x, y: pos.y }
+            : { x: pos.x, y: edge.absolutePosition().y },
+      });
+      edge.on('mouseenter', () => {
+        this.stage.container().style.cursor = horizontal
+          ? 'row-resize'
+          : 'col-resize';
+      });
+      edge.on('mouseleave', () => {
+        this.stage.container().style.cursor = '';
+      });
+      edge.on('click', (event) => {
+        event.cancelBubble = true;
+        const pointer = this.stage.getRelativePointerPosition();
+        const lo = Math.min(p[along], q[along]);
+        const hi = Math.max(p[along], q[along]);
+        const at = Math.min(hi, Math.max(lo, snapToGrid(pointer[along])));
+        const kept = edit.marks.filter((m) => m.edge === i).slice(-1);
+        edit.marks = [...(kept.length === 1 ? kept : []), { edge: i, at }];
+        this.syncShapeEditor();
+      });
+      // the section to push: between the two marks, else the whole edge
+      const section = () =>
+        marks.length === 2 ? [marks[0].at, marks[1].at] : [p[along], q[along]];
+      const pushed = () => {
+        const delta = snapToGrid(horizontal ? edge.y() : edge.x());
+        return pushSegment(outline, i, ...section(), delta);
+      };
+      edge.on('dragmove', () => {
+        const result = pushed();
+        preview.visible(true);
+        preview.stroke(result ? '#0078ff' : '#d04040');
+        preview.points((result ?? outline).flatMap((pt) => [pt.x, pt.y]));
+        this.shapeLayer.batchDraw();
+      });
+      edge.on('dragend', () => {
+        const result = pushed();
+        this.stage.container().style.cursor = '';
+        if (!result) {
+          this.syncShapeEditor(); // refused: snap back
+          return;
+        }
+        const bounds = outlineBounds(result);
+        const relative = result.map((pt) => ({
+          x: pt.x - bounds.x,
+          y: pt.y - bounds.y,
+        }));
+        this.modelStore.mutate(() => {
+          const plain = { ...view.boxes.get(edit.id) };
+          delete plain.outline;
+          view.boxes.set(edit.id, {
+            ...plain,
+            ...bounds,
+            // a plain rectangle again needs no outline
+            ...(relative.length > 4 ? { outline: relative } : {}),
+          });
+        });
+        edit.marks = [];
+      });
+      this.shapeLayer.add(edge);
+      if (marks.length === 2) {
+        const [a, b] = marks.map((m) =>
+          horizontal ? { x: m.at, y: p.y } : { x: p.x, y: m.at },
+        );
+        this.shapeLayer.add(
+          new Konva.Line({
+            name: 'fumoco-shape-edit',
+            points: [a.x, a.y, b.x, b.y],
+            stroke: '#0078ff',
+            strokeWidth: 5,
+            listening: false,
+          }),
+        );
+      }
+      for (const m of marks) {
+        this.shapeLayer.add(
+          new Konva.Circle({
+            name: 'fumoco-shape-edit',
+            x: horizontal ? m.at : p.x,
+            y: horizontal ? p.y : m.at,
+            radius: 4,
+            fill: '#ffffff',
+            stroke: '#0078ff',
+            strokeWidth: 2,
+            listening: false,
+          }),
+        );
+      }
+    });
+    this.shapeLayer.batchDraw();
+  }
+
   // Turns each selected line/divider/ellipsis 90 degrees about its center
   // (a vertical divider becomes horizontal, and back).
   turnSelection() {
@@ -3000,6 +3206,7 @@ export default class CanvasView extends Component {
       { label: 'Rename', action: () => this.promptRename(id) },
       ...this.clipboardMenuItems(point, { withCutCopy: true }),
       { label: 'Reset size', action: () => this.resetSelectionSize() },
+      ...this.shapeMenuItems(id),
       ...(element &&
       isGlyphType(element.type) &&
       element.type !== ElementType.TEXT

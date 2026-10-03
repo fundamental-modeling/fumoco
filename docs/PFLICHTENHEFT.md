@@ -1013,6 +1013,35 @@ in-app only. Context menus list Cut/Copy/Paste/Select all with
 platform-specific shortcut hints; right-clicking inside a multi-selection
 keeps it.
 
+## Shaped locations (`utils/outline.js`, `syncShapeEditor`)
+
+A location's view box may carry an `outline`: a closed polygon of
+horizontal and vertical edges, relative to the box; the box stays its
+bounding box (nesting, export bounds, alignment unchanged). Without one,
+the box is a rectangle.
+
+- **Drawing**: `fittedOutline` stretches the outline to the box's current
+  size (resizing and "same size" change only width/height);
+  `drawRoundedPolygon` rounds every corner, convex and concave, radius 12
+  reduced on short edges, with quadratic curves like the connector
+  corners. The label sits in the outline's largest horizontal slab
+  (`labelArea`), off any notch.
+- **Connectors**: routing is unchanged; only an end point on a shaped
+  location's bounding box slides along its last leg to where it meets the
+  outline (`outlineEntry`) -- a straight edge, a lens, or an edge tree's
+  trunk alike.
+- **Editing** ("Edit shape" in a leaf location's context menu): the
+  outline's edges become handles. Two clicks on one edge mark a section;
+  dragging the section -- or, without marks, the whole edge --
+  perpendicular to the edge calls `pushSegment`, which inserts the
+  section's two joining edges, normalizes the polygon and refuses
+  (returns null) anything self-touching or degenerate (`isValidOutline`);
+  a refused push snaps back, with a red preview while dragging. Snaps to
+  the grid. The result is stored with its bounds as the new box; back to
+  four vertices, the outline is dropped. "Reset shape" removes it.
+  Escape, "Done editing shape" or selecting something else ends editing.
+  Containers aren't shaped (their box fits their content).
+
 ## Reconnecting connectors (`planReconnect`, `reconnect`, `addReconnectHandles`)
 
 A selected connector (access edge or Petri/ER arc) shows a square handle

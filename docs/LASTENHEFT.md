@@ -96,6 +96,12 @@ implementation notes here — that's the other two documents' job.
   response shorthand "R▶" — drawn outside the channel's small circle, as
   in FMC, with the triangle pointing the way the request goes.
 
+- As a modeler, I want locations to take the shapes common in the FMC
+  literature — L-shaped, U-shaped and the like: closed outlines of
+  horizontal and vertical edges, always with rounded corners. I want to
+  shape them by marking two points on one side of the box and pushing
+  that section in or out.
+
 - As a modeler, I want to multi-select boxes via shift-click, cmd/ctrl-
   click, and by dragging a selection rectangle over them.
 - As a modeler, I want to move several selected elements together, and
