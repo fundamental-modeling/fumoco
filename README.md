@@ -149,7 +149,6 @@ drawing on a [Konva](https://konvajs.org/) canvas.
 | `docs/examples/`, `docs/screenshots/` | Example models and the screenshots above.                                                                                                                                       |
 | `docs/LASTENHEFT.md`                  | Requirements, as user stories.                                                                                                                                                  |
 | `docs/PFLICHTENHEFT.md`               | How each requirement is built.                                                                                                                                                  |
-| `docs/implementation_plan.org`        | Checklist of what's done and what's open, by milestone (Org mode).                                                                                                              |
 
 ### Versioning
 
@@ -162,6 +161,20 @@ version. Each release is a `chore(release): X.Y.Z` commit tagged
 Packages).
 
 ## Status and roadmap
+
+Open and completed work is tracked with
+[git-bug](https://github.com/git-bug/git-bug): issues live in the
+repository itself (under `refs/bugs/`), labeled by milestone
+(`milestone-A` … `milestone-D`), plus `backlog`, `proposal`, `question`
+and `bug`.
+
+```sh
+git bug pull origin              # fetch issues (not part of git fetch)
+git bug bug status:open          # what's open
+git bug bug label:milestone-D    # one milestone
+git bug termui                   # browse and edit in the terminal
+git bug push origin              # share your changes
+```
 
 - **Milestone A — block-diagram editor:** complete.
 - **Milestone B — Petri nets:** complete.

@@ -2,8 +2,8 @@
 
 The requirements, as user stories, in the user's own terms — this file is
 the _what/why_, drawn directly from requests made in conversation. It
-carries no build status; that belongs in `implementation_plan.org`, which
-tracks each of these through done/in-progress/planned/open-question.
+carries no build status; that's tracked as issues with
+[git-bug](https://github.com/git-bug/git-bug), open or closed.
 `PFLICHTENHEFT.md` is the _how_ for whatever's been built.
 
 Update this file when a genuinely new requirement is raised, phrased as a
@@ -351,10 +351,10 @@ Dropped on 2026-09-29, kept here so they aren't re-raised by accident:
 - As the maintainer, I want a Lastenheft (this file, in user-story form)
   and a Pflichtenheft (the technical how) maintained alongside the actual
   work, not written up after the fact.
-- As the maintainer, I want the implementation plan kept in Org mode as
-  a checklist — one line per item, `[ ]` open and `[X]` done, open items
-  first, done/total counts per milestone — so it's obvious at a glance
-  what's finished and what's left.
+- As the maintainer, I want open and completed work tracked as git-bug
+  issues stored in the repository (labeled by milestone) rather than in
+  a hand-edited checklist file, so it's obvious what's finished and
+  what's left.
 - As the maintainer, I want semantic-release style version numbers (from
   0.1.0), derived from conventional commits.
 - As the maintainer, I want the repository presentable for publication on
