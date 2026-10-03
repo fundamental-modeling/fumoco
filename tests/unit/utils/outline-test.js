@@ -10,6 +10,7 @@ import {
   normalizeOutline,
   outlineBounds,
   outlineEntry,
+  pointInOutline,
   pushSegment,
   rectOutline,
 } from 'fumoco/utils/outline';
@@ -88,5 +89,13 @@ module('Unit | Utility | outline', function () {
     // a notch pushed up from the bottom leaves the top bar as the largest part
     assert.deepEqual(labelArea(u), { x: 0, y: 0, width: 200, height: 60 });
     assert.deepEqual(labelArea(rect), { x: 0, y: 0, width: 200, height: 100 });
+  });
+
+  test('a point in a notch is outside the shape', function (assert) {
+    const u = pushSegment(rect, 2, 60, 140, -40); // notch x 60..140, y 60..100
+    assert.true(pointInOutline(u, { x: 30, y: 80 }), 'in a leg');
+    assert.true(pointInOutline(u, { x: 100, y: 30 }), 'in the top bar');
+    assert.false(pointInOutline(u, { x: 100, y: 80 }), 'in the notch');
+    assert.false(pointInOutline(u, { x: 300, y: 50 }), 'outside the box');
   });
 });

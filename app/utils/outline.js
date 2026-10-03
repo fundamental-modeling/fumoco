@@ -172,13 +172,12 @@ export function fittedOutline(box) {
   }));
 }
 
-// Where a shaped location's label goes: the largest rectangle the outline
-// splits into along horizontal slabs (a U's bottom bar, an L's longer
-// leg), so the label sits inside the shape rather than on a notch.
-export function labelArea(points) {
+// The outline split into rectangles along horizontal slabs (between
+// consecutive vertex heights): what's inside it, as rectangles.
+export function outlineRects(points) {
   const ys = [...new Set(points.map((p) => p.y))].sort((a, b) => a - b);
   const verticals = edges(points).filter(([a, b]) => a.x === b.x);
-  let best = null;
+  const rects = [];
   for (let i = 0; i < ys.length - 1; i++) {
     const [y0, y1] = [ys[i], ys[i + 1]];
     const mid = (y0 + y1) / 2;
@@ -188,19 +187,35 @@ export function labelArea(points) {
       .map(([a]) => a.x)
       .sort((a, b) => a - b);
     for (let j = 0; j + 1 < xs.length; j += 2) {
-      const area = (xs[j + 1] - xs[j]) * (y1 - y0);
-      if (!best || area > best.area) {
-        best = {
-          area,
-          x: xs[j],
-          y: y0,
-          width: xs[j + 1] - xs[j],
-          height: y1 - y0,
-        };
-      }
+      rects.push({
+        x: xs[j],
+        y: y0,
+        width: xs[j + 1] - xs[j],
+        height: y1 - y0,
+      });
     }
   }
-  if (!best) return outlineBounds(points);
-  const { x, y, width, height } = best;
-  return { x, y, width, height };
+  return rects;
+}
+
+// Where a shaped location's label goes: the largest of outlineRects (a
+// U's bottom bar, an L's longer leg), so it sits inside the shape rather
+// than on a notch.
+export function labelArea(points) {
+  const rects = outlineRects(points);
+  if (!rects.length) return outlineBounds(points);
+  return rects.reduce((best, r) =>
+    r.width * r.height > best.width * best.height ? r : best,
+  );
+}
+
+// Is `point` inside the outline (or on its edge)?
+export function pointInOutline(points, point) {
+  return outlineRects(points).some(
+    (r) =>
+      point.x >= r.x &&
+      point.x <= r.x + r.width &&
+      point.y >= r.y &&
+      point.y <= r.y + r.height,
+  );
 }

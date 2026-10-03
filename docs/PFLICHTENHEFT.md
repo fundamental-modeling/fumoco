@@ -1013,7 +1013,7 @@ in-app only. Context menus list Cut/Copy/Paste/Select all with
 platform-specific shortcut hints; right-clicking inside a multi-selection
 keeps it.
 
-## Shaped locations (`utils/outline.js`, `syncShapeEditor`)
+## Shaped locations and agents (`utils/outline.js`, `syncShapeEditor`)
 
 A location's view box may carry an `outline`: a closed polygon of
 horizontal and vertical edges, relative to the box; the box stays its
@@ -1041,6 +1041,17 @@ the box is a rectangle.
   four vertices, the outline is dropped. "Reset shape" removes it.
   Escape, "Done editing shape" or selecting something else ends editing.
   Containers aren't shaped (their box fits their content).
+- **Agents** take outlines the same way, drawn with sharp corners (FMC's
+  angular family); human agents (their stick figure fills the box),
+  channels and the other diagram types' nodes keep their fixed shapes
+  (`isShapeable`).
+- **Inside a shape** (`boxHas`, `boxTouches`, `pointInOutline`,
+  `outlineRects`): dropping a box to nest it, the reconnect drop target
+  and marquee selection test against the outline, not the bounding box --
+  a point in a notch is outside. Placing new boxes, routing and export
+  bounds keep using the bounding box. Clicks hit the drawn shape anyway.
+- **Exports** draw the plain diagram: no selection highlight, connector
+  handles or shape-editing handles.
 
 ## Reconnecting connectors (`planReconnect`, `reconnect`, `addReconnectHandles`)
 

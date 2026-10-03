@@ -28,6 +28,8 @@ import {
   labelArea,
   outlineBounds,
   outlineEntry,
+  outlineRects,
+  pointInOutline,
   pushSegment,
   rectOutline,
 } from 'fumoco/utils/outline';
@@ -358,6 +360,23 @@ function rectsIntersect(a, b) {
     b.x < a.x + a.width &&
     a.y < b.y + b.height &&
     b.y < a.y + a.height
+  );
+}
+
+// Is `point` inside `box` as displayed -- for a shaped box, inside its
+// outline, not merely its bounding box (a point in a notch isn't)?
+function boxHas(box, point) {
+  const outline = fittedOutline(box);
+  if (!outline) return pointInBox(point, box);
+  return pointInOutline(outline, { x: point.x - box.x, y: point.y - box.y });
+}
+
+// Does `rect` overlap `box` as displayed (its outline, if shaped)?
+function boxTouches(box, rect) {
+  const outline = fittedOutline(box);
+  if (!outline) return rectsIntersect(box, rect);
+  return outlineRects(outline).some((r) =>
+    rectsIntersect({ ...r, x: r.x + box.x, y: r.y + box.y }, rect),
   );
 }
 
@@ -930,8 +949,20 @@ function nearestWaypointInsertIndex(point, anchorCenters) {
   return bestIndex;
 }
 
+// Which elements can take a rectilinear outline (L, U, ...): storages,
+// with rounded corners, and agents, with sharp ones. Channels, human
+// agents (their stick figure fills the box) and the other diagram
+// types' nodes keep their fixed shapes.
+function isShapeable(element) {
+  return (
+    (element?.type === ElementType.LOCATION && !element.channel) ||
+    element?.type === ElementType.AGENT
+  );
+}
+
 // A closed rectilinear outline with every corner rounded -- the same
-// quadratic-curve corners as drawRoundedPolyline, convex and concave alike.
+// quadratic-curve corners as drawRoundedPolyline, convex and concave
+// alike; radius 0 draws sharp corners.
 function drawRoundedPolygon(ctx, points, radius) {
   const n = points.length;
   const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
@@ -947,6 +978,10 @@ function drawRoundedPolygon(ctx, points, radius) {
     const legIn = Math.hypot(corner.x - prev.x, corner.y - prev.y);
     const legOut = Math.hypot(next.x - corner.x, next.y - corner.y);
     const r = Math.min(radius, legIn / 2, legOut / 2);
+    if (!r) {
+      ctx.lineTo(corner.x, corner.y);
+      continue;
+    }
     ctx.lineTo(
       corner.x + ((prev.x - corner.x) * r) / legIn,
       corner.y + ((prev.y - corner.y) * r) / legIn,
@@ -1166,11 +1201,21 @@ export default class CanvasView extends Component {
       if (!this.marqueeStart) return;
       const wasMarquee = this.marqueeRect.visible();
       if (wasMarquee) {
-        const box = this.marqueeRect.getClientRect();
-        const ids = [];
-        for (const [id, node] of this.nodesById) {
-          if (rectsIntersect(box, node.getClientRect())) ids.push(id);
-        }
+        // in diagram coordinates, against each box as displayed -- a
+        // shaped one only where its outline actually is
+        const marquee = {
+          x: this.marqueeRect.x(),
+          y: this.marqueeRect.y(),
+          width: this.marqueeRect.width(),
+          height: this.marqueeRect.height(),
+        };
+        const boxes = computeEffectiveBoxes(
+          this.modelStore.model,
+          this.modelStore.activeView,
+        );
+        const ids = [...this.nodesById.keys()].filter(
+          (id) => boxes.has(id) && boxTouches(boxes.get(id), marquee),
+        );
         this.selection.clear();
         for (const id of ids) this.selection.toggle(id);
       } else {
@@ -2040,8 +2085,9 @@ export default class CanvasView extends Component {
   // value is written after being read earlier in the same render pass),
   // and from syncSelection/syncConnectorEligibility whenever selection or
   // the armed connector kind changes on their own.
-  refreshNodeStyling() {
-    const kind = this.connectorTool.kind;
+  // `plain`: as if nothing were selected or armed (for exports).
+  refreshNodeStyling({ plain = false } = {}) {
+    const kind = plain ? null : this.connectorTool.kind;
     const pendingSourceId = this.connectorTool.pendingSourceId;
     for (const [id, node] of this.nodesById) {
       const element = this.modelStore.model.elements.get(id);
@@ -2052,7 +2098,7 @@ export default class CanvasView extends Component {
       );
       const rect = node.findOne('.fumoco-body');
       if (!rect) continue;
-      const selected = this.selection.isSelected(id);
+      const selected = !plain && this.selection.isSelected(id);
       // a glyph (ellipsis, divider) has no outline -- only while selected
       const unselected = isGlyphType(element?.type) ? null : '#000000';
       rect.stroke(selected ? '#0078ff' : unselected);
@@ -2074,9 +2120,9 @@ export default class CanvasView extends Component {
   // Highlights the selected edge's main path the same way a selected
   // node gets a blue stroke -- skips the arrowhead triangles (not tagged
   // `fumocoEdgeMain`), which stay solid black regardless of selection.
-  refreshEdgeStyling() {
+  refreshEdgeStyling({ plain = false } = {}) {
     if (!this.shapeLayer) return;
-    const selectedId = this.selection.selectedEdgeId;
+    const selectedId = plain ? null : this.selection.selectedEdgeId;
     this.shapeLayer.find('.fumoco-edge').forEach((node) => {
       if (!node.getAttr('fumocoEdgeMain')) return;
       const selected = node.getAttr('fumocoEdgeId') === selectedId;
@@ -2233,7 +2279,7 @@ export default class CanvasView extends Component {
       this.modelStore.model,
       view,
     )) {
-      if (!pointInBox(point, box)) continue;
+      if (!boxHas(box, point)) continue;
       if (!best || box.width * box.height < best.area) {
         best = { id, area: box.width * box.height };
       }
@@ -2683,8 +2729,14 @@ export default class CanvasView extends Component {
       height: this.stage.height(),
     };
     this.transformer.nodes([]); // hide selection handles for the export
-    // an armed connector tool dims elements it can't pick -- not in exports
-    for (const node of this.nodesById.values()) node.opacity(1);
+    // exports show the plain diagram: no selection highlight, no dimming
+    // by an armed connector tool, no connector or shape-editing handles
+    this.refreshNodeStyling({ plain: true });
+    this.refreshEdgeStyling({ plain: true });
+    const handles = this.shapeLayer.find(
+      '.fumoco-edge-handle, .fumoco-shape-edit',
+    );
+    handles.forEach((n) => n.hide());
     this.guideLayer.hide(); // page frame, marquee
     this.stage.position({ x: -bounds.x + margin, y: -bounds.y + margin });
     this.stage.size({ width, height });
@@ -2709,7 +2761,9 @@ export default class CanvasView extends Component {
       this.stage.scale(originalScale);
       this.stage.position(originalPos);
       this.stage.size(originalSize);
-      this.refreshNodeStyling(); // restores the connector-tool dimming
+      handles.forEach((n) => n.show());
+      this.refreshNodeStyling(); // restores selection and dimming
+      this.refreshEdgeStyling();
       this.attachTransformer();
       this.stage.batchDraw();
     }
@@ -2857,7 +2911,7 @@ export default class CanvasView extends Component {
     const hasNested = (
       buildDisplayChildIndex(this.modelStore.model, view).get(id) ?? []
     ).length;
-    if (element?.type !== ElementType.LOCATION || element.channel || !box) {
+    if (!isShapeable(element) || !box) {
       return [];
     }
     if (hasNested) return []; // a container's box fits its content
@@ -3491,7 +3545,7 @@ export default class CanvasView extends Component {
     // the top (where the partitioned superset's arc attaches) and base at
     // the bottom (where each part/subset's arc attaches) -- see
     // docs/spec/index.html's "Orthogonal partitioning" section.
-    const outline = isLocation && !isChannel ? fittedOutline(box) : null;
+    const outline = isShapeable(element) ? fittedOutline(box) : null;
     const rect = isPartition
       ? new Konva.Line({
           points: [box.width / 2, 0, box.width, box.height, 0, box.height],
@@ -3501,8 +3555,9 @@ export default class CanvasView extends Component {
           strokeWidth: NODE_STROKE_WIDTH,
         })
       : outline
-        ? // a shaped location: its rectilinear outline, every corner
-          // rounded; width/height keep the Transformer's frame right
+        ? // a shaped location or agent: its rectilinear outline -- every
+          // corner rounded for a location, sharp for an (angular) agent;
+          // width/height keep the Transformer's frame right
           new Konva.Shape({
             name: 'fumoco-body',
             width: box.width,
@@ -3512,7 +3567,7 @@ export default class CanvasView extends Component {
             strokeWidth: NODE_STROKE_WIDTH,
             dash: element.dashed ? [6, 4] : undefined,
             sceneFunc: (ctx, shape) => {
-              drawRoundedPolygon(ctx, outline, 12);
+              drawRoundedPolygon(ctx, outline, isLocation ? 12 : 0);
               ctx.fillStrokeShape(shape);
             },
           })
@@ -3965,7 +4020,7 @@ export default class CanvasView extends Component {
     for (const id of view.included) {
       if (id === elementId || id === currentParent) continue;
       const candidateBox = effectiveBoxes.get(id);
-      if (!candidateBox || !pointInBox(center, candidateBox)) continue;
+      if (!candidateBox || !boxHas(candidateBox, center)) continue;
       if (isGlyphType(model.elements.get(id)?.type)) continue; // nothing nests in a glyph
       const area = candidateBox.width * candidateBox.height;
       if (area < bestArea) {

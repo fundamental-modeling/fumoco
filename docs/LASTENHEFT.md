@@ -100,7 +100,8 @@ implementation notes here — that's the other two documents' job.
   literature — L-shaped, U-shaped and the like: closed outlines of
   horizontal and vertical edges, always with rounded corners. I want to
   shape them by marking two points on one side of the box and pushing
-  that section in or out.
+  that section in or out. Agents too — with sharp corners. "Inside a
+  box" then means inside its shape, not its bounding box.
 
 - As a modeler, I want to multi-select boxes via shift-click, cmd/ctrl-
   click, and by dragging a selection rectangle over them.
