@@ -1,1 +1,1 @@
-{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":4,"timestamp":1791037791,"nonce":"t4vrsJlwCZN382NDMiDdpLOH7e8=","status":2}]}
+{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":2,"timestamp":1791037836,"nonce":"53jIi32OLZSCQDfyoK0CpksXUWg=","title":"Remove an element from the current view only, keeping it in the model","was":"Remove an element from just the current view without deleting it from the…"}]}
