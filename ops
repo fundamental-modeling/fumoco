@@ -1,1 +1,1 @@
-{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":1,"timestamp":1791037809,"nonce":"iCx6HMvU2PyslAUbgp9AlJ0NygE=","title":"Petri net starting-place notation","message":"Petri net starting-place notation\n\n(Migrated from docs/implementation_plan.org.)","files":null}]}
+{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":5,"timestamp":1791037809,"nonce":"gMFoxvG0IGW1YhQlgVKpZzILUuk=","added":["milestone-B"],"removed":null}]}
