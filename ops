@@ -1,1 +1,1 @@
-{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":5,"timestamp":1791037814,"nonce":"sZug3tXq6hVhJDT7MpiPcmWmyLw=","added":["backlog"],"removed":null}]}
+{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":2,"timestamp":1791037837,"nonce":"eC/mYXQP1kyV9kqfZ8Kz/lfxNoc=","title":"Embed the Barlow font in SVG exports","was":"Embed the Barlow font in SVG exports (they reference it by name"}]}
