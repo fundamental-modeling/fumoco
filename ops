@@ -1,1 +1,1 @@
-{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":1,"timestamp":1791037802,"nonce":"Y4wDQzwNuZFst1HSWSaz15Pi4D8=","title":"Node line weight reads heavier than edge line weight","message":"Node line weight reads heavier than edge line weight\n\n(Migrated from docs/implementation_plan.org.)","files":null}]}
+{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":5,"timestamp":1791037802,"nonce":"H8RPyE7nQYhBZAYjvCAj9F2ATVQ=","added":["milestone-A"],"removed":null}]}
