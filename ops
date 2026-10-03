@@ -1,1 +1,1 @@
-{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":4,"timestamp":1791037804,"nonce":"TJopeRq7ib95LRVhmjIwyVE/hh8=","status":2}]}
+{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":2,"timestamp":1791037836,"nonce":"kBKpK5OpBx/W/fmbQgEX64MivqA=","title":"Warn when deleting an access edge leaves a channel/storage under minimum arity","was":"Warn (don't block) when deleting an access edge would leave a…"}]}
