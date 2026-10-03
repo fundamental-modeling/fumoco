@@ -1,1 +1,1 @@
-{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":1,"timestamp":1791037801,"nonce":"BRXjOAWsfZJwkhZTFFTDhVl5HtY=","title":"A freshly-added or newly-shown element always draws on top","message":"A freshly-added or newly-shown element always draws on top\n\n(Migrated from docs/implementation_plan.org.)","files":null}]}
+{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":5,"timestamp":1791037801,"nonce":"1VT273hSdjEG90mwkUv68pv2NIk=","added":["milestone-A"],"removed":null}]}
