@@ -1,1 +1,1 @@
-{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":1,"timestamp":1791037795,"nonce":"9485GJu1wo5ueQVhS424knbicZc=","title":"Zoom in _ zoom out _ reset to 100%","message":"Zoom in _ zoom out _ reset to 100%\n\n(Migrated from docs/implementation_plan.org.)","files":null}]}
+{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":5,"timestamp":1791037795,"nonce":"ssGjYMDTkapmpUv8obyvGlL4ZcU=","added":["milestone-A"],"removed":null}]}
