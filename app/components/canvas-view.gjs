@@ -1530,9 +1530,17 @@ export default class CanvasView extends Component {
         ctx.strokeShape(shapeNode);
       },
     });
+    // selectable like a block diagram's edge (highlight, properties panel)
+    mainShape.setAttr('fumocoEdgeId', arc.id);
+    mainShape.setAttr('fumocoEdgeMain', true);
+    mainShape.on('click', (event) => {
+      event.cancelBubble = true;
+      this.selection.selectEdge(arc.id);
+    });
     mainShape.on('contextmenu', (event) => {
       event.evt.preventDefault();
       event.cancelBubble = true;
+      this.selection.selectEdge(arc.id);
       const items = [
         {
           label: 'Annotate…',
@@ -2544,7 +2552,11 @@ export default class CanvasView extends Component {
   deleteSelectedEdge() {
     const edgeId = this.selection.selectedEdgeId;
     if (!edgeId) return false;
-    this.modelStore.mutate((model) => model.removeAccess(edgeId));
+    // an access edge or a Petri/ER arc -- ids are unique across both
+    this.modelStore.mutate((model) => {
+      model.removeAccess(edgeId);
+      model.removeArc(edgeId);
+    });
     this.selection.clear();
     return true;
   }

@@ -493,6 +493,16 @@ export class FmcModel {
     this.arcs.splice(index, 1, { ...this.arcs[index], label: label || null });
   }
 
+  // How many tokens a Petri arc consumes/produces (at least 1).
+  updateArcWeight(id, weight) {
+    const index = this.arcs.findIndex((a) => a.id === id);
+    if (index === -1) return;
+    this.arcs.splice(index, 1, {
+      ...this.arcs[index],
+      weight: Math.max(1, Math.round(weight) || 1),
+    });
+  }
+
   updateArcCardinality(id, cardinality) {
     const index = this.arcs.findIndex((a) => a.id === id);
     if (index === -1) return;

@@ -36,6 +36,51 @@ export default class PropertiesPanel extends Component {
     return formatDate(this.modelStore.activeView?.updatedAt);
   }
 
+  // A selected Petri/ER arc (the selection holds one edge id, an access
+  // edge's or an arc's).
+  get selectedArc() {
+    const id = this.selection.selectedEdgeId;
+    if (!id) return null;
+    return this.modelStore.model.arcs.find((a) => a.id === id) ?? null;
+  }
+
+  get selectedArcSource() {
+    return this.modelStore.model.elements.get(this.selectedArc?.source);
+  }
+
+  get selectedArcTarget() {
+    return this.modelStore.model.elements.get(this.selectedArc?.target);
+  }
+
+  get isPetriArc() {
+    return ['place', 'transition'].includes(this.selectedArcSource?.type);
+  }
+
+  @action
+  updateArcWeight(event) {
+    const id = this.selectedArc?.id;
+    const weight = parseInt(event.target.value, 10);
+    if (!id || !(weight >= 1)) return;
+    this.modelStore.mutate((model) => model.updateArcWeight(id, weight));
+  }
+
+  @action
+  updateArcLabel(event) {
+    const id = this.selectedArc?.id;
+    if (!id) return;
+    this.modelStore.mutate((model) =>
+      model.setArcLabel(id, event.target.value),
+    );
+  }
+
+  @action
+  deleteArc() {
+    const id = this.selectedArc?.id;
+    if (!id) return;
+    this.modelStore.mutate((model) => model.removeArc(id));
+    this.selection.clear();
+  }
+
   get selectedAccess() {
     const id = this.selection.selectedEdgeId;
     if (!id) return null;
@@ -706,6 +751,43 @@ export default class PropertiesPanel extends Component {
           type="button"
           {{on "click" (fn this.deleteAccess this.selectedAccess.id)}}
         >Delete connector</button>
+      {{else if this.selectedArc}}
+        <div class="properties-panel-row">
+          <span class="properties-panel-type">arc</span>
+        </div>
+        <p class="properties-panel-access-endpoints">
+          {{if
+            this.selectedArcSource.label
+            this.selectedArcSource.label
+            this.selectedArcSource.type
+          }}
+          &rarr;
+          {{if
+            this.selectedArcTarget.label
+            this.selectedArcTarget.label
+            this.selectedArcTarget.type
+          }}
+        </p>
+        {{#if this.isPetriArc}}
+          <label class="properties-panel-field">
+            Weight (tokens consumed/produced)
+            <input
+              type="number"
+              min="1"
+              value={{this.selectedArc.weight}}
+              {{on "input" this.updateArcWeight}}
+            />
+          </label>
+        {{/if}}
+        <label class="properties-panel-field">
+          Annotation
+          <input
+            type="text"
+            value={{this.selectedArc.label}}
+            {{on "input" this.updateArcLabel}}
+          />
+        </label>
+        <button type="button" {{on "click" this.deleteArc}}>Delete arc</button>
       {{else if this.modelStore.activeView}}
         <div class="properties-panel-row">
           <span class="properties-panel-type">view</span>
