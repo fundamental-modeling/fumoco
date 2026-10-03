@@ -1,1 +1,1 @@
-{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":1,"timestamp":1791037788,"nonce":"HsETTfqlMrJecDUyHweDrs7SBgw=","title":"Select multiple boxes and see clearly which ones are selected","message":"Select multiple boxes and see clearly which ones are selected\n\n(Migrated from docs/implementation_plan.org.)","files":null}]}
+{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":5,"timestamp":1791037789,"nonce":"gzKV86j4Z05+OVYxF6xUIm7BltQ=","added":["milestone-A"],"removed":null}]}
