@@ -1,1 +1,1 @@
-{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":1,"timestamp":1791037815,"nonce":"H5u45N4ZwpobHbxMgpJ5nyBeoBM=","title":"ER: structure entity sets","message":"Listed as unsupported in the spec's \"Implementation status in Fumoco\" section.","files":null}]}
+{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":5,"timestamp":1791037815,"nonce":"u3cR8n6tkoYlnwMzSQEePNePqlY=","added":["milestone-C"],"removed":null}]}
