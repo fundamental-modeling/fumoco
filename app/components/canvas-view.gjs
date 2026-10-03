@@ -2139,6 +2139,11 @@ export default class CanvasView extends Component {
   // as the shape layer itself -- there are never more than a handful.
   syncEdgeHandles() {
     if (!this.shapeLayer) return;
+    // Never mid-drag: dragging a waypoint writes it to the model on every
+    // move, which rebuilds the shapes -- rebuilding the handles too would
+    // destroy the one under the mouse and end the drag. They're rebuilt
+    // once it's dropped.
+    if (this.isDraggingAny('.fumoco-edge-handle')) return;
     this.shapeLayer
       .find('.fumoco-edge-handle')
       .forEach((node) => node.destroy());
@@ -2190,6 +2195,10 @@ export default class CanvasView extends Component {
     });
     this.addReconnectHandles(edgeId, view);
     this.shapeLayer.batchDraw();
+  }
+
+  isDraggingAny(selector) {
+    return this.shapeLayer.find(selector).some((node) => node.isDragging());
   }
 
   // A square handle at each end of the selected connector: drag it onto
@@ -2954,6 +2963,7 @@ export default class CanvasView extends Component {
 
   syncShapeEditor() {
     if (!this.shapeLayer) return;
+    if (this.isDraggingAny('.fumoco-shape-edit')) return; // see syncEdgeHandles
     this.shapeLayer.find('.fumoco-shape-edit').forEach((n) => n.destroy());
     const view = this.modelStore.activeView;
     const edit = this.shapeEdit;
