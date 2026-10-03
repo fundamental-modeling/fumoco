@@ -1,1 +1,1 @@
-{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":1,"timestamp":1791037816,"nonce":"jAmWrf5FaF6pGglPY1s3DOzrNGY=","title":"ER: entity-set attributes other than as free text","message":"Listed as unsupported in the spec's \"Implementation status in Fumoco\" section.","files":null}]}
+{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":5,"timestamp":1791037816,"nonce":"aFMHMuKk9EORGRQessp/J5Ao1y4=","added":["milestone-C"],"removed":null}]}
