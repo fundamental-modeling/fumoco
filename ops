@@ -1,1 +1,1 @@
-{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":1,"timestamp":1791037799,"nonce":"FYAUh6cLTvcSIzM+sLuKiCs51xg=","title":"The properties panel lists a selected box's connections","message":"The properties panel lists a selected box's connections\n\n(Migrated from docs/implementation_plan.org.)","files":null}]}
+{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":5,"timestamp":1791037799,"nonce":"5LamX4OsT6iOUGqyiIvvgwCQj+8=","added":["milestone-A"],"removed":null}]}
