@@ -1,1 +1,1 @@
-{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":4,"timestamp":1791037811,"nonce":"OEITr6xrZxgYjoBNIMAFpl7BcCQ=","status":2}]}
+{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":2,"timestamp":1791037837,"nonce":"BIYppUO1RSGWydW+55CxgWsrIPA=","title":"ER cardinality arrows (1:n / n:1 / 1:1)","was":"ER cardinality arrows (1:n _ n:1 _ 1:1)"}]}
