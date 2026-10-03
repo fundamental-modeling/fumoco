@@ -135,6 +135,38 @@ module('Unit | Component | canvas-view (nesting geometry)', function () {
     assert.strictEqual(box.height, 140);
   });
 
+  test('computeEffectiveBoxes keeps a shaped container while its children fit the shape', function (assert) {
+    const model = new FmcModel();
+    const container = model.addElement(ElementType.LOCATION);
+    const child = model.addElement(ElementType.AGENT);
+    model.addContainment(container, child);
+    const view = model.views.get(model.createView('v'));
+    view.included.push(container, child);
+    // an L: the top-right quarter cut away
+    const l = {
+      x: 0,
+      y: 0,
+      width: 200,
+      height: 200,
+      outline: [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+        { x: 100, y: 100 },
+        { x: 200, y: 100 },
+        { x: 200, y: 200 },
+        { x: 0, y: 200 },
+      ],
+    };
+    view.boxes.set(container, l);
+    view.boxes.set(child, { x: 20, y: 120, width: 160, height: 60 }); // bottom bar
+    assert.strictEqual(computeEffectiveBoxes(model, view).get(container), l);
+
+    view.boxes.set(child, { x: 120, y: 20, width: 60, height: 60 }); // in the cut
+    const fitted = computeEffectiveBoxes(model, view).get(container);
+    assert.notOk(fitted.outline, 'falls back to a fitted rectangle');
+    assert.strictEqual(fitted.x, 90);
+  });
+
   test('computeEffectiveBoxes leaves a childless element using its own stored box', function (assert) {
     const model = new FmcModel();
     const solo = model.addElement(ElementType.AGENT);

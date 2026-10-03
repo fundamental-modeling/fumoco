@@ -7,7 +7,7 @@ built, and git history the story of how it got there. Keep this a
 checklist -- one line per item, a short note only where an open item
 needs a decision recorded.
 
-* Milestone A — Block diagrams (standalone editor) [69/69]
+* Milestone A — Block diagrams (standalone editor) [70/70]
 - [X] Model tree listing all agents/human agents/storages and all views
 - [X] Create agents, human agents, and storage elements from the tree
 - [X] Create and switch between multiple views ("viewpoints") over the same model
@@ -74,6 +74,7 @@ needs a decision recorded.
 - [X] Reconnect a connector's end (Archi-style handles), warning when it also appears in other views; works for Petri/ER arcs too
 - [X] Shaped locations: rectilinear outlines (L, U, ...) with rounded corners, edited by pushing a marked section of a side in or out
 - [X] Shaped agents (sharp corners); nesting, drop targets and marquee selection test the shape, not its bounding box
+- [X] Shaped containers: the outline must keep clear of what's nested inside
 - [X] Validate lists elements in no view, removable in one step (with their connections; undoable)
 - [X] Validate warns about same-kind, same-name elements (not unnamed ones, R▶ channels or coupled stack places)
 - [X] Collapsible sections in the model pane (Elements and Arrows collapsed by default); each view lists its elements (collapsed by default)

@@ -219,3 +219,30 @@ export function pointInOutline(points, point) {
       point.y <= r.y + r.height,
   );
 }
+
+// Is `rect` (relative to the outline's origin) wholly inside the outline?
+// Its center is inside and no outline edge runs through its interior --
+// for a rectilinear outline, that's all it takes.
+export function rectInOutline(points, rect) {
+  const center = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+  if (!pointInOutline(points, center)) return false;
+  const [x0, x1, y0, y1] = [
+    rect.x,
+    rect.x + rect.width,
+    rect.y,
+    rect.y + rect.height,
+  ];
+  return edges(points).every(([a, b]) =>
+    a.y === b.y
+      ? !(
+          y0 < a.y &&
+          a.y < y1 &&
+          Math.max(Math.min(a.x, b.x), x0) < Math.min(Math.max(a.x, b.x), x1)
+        )
+      : !(
+          x0 < a.x &&
+          a.x < x1 &&
+          Math.max(Math.min(a.y, b.y), y0) < Math.min(Math.max(a.y, b.y), y1)
+        ),
+  );
+}

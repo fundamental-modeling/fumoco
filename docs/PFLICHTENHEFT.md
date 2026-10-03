@@ -1068,7 +1068,13 @@ the box is a rectangle.
   the grid. The result is stored with its bounds as the new box; back to
   four vertices, the outline is dropped. "Reset shape" removes it.
   Escape, "Done editing shape" or selecting something else ends editing.
-  Containers aren't shaped (their box fits their content).
+  Containers can be shaped too. "Edit shape" first stores the box as
+  drawn (a container may be drawn fitted to its content, larger than
+  its stored box). `computeEffectiveBoxes` keeps a shaped container's
+  stored box while `shapeHolds` -- every nested box, grown by
+  `SHAPE_CLEARANCE` (10px), lies inside the outline (`rectInOutline`) --
+  and otherwise falls back to the fitted rectangle. A push that would
+  cut into a nested box is refused like an invalid one (red preview).
 - **Agents** take outlines the same way, drawn with sharp corners (FMC's
   angular family); human agents (their stick figure fills the box),
   channels and the other diagram types' nodes keep their fixed shapes

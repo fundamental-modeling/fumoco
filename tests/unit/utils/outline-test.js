@@ -12,6 +12,7 @@ import {
   outlineEntry,
   pointInOutline,
   pushSegment,
+  rectInOutline,
   rectOutline,
 } from 'fumoco/utils/outline';
 
@@ -97,5 +98,30 @@ module('Unit | Utility | outline', function () {
     assert.true(pointInOutline(u, { x: 100, y: 30 }), 'in the top bar');
     assert.false(pointInOutline(u, { x: 100, y: 80 }), 'in the notch');
     assert.false(pointInOutline(u, { x: 300, y: 50 }), 'outside the box');
+  });
+
+  test('rectInOutline: inside the shape, not just its bounding box', function (assert) {
+    // a U: notch x 60..140 from the top down to y 60
+    const u = pushSegment(rect, 0, 60, 140, 60);
+    assert.true(
+      rectInOutline(u, { x: 10, y: 10, width: 40, height: 80 }),
+      'left arm',
+    );
+    assert.true(
+      rectInOutline(u, { x: 10, y: 70, width: 180, height: 20 }),
+      'bottom bar',
+    );
+    assert.false(
+      rectInOutline(u, { x: 10, y: 10, width: 180, height: 30 }),
+      'spans the notch',
+    );
+    assert.false(
+      rectInOutline(u, { x: 50, y: 50, width: 20, height: 20 }),
+      'notch corner pokes in',
+    );
+    assert.false(
+      rectInOutline(u, { x: 70, y: 10, width: 20, height: 20 }),
+      'in the notch',
+    );
   });
 });

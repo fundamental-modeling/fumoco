@@ -29,6 +29,7 @@ import {
   outlineBounds,
   outlineEntry,
   outlineRects,
+  rectInOutline,
   pointInOutline,
   pushSegment,
   rectOutline,
@@ -50,6 +51,9 @@ const MAX_ZOOM = 4;
 const MIN_SIZE = 10; // below the 15px-high default relation
 const MARQUEE_THRESHOLD = 3; // px of movement before a stage mousedown counts as a drag, not a click
 const NESTING_PADDING = 30;
+// How far a shaped container's outline must stay clear of what's nested
+// in it -- less than NESTING_PADDING, so a shape can hug its content.
+const SHAPE_CLEARANCE = 10;
 // A node's outline should read visibly heavier than an edge's so the two
 // are never ambiguous (FMC Visualization Guidelines' "line weight of
 // edges and nodes"); edges stay at their existing strokeWidth: 2.
@@ -337,12 +341,25 @@ export function computeEffectiveBoxes(model, view) {
             height: maxY - minY + 2 * NESTING_PADDING,
           };
     const stored = view.boxes.get(id);
-    effective.set(
-      id,
-      stored && boxContains(stored, autoFit) ? stored : autoFit,
-    );
+    const fits = stored?.outline
+      ? shapeHolds(stored, childBoxes)
+      : stored && boxContains(stored, autoFit);
+    effective.set(id, fits ? stored : autoFit);
   }
   return effective;
+}
+
+// Does a shaped box hold all these boxes inside its outline, clear of it?
+export function shapeHolds(box, boxes) {
+  const outline = fittedOutline(box);
+  return boxes.every((b) =>
+    rectInOutline(outline, {
+      x: b.x - box.x - SHAPE_CLEARANCE,
+      y: b.y - box.y - SHAPE_CLEARANCE,
+      width: b.width + 2 * SHAPE_CLEARANCE,
+      height: b.height + 2 * SHAPE_CLEARANCE,
+    }),
+  );
 }
 
 function boxContains(outer, inner) {
@@ -2963,13 +2980,9 @@ export default class CanvasView extends Component {
     const view = this.modelStore.activeView;
     const element = this.modelStore.model.elements.get(id);
     const box = view?.boxes.get(id);
-    const hasNested = (
-      buildDisplayChildIndex(this.modelStore.model, view).get(id) ?? []
-    ).length;
     if (!isShapeable(element) || !box) {
       return [];
     }
-    if (hasNested) return []; // a container's box fits its content
     const items = [];
     if (this.shapeEdit?.id === id) {
       items.push({
@@ -2996,7 +3009,26 @@ export default class CanvasView extends Component {
     return items;
   }
 
+  // The boxes nested in `id` as displayed in the active view.
+  nestedBoxes(id) {
+    const view = this.modelStore.activeView;
+    const effective = computeEffectiveBoxes(this.modelStore.model, view);
+    return (buildDisplayChildIndex(this.modelStore.model, view).get(id) ?? [])
+      .map((childId) => effective.get(childId))
+      .filter(Boolean);
+  }
+
   startShapeEdit(id) {
+    // A container drawn larger than its stored box (fitted to its
+    // content) is edited as drawn.
+    const view = this.modelStore.activeView;
+    const shown = computeEffectiveBoxes(this.modelStore.model, view).get(id);
+    if (shown && shown !== view.boxes.get(id)) {
+      this.modelStore.mutate(() => {
+        const { x, y, width, height } = shown;
+        view.boxes.set(id, { ...view.boxes.get(id), x, y, width, height });
+      });
+    }
     this.shapeEdit = { id, marks: [] };
     this.selection.select(id);
     this.syncShapeEditor();
@@ -3072,9 +3104,21 @@ export default class CanvasView extends Component {
       // the section to push: between the two marks, else the whole edge
       const section = () =>
         marks.length === 2 ? [marks[0].at, marks[1].at] : [p[along], q[along]];
+      // refused (null) when it cuts into what's nested inside
+      const nested = this.nestedBoxes(edit.id);
       const pushed = () => {
         const delta = snapToGrid(horizontal ? edge.y() : edge.x());
-        return pushSegment(outline, i, ...section(), delta);
+        const result = pushSegment(outline, i, ...section(), delta);
+        if (!result) return null;
+        const bounds = outlineBounds(result);
+        const shaped = {
+          ...bounds,
+          outline: result.map((pt) => ({
+            x: pt.x - bounds.x,
+            y: pt.y - bounds.y,
+          })),
+        };
+        return shapeHolds(shaped, nested) ? result : null;
       };
       edge.on('dragmove', () => {
         const result = pushed();
