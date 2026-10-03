@@ -1,0 +1,1 @@
+{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":1,"timestamp":1791037800,"nonce":"MScGrs8YwoUa2BKIqDa5mQ568nE=","title":"Remove the non-functional rotation handle from the Transformer","message":"Remove the non-functional rotation handle from the Transformer\n\n(Migrated from docs/implementation_plan.org.)","files":null}]}
