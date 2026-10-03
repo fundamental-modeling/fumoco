@@ -1,1 +1,1 @@
-{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":1,"timestamp":1791037794,"nonce":"vl83F62UoYz4D7bvhqfkshqSY5Q=","title":"\"Fumoco vX.Y.Z\" in the palette footer and on exports","message":"\"Fumoco vX.Y.Z\" in the palette footer and on exports\n\n(Migrated from docs/implementation_plan.org.)","files":null}]}
+{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":5,"timestamp":1791037794,"nonce":"eEnezxTuZyDn9jZAmrJjUPH97hE=","added":["milestone-A"],"removed":null}]}
