@@ -1275,6 +1275,7 @@ export default class CanvasView extends Component {
       this.attachTransformer();
       this.refreshNodeStyling();
       this.refreshEdgeStyling();
+      this.syncEdgeHandles(); // they sit on the (possibly moved) connector
       this.syncScrollbars();
     });
   });
@@ -1533,6 +1534,8 @@ export default class CanvasView extends Component {
     // selectable like a block diagram's edge (highlight, properties panel)
     mainShape.setAttr('fumocoEdgeId', arc.id);
     mainShape.setAttr('fumocoEdgeMain', true);
+    mainShape.setAttr('fumocoPath', path);
+    mainShape.setAttr('fumocoEnds', [arc.source, arc.target]);
     mainShape.on('click', (event) => {
       event.cancelBubble = true;
       this.selection.selectEdge(arc.id);
@@ -1625,6 +1628,8 @@ export default class CanvasView extends Component {
       view = null,
       // a different path than the rounded polyline (e.g. a lens)
       draw = (ctx) => drawRoundedPolyline(ctx, points, EDGE_CORNER_RADIUS),
+      // the elements at points[0] and points.at(-1), for reconnecting
+      ends = null,
     } = {},
   ) {
     const mainShape = new Konva.Shape({
@@ -1640,6 +1645,8 @@ export default class CanvasView extends Component {
     if (edgeId) {
       mainShape.setAttr('fumocoEdgeId', edgeId);
       mainShape.setAttr('fumocoEdgeMain', true);
+      mainShape.setAttr('fumocoPath', points);
+      mainShape.setAttr('fumocoEnds', ends);
       mainShape.on('click', (event) => {
         event.cancelBubble = true;
         this.selection.selectEdge(edgeId);
@@ -1720,7 +1727,7 @@ export default class CanvasView extends Component {
       !waypoints.length &&
       lensEnds(agentBox, locationBox);
     if (lens) {
-      this.drawLensEdge(access.id, lens, view);
+      this.drawLensEdge(access.id, lens, view, [access.agent, access.location]);
       // in the middle of the lens, between its two curves
       this.addEdgeAnnotation(
         { x: (lens.p.x + lens.q.x) / 2, y: (lens.p.y + lens.q.y) / 2 },
@@ -1794,6 +1801,7 @@ export default class CanvasView extends Component {
       arrowEnd: ends[1].head,
       edgeId: access.id,
       view,
+      ends: [ends[0].id, ends[1].id],
     });
     this.addEdgeAnnotation(pathMidpoint(path), access.label);
   }
@@ -1823,7 +1831,7 @@ export default class CanvasView extends Component {
   // A modify edge as a lens: two curves between the facing sides' points,
   // bowing opposite ways, one arrowhead each -- agent-to-location on one,
   // location-to-agent on the other.
-  drawLensEdge(edgeId, { p, q, span }, view) {
+  drawLensEdge(edgeId, { p, q, span }, view, ends) {
     const length = Math.hypot(q.x - p.x, q.y - p.y);
     const normal = { x: -(q.y - p.y) / length, y: (q.x - p.x) / length };
     // control point 2x the bulge out, so the curve's apex bows by `bulge`
@@ -1836,6 +1844,7 @@ export default class CanvasView extends Component {
     this.addRoutedEdge([p, q], {
       edgeId,
       view,
+      ends,
       draw: (ctx) => {
         ctx.beginPath();
         ctx.moveTo(p.x, p.y);
@@ -2017,11 +2026,7 @@ export default class CanvasView extends Component {
       this.shapeLayer.batchDraw();
       return;
     }
-    const waypoints = view.edgeWaypoints.get(edgeId);
-    if (!waypoints) {
-      this.shapeLayer.batchDraw();
-      return;
-    }
+    const waypoints = view.edgeWaypoints.get(edgeId) ?? [];
     waypoints.forEach((point, index) => {
       const handle = new Konva.Circle({
         x: point.x,
@@ -2061,7 +2066,152 @@ export default class CanvasView extends Component {
       });
       this.shapeLayer.add(handle);
     });
+    this.addReconnectHandles(edgeId, view);
     this.shapeLayer.batchDraw();
+  }
+
+  // A square handle at each end of the selected connector: drag it onto
+  // another element to reconnect that end (see FmcModel.planReconnect).
+  // While dragging, elements it can't go to are dimmed and a dashed line
+  // runs from the fixed end to the pointer.
+  addReconnectHandles(edgeId, view) {
+    const edge = this.shapeLayer
+      .find('.fumoco-edge')
+      .find(
+        (n) =>
+          n.getAttr('fumocoEdgeMain') && n.getAttr('fumocoEdgeId') === edgeId,
+      );
+    const path = edge?.getAttr('fumocoPath');
+    const ends = edge?.getAttr('fumocoEnds');
+    if (!path || !ends) return;
+    const model = this.modelStore.model;
+    [
+      [path[0], ends[0], path.at(-1)],
+      [path.at(-1), ends[1], path[0]],
+    ].forEach(([point, fromId, fixed]) => {
+      const handle = new Konva.Rect({
+        x: point.x - 5,
+        y: point.y - 5,
+        width: 10,
+        height: 10,
+        fill: '#ffffff',
+        stroke: '#0078ff',
+        strokeWidth: 2,
+        draggable: true,
+        name: 'fumoco-edge-handle',
+      });
+      const rubberBand = new Konva.Line({
+        points: [],
+        stroke: '#0078ff',
+        strokeWidth: 1,
+        dash: [4, 4],
+        listening: false,
+        name: 'fumoco-edge-handle',
+      });
+      handle.on('mouseenter', () => {
+        this.stage.container().style.cursor = 'crosshair';
+      });
+      handle.on('mouseleave', () => {
+        this.stage.container().style.cursor = '';
+      });
+      handle.on('dragstart', () => {
+        for (const [id, node] of this.nodesById) {
+          let ok = id === fromId;
+          try {
+            ok ||= Boolean(model.planReconnect(edgeId, fromId, id));
+          } catch {
+            // not a valid end for this connector
+          }
+          node.opacity(ok ? 1 : 0.25);
+        }
+        this.shapeLayer.add(rubberBand);
+      });
+      handle.on('dragmove', () => {
+        rubberBand.points([fixed.x, fixed.y, handle.x() + 5, handle.y() + 5]);
+        this.shapeLayer.batchDraw();
+      });
+      handle.on('dragend', () => {
+        this.stage.container().style.cursor = '';
+        const toId = this.elementAt(view, {
+          x: handle.x() + 5,
+          y: handle.y() + 5,
+        });
+        this.refreshNodeStyling();
+        if (toId && toId !== fromId) {
+          this.reconnectEdge(edgeId, fromId, toId, view);
+        }
+        this.syncEdgeHandles(); // back to the real end (or the new one)
+      });
+      handle.on('click', (event) => {
+        event.cancelBubble = true;
+      });
+      this.shapeLayer.add(handle);
+    });
+  }
+
+  // The element whose box (as displayed) contains `point`; the smallest,
+  // when nested boxes overlap.
+  elementAt(view, point) {
+    let best = null;
+    for (const [id, box] of computeEffectiveBoxes(
+      this.modelStore.model,
+      view,
+    )) {
+      if (!pointInBox(point, box)) continue;
+      if (!best || box.width * box.height < best.area) {
+        best = { id, area: box.width * box.height };
+      }
+    }
+    return best?.id ?? null;
+  }
+
+  // Reconnects one end of a connector, after confirming when that also
+  // changes other views (the connector is a model element) or merges it
+  // into an existing edge.
+  reconnectEdge(edgeId, fromId, toId, view) {
+    const model = this.modelStore.model;
+    let plan;
+    try {
+      plan = model.planReconnect(edgeId, fromId, toId);
+    } catch (error) {
+      if (!(error instanceof FmcModelError)) throw error;
+      window.alert(`Can't reconnect: ${error.message}`);
+      return;
+    }
+    const name = (id) => shownName(model.elements.get(id)) || 'unnamed';
+    const notes = [];
+    const others = model.connectorViews(edgeId).filter((v) => v !== view);
+    if (others.length) {
+      const lost = others.filter((v) => !v.included.includes(toId));
+      notes.push(
+        `This connector also appears in: ${others.map((v) => shownName(v)).join(', ')}. ` +
+          'It is one connector in the model, so it changes there too.' +
+          (lost.length
+            ? ` In ${lost.map((v) => shownName(v)).join(', ')}, "${name(toId)}" isn't shown, so the connector disappears from it (it stays in the model).`
+            : ''),
+      );
+    }
+    if (plan.mergeWith) {
+      notes.push(
+        `There already is a connector between these two; this one merges into it (as ${
+          plan.mergeWith.kind === plan.updated.kind
+            ? plan.updated.kind
+            : 'modify'
+        }).`,
+      );
+    }
+    if (
+      notes.length &&
+      !window.confirm(
+        `Reconnect from "${name(fromId)}" to "${name(toId)}"?\n\n${notes.join('\n\n')}`,
+      )
+    ) {
+      return;
+    }
+    const result = this.modelStore.mutate((m) =>
+      m.reconnect(edgeId, fromId, toId),
+    );
+    this.selection.selectEdge(result);
   }
 
   attachTransformer() {

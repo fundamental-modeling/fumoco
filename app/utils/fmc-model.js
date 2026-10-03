@@ -493,6 +493,89 @@ export class FmcModel {
     this.arcs.splice(index, 1, { ...this.arcs[index], label: label || null });
   }
 
+  // ---- reconnecting connectors (dragging an end onto another element) ----
+
+  // The views that draw a connector: those showing both its ends.
+  connectorViews(edgeId) {
+    const edge =
+      this.accesses.find((a) => a.id === edgeId) ??
+      this.arcs.find((a) => a.id === edgeId);
+    if (!edge) return [];
+    const [a, b] = edge.agent
+      ? [edge.agent, edge.location]
+      : [edge.source, edge.target];
+    return [...this.views.values()].filter(
+      (view) => view.included.includes(a) && view.included.includes(b),
+    );
+  }
+
+  // What moving the end of connector `edgeId` that's at element `fromId`
+  // onto element `toId` would do, without doing it: the connector with
+  // that end replaced (same id and properties), and -- for an access edge
+  // whose new agent/location pair already has an edge -- the edge it
+  // merges into instead (read + write = modify). The new element must
+  // have the role of the old one (agent for agent, location for location,
+  // the same type for an arc's end); an arc can't duplicate another arc.
+  // Throws FmcModelError when the move isn't allowed.
+  planReconnect(edgeId, fromId, toId) {
+    const access = this.accesses.find((a) => a.id === edgeId);
+    if (access) {
+      const atAgent = access.agent === fromId;
+      if (atAgent) {
+        this._require(toId, ElementType.AGENT, ElementType.HUMAN_AGENT);
+      } else {
+        this._require(toId, ElementType.LOCATION);
+      }
+      const updated = atAgent
+        ? { ...access, agent: toId }
+        : { ...access, location: toId };
+      const mergeWith = this.accesses.find(
+        (a) =>
+          a.id !== edgeId &&
+          a.agent === updated.agent &&
+          a.location === updated.location,
+      );
+      return { updated, mergeWith: mergeWith ?? null };
+    }
+    const arc = this.arcs.find((a) => a.id === edgeId);
+    if (!arc) throw new FmcModelError(`unknown connector: ${edgeId}`);
+    const from = this._require(fromId, null);
+    this._require(toId, from.type);
+    const updated =
+      arc.source === fromId
+        ? { ...arc, source: toId }
+        : { ...arc, target: toId };
+    if (
+      this.arcs.some(
+        (a) =>
+          a.id !== edgeId &&
+          a.source === updated.source &&
+          a.target === updated.target,
+      )
+    ) {
+      throw new FmcModelError('there already is an arc between these two');
+    }
+    return { updated, mergeWith: null };
+  }
+
+  // Carries out planReconnect. The connector's routing waypoints are
+  // dropped in every view -- they belonged to the old geometry. Returns
+  // the id of the connector that now exists (this one, or the edge it
+  // merged into).
+  reconnect(edgeId, fromId, toId) {
+    const { updated, mergeWith } = this.planReconnect(edgeId, fromId, toId);
+    for (const view of this.views.values()) view.edgeWaypoints.delete(edgeId);
+    if (mergeWith) {
+      this.removeAccess(edgeId);
+      this.addAccess(mergeWith.agent, updated.kind, mergeWith.location);
+      return mergeWith.id;
+    }
+    const list = updated.agent ? this.accesses : this.arcs;
+    const index = list.findIndex((a) => a.id === edgeId);
+    list.splice(index, 1, updated);
+    return edgeId;
+  }
+
   // How many tokens a Petri arc consumes/produces (at least 1).
   updateArcWeight(id, weight) {
     const index = this.arcs.findIndex((a) => a.id === id);

@@ -796,3 +796,77 @@ module('Unit | Utility | fmc-model (one access edge per pair)', function () {
     assert.deepEqual([...model.views.get('v').edgeWaypoints.keys()], ['r']);
   });
 });
+
+module('Unit | Utility | fmc-model (reconnecting connectors)', function () {
+  test('an access end moves to another element of the same role', function (assert) {
+    const model = new FmcModel();
+    const a = model.addElement(ElementType.AGENT);
+    const b = model.addElement(ElementType.HUMAN_AGENT);
+    const s = model.addElement(ElementType.LOCATION);
+    const edge = model.addAccess(a, 'write', s);
+    const view = model.views.get(model.createView('v'));
+    view.edgeWaypoints.set(edge.id, [{ x: 1, y: 2 }]);
+
+    assert.strictEqual(model.reconnect(edge.id, a, b), edge.id);
+    assert.deepEqual(
+      model.accesses.map((e) => [e.id, e.agent, e.kind, e.location]),
+      [[edge.id, b, 'write', s]],
+    );
+    assert.false(view.edgeWaypoints.has(edge.id), 'waypoints dropped');
+    assert.throws(
+      () => model.planReconnect(edge.id, b, s),
+      FmcModelError,
+      'an agent end cannot go to a location',
+    );
+  });
+
+  test('onto a pair that already has an edge, read + write merge into modify', function (assert) {
+    const model = new FmcModel();
+    const a1 = model.addElement(ElementType.AGENT);
+    const a2 = model.addElement(ElementType.AGENT);
+    const s = model.addElement(ElementType.LOCATION);
+    const read = model.addAccess(a1, 'read', s);
+    const write = model.addAccess(a2, 'write', s);
+    assert.strictEqual(
+      model.planReconnect(write.id, a2, a1).mergeWith.id,
+      read.id,
+    );
+    assert.strictEqual(model.reconnect(write.id, a2, a1), read.id);
+    assert.deepEqual(
+      model.accesses.map((e) => [e.id, e.kind]),
+      [[read.id, 'modify']],
+    );
+  });
+
+  test('an arc end keeps its type and may not duplicate another arc', function (assert) {
+    const model = new FmcModel();
+    const p1 = model.addElement(ElementType.PLACE);
+    const p2 = model.addElement(ElementType.PLACE);
+    const t = model.addElement(ElementType.TRANSITION);
+    const arc = model.addArc(p1, t, 3);
+    model.addArc(p2, t);
+    assert.throws(() => model.planReconnect(arc.id, p1, t), FmcModelError);
+    assert.throws(
+      () => model.planReconnect(arc.id, p1, p2),
+      /already is an arc/,
+    );
+    const p3 = model.addElement(ElementType.PLACE);
+    model.reconnect(arc.id, p1, p3);
+    assert.deepEqual(model.arcs[0], { ...arc, source: p3 }, 'weight kept');
+  });
+
+  test('connectorViews lists the views showing both ends', function (assert) {
+    const model = new FmcModel();
+    const a = model.addElement(ElementType.AGENT);
+    const s = model.addElement(ElementType.LOCATION);
+    const edge = model.addAccess(a, 'read', s);
+    const both = model.views.get(model.createView('both'));
+    both.included.push(a, s);
+    const one = model.views.get(model.createView('one'));
+    one.included.push(a);
+    assert.deepEqual(
+      model.connectorViews(edge.id).map((v) => v.name),
+      ['both'],
+    );
+  });
+});

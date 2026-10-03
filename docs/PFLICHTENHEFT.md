@@ -1013,6 +1013,32 @@ in-app only. Context menus list Cut/Copy/Paste/Select all with
 platform-specific shortcut hints; right-clicking inside a multi-selection
 keeps it.
 
+## Reconnecting connectors (`planReconnect`, `reconnect`, `addReconnectHandles`)
+
+A selected connector (access edge or Petri/ER arc) shows a square handle
+at each end; dragging one onto another element moves that end there. A
+connector is a model element, so this changes the model:
+
+- `FmcModel.planReconnect(edgeId, fromId, toId)` works out the change
+  without making it: the new end must have the role of the old one
+  (agent/human agent for an agent end, location for a location end, the
+  same element type for an arc end); an arc may not duplicate another
+  arc; an access edge onto an agent/location pair that already has one
+  merges into it (read + write = modify). It throws `FmcModelError`
+  otherwise -- also used to dim the elements a handle can't go to.
+- `FmcModel.connectorViews(edgeId)` lists the views drawing the connector
+  (those showing both ends). If any other view does, a confirmation names
+  them, and says from which the connector disappears because they don't
+  show the new end (it stays in the model and the tree). A merge is
+  confirmed too.
+- `FmcModel.reconnect` keeps the connector's id, kind, annotation, lens
+  setting, weight and cardinality, and drops its waypoints in every view
+  (they belonged to the old route). One undo step.
+
+The drawn connector keeps its route and end elements as Konva attributes
+(`fumocoPath`, `fumocoEnds`); the handles are rebuilt after every shape
+rebuild so they stay on the current route.
+
 ## Waypoint routing (`orthogonalPath`, `joinLegs`)
 
 An access edge is routed leg by leg between its anchors (boxes, and

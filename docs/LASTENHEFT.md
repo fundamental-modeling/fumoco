@@ -142,6 +142,9 @@ implementation notes here — that's the other two documents' job.
   never make the arrow turn back on itself.
 - As a modeler, I want the properties panel to show the arrows/connections
   to and from a selected box, not just its own label/flags.
+- As a modeler, I want to reconnect an arrow, as in Archi: grab its end
+  and drop it on another box. Since an arrow is one element of the model,
+  I want a warning when it also appears in other views.
 - As a modeler, I want arrows to be entities tracked in the world model,
   also visible in the left (tree) panel — not just implicit lines drawn
   between two elements.
