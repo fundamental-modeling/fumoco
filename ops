@@ -1,1 +1,1 @@
-{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":4,"timestamp":1791037796,"nonce":"bPIa6SEwFXLH+hfxHjCJWCFdwGg=","status":2}]}
+{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":2,"timestamp":1791037836,"nonce":"lxcQKqrDgE3Jb+NtckgR4XzjKY4=","title":"Dragging a nested box out of its parent places it visibly outside","was":"Dragging a nested box out of its parent should place it visibly outside the…"}]}
