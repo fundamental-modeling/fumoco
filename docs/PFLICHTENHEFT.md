@@ -487,8 +487,8 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
 - `Element.capacity` (place-only: `null` = an ordinary place holding 1,
   an integer n >= 2, or `'infinite'`) and `Element.placeKind` (`null`,
   `'stack'`, `'return'`). `buildShape` draws an infinite place's inner
-  circle, writes S/R inside a stack/return place (its name then moves
-  out), and puts "cap. n" and that name beside the place through the
+  circle, writes S/R and the marking inside a place, and puts the
+  place's name and "cap. n" beside it (a place is too small for a name) through the
   same `outsideLabels` mechanism as human agents' labels. The panel
   enlarges a place to 50x50 (keeping its center) when it gets a
   capacity, and offers a stack place only capacity 1 or infinite.

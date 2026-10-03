@@ -3697,15 +3697,16 @@ export default class CanvasView extends Component {
     // than as separate dots per token -- simple, and legible at any
     // marking size, which drawing one dot per token stops being once a
     // place holds more than a handful.
-    // FMC's recursion elements: a stack place shows an "S", a return
-    // place an "R" -- the place's name then goes beside it, together with
-    // a multi-token place's "cap. n"; infinite capacity is a double circle.
+    // A place is too small for its name: the name goes beside it,
+    // together with a multi-token place's "cap. n". Inside are only FMC's
+    // recursion marks -- "S" for a stack place, "R" for a return place --
+    // and the marking. Infinite capacity is a double circle.
     const placeGlyph = isPlace
       ? ({ stack: 'S', return: 'R' }[element.placeKind] ?? null)
       : null;
     const placeNote = isPlace
       ? [
-          placeGlyph && shownName(element),
+          shownName(element),
           typeof element.capacity === 'number' && `cap. ${element.capacity}`,
         ]
           .filter(Boolean)
@@ -3723,11 +3724,11 @@ export default class CanvasView extends Component {
         }),
       );
     }
-    const labelText = placeGlyph
-      ? `${placeGlyph}${element.tokens ? ` (${element.tokens})` : ''}`
-      : isPlace && element.tokens
-        ? `${shownName(element) ?? ''} (${element.tokens})`.trim()
-        : (shownName(element) ?? '');
+    const labelText = isPlace
+      ? [placeGlyph, element.tokens && `(${element.tokens})`]
+          .filter(Boolean)
+          .join(' ')
+      : (shownName(element) ?? '');
 
     let label;
     if (nested) {
