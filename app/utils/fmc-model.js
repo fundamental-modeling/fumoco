@@ -114,6 +114,12 @@ export class Element {
   // since a place can hold a nonzero marking without being where the
   // net's control flow is considered to begin.
   @tracked isStart;
+  // place only -- how many tokens it can hold: null for an ordinary place
+  // (1), an integer >= 2 for a multi-token place, or 'infinite'.
+  @tracked capacity;
+  // place only -- null, 'stack' (a recursion's return stack) or 'return'
+  // (FMC's recursion elements).
+  @tracked placeKind;
   // transition only -- marks it as a NOP (no-operation) transition,
   // drawn as a wide, thin, unlabeled bar (white fill, like any box) --
   // the standard Petri-net notation for a transition with no real
@@ -141,6 +147,8 @@ export class Element {
       channel = null,
       tokens = 0,
       isStart = false,
+      capacity = null,
+      placeKind = null,
       isNop = false,
       fill = null,
       multiple = false,
@@ -156,6 +164,8 @@ export class Element {
     this.channel = channel;
     this.tokens = tokens;
     this.isStart = isStart;
+    this.capacity = capacity;
+    this.placeKind = placeKind;
     this.isNop = isNop;
     this.fill = fill;
     this.multiple = multiple;
@@ -744,6 +754,16 @@ export class FmcModel {
   validate() {
     const issues = [];
     for (const [id, element] of this.elements) {
+      if (element.type === ElementType.PLACE) {
+        const capacity = element.capacity ?? 1;
+        if (capacity !== 'infinite' && element.tokens > capacity) {
+          issues.push({
+            elementId: id,
+            message: `Place "${element.label ?? '(unnamed)'}" holds ${element.tokens} tokens; its capacity is ${capacity}.`,
+          });
+        }
+        continue;
+      }
       if (element.type !== ElementType.LOCATION) continue;
       const agentCount = new Set(
         this.accesses
@@ -868,6 +888,8 @@ export class FmcModel {
             channel: element.channel ? { ...element.channel } : null,
             tokens: element.tokens,
             isStart: element.isStart,
+            capacity: element.capacity,
+            placeKind: element.placeKind,
             isNop: element.isNop,
             fill: element.fill,
             multiple: element.multiple,
@@ -920,6 +942,8 @@ export class FmcModel {
           channel: element.channel ? { ...element.channel } : null,
           tokens: element.tokens ?? 0,
           isStart: element.isStart ?? false,
+          capacity: element.capacity ?? null,
+          placeKind: element.placeKind ?? null,
           isNop: element.isNop ?? false,
           fill: element.fill ?? null,
           multiple: element.multiple ?? false,

@@ -286,6 +286,13 @@ implementation notes here — that's the other two documents' job.
 - As a modeler, I want to reify a relation into an entity set by nesting
   the relation inside it, so the reified entity set can then participate
   in further relations of its own.
+- As a modeler, I want to give a place a capacity: a multi-token place
+  is drawn enlarged with "cap. n" beside it, an infinite-capacity place
+  as a double circle; "Validate model" flags a place marked with more
+  tokens than it can hold.
+- As a modeler, I want the recursion elements: a stack place (a circle
+  marked "S", its name beside it; capacity 1 or infinite) and a return
+  place (a circle marked "R").
 - As a modeler, Petri net arcs must never look bidirectional; the
   standard flow is top-to-bottom (leaving south, arriving north), except
   for loop-back arcs to a place/transition that's beside rather than

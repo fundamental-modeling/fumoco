@@ -3190,6 +3190,8 @@ export default class CanvasView extends Component {
           channel: element.channel ? { ...element.channel } : null,
           tokens: element.tokens,
           isStart: element.isStart,
+          capacity: element.capacity,
+          placeKind: element.placeKind,
           isNop: element.isNop,
           fill: element.fill,
           multiple: element.multiple,
@@ -3695,8 +3697,35 @@ export default class CanvasView extends Component {
     // than as separate dots per token -- simple, and legible at any
     // marking size, which drawing one dot per token stops being once a
     // place holds more than a handful.
-    const labelText =
-      isPlace && element.tokens
+    // FMC's recursion elements: a stack place shows an "S", a return
+    // place an "R" -- the place's name then goes beside it, together with
+    // a multi-token place's "cap. n"; infinite capacity is a double circle.
+    const placeGlyph = isPlace
+      ? ({ stack: 'S', return: 'R' }[element.placeKind] ?? null)
+      : null;
+    const placeNote = isPlace
+      ? [
+          placeGlyph && shownName(element),
+          typeof element.capacity === 'number' && `cap. ${element.capacity}`,
+        ]
+          .filter(Boolean)
+          .join('  ')
+      : '';
+    if (isPlace && element.capacity === 'infinite') {
+      group.add(
+        new Konva.Circle({
+          x: box.width / 2,
+          y: box.height / 2,
+          radius: Math.min(box.width, box.height) / 2 - 5,
+          stroke: '#000000',
+          strokeWidth: 2,
+          listening: false,
+        }),
+      );
+    }
+    const labelText = placeGlyph
+      ? `${placeGlyph}${element.tokens ? ` (${element.tokens})` : ''}`
+      : isPlace && element.tokens
         ? `${shownName(element) ?? ''} (${element.tokens})`.trim()
         : (shownName(element) ?? '');
 
@@ -3784,6 +3813,34 @@ export default class CanvasView extends Component {
     const showsLabel =
       !isNopTransition && (!isGlyph || element.type === ElementType.TEXT);
     if (label && showsLabel) group.add(label);
+    if (placeNote) {
+      // beside the place, like a channel's label (see outsideLabels)
+      const note = new Konva.Text({
+        name: 'fumoco-outside-label',
+        text: placeNote,
+        fontSize: 13,
+        fontFamily: CANVAS_FONT_FAMILY,
+        fill: '#000000',
+        listening: false,
+      });
+      const place = () =>
+        note.position(
+          outsideLabelPosition(
+            {
+              x: group.x(),
+              y: group.y(),
+              width: box.width * group.scaleX(),
+              height: box.height * group.scaleY(),
+            },
+            { width: note.width(), height: note.height() },
+            'right',
+          ),
+        );
+      place();
+      group.on('dragmove transform', place);
+      this.outsideLabels.set(element.id, note);
+      this.shapeLayer.add(note);
+    }
 
     group.on('click', (event) => {
       event.cancelBubble = true;

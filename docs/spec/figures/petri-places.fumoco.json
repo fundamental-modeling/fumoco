@@ -1,0 +1,49 @@
+{
+  "elements": {
+    "pc": {
+      "type": "place",
+      "label": null,
+      "parents": [],
+      "tokens": 2,
+      "capacity": 5
+    },
+    "pi": {
+      "type": "place",
+      "label": null,
+      "parents": [],
+      "capacity": "infinite"
+    },
+    "ps": {
+      "type": "place",
+      "label": "calls",
+      "parents": [],
+      "placeKind": "stack"
+    },
+    "pr": {
+      "type": "place",
+      "label": null,
+      "parents": [],
+      "placeKind": "return"
+    }
+  },
+  "accesses": [],
+  "arcs": [],
+  "views": {
+    "v": {
+      "name": "Multi-token and recursion places",
+      "diagramType": "petri",
+      "exportHeader": false,
+      "included": ["pc", "pi", "ps", "pr"],
+      "boxes": {
+        "pc": { "x": 0, "y": 0, "width": 50, "height": 50 },
+        "pi": { "x": 130, "y": 0, "width": 50, "height": 50 },
+        "ps": { "x": 220, "y": 8, "width": 33, "height": 33 },
+        "pr": { "x": 330, "y": 8, "width": 33, "height": 33 }
+      },
+      "nestedUnder": {},
+      "edgeWaypoints": {},
+      "guides": [],
+      "edgeBundles": {}
+    }
+  }
+}

@@ -24,8 +24,9 @@ parts. There is no auto-layout solver.
   `R▶` shorthand).
 - Many-to-many nesting. An element can be contained in several
   containers, and each view decides where it is _displayed_ nested.
-- Petri nets: places (with markings and a start place), transitions
-  (including NOP bars) and arcs, with the bipartite rule enforced.
+- Petri nets: places (with markings, capacities, a start place, and
+  the stack/return places of recursive nets), transitions (including NOP
+  bars) and weighted arcs, with the bipartite rule enforced.
 - ER diagrams: entity sets and n-ary relations. A relation's "1" sides
   are shown by an arrow inside the relation (`→`, `←`, `↔`). Relations
   turn 90° automatically between stacked entity sets. Also: reification,
@@ -161,9 +162,9 @@ Packages).
 ## Status and roadmap
 
 - **Milestone A — block-diagram editor:** complete.
-- **Milestones B and C — Petri nets and ER diagrams:** usable, with less
-  polish than block diagrams (for example, their arcs can't be selected
-  by clicking yet).
+- **Milestone B — Petri nets:** complete.
+- **Milestone C — ER diagrams:** complete; structure entity sets are
+  still open in the specification's status section.
 - **Milestone A.5 — formal specification:** complete, [online](https://fundamental-modeling.github.io/fumoco/) and in `docs/spec/`.
 - **Milestone D — VS Code extension** (open a model file directly in VS
   Code): planned.

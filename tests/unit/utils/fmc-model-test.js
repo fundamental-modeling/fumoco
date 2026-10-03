@@ -886,4 +886,19 @@ module('Unit | Utility | fmc-model (arc waypoints)', function () {
     model.removeElement(t);
     assert.false(view.edgeWaypoints.has(a2.id));
   });
+
+  test('places: capacity and kind round-trip, and validate flags overfull places', function (assert) {
+    const model = new FmcModel();
+    const p = model.elements.get(model.addElement(ElementType.PLACE));
+    p.tokens = 3;
+    assert.strictEqual(model.validate().length, 1, 'ordinary place holds 1');
+    p.capacity = 5;
+    assert.strictEqual(model.validate().length, 0);
+    p.capacity = 'infinite';
+    p.placeKind = 'stack';
+    assert.strictEqual(model.validate().length, 0);
+    const copy = FmcModel.fromJSON(JSON.parse(JSON.stringify(model.toJSON())));
+    assert.strictEqual(copy.elements.get(p.id).capacity, 'infinite');
+    assert.strictEqual(copy.elements.get(p.id).placeKind, 'stack');
+  });
 });

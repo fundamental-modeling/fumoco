@@ -150,6 +150,74 @@ export default class PropertiesPanel extends Component {
     return this.selectedElement?.type === 'place';
   }
 
+  // -- places: kind (FMC recursion elements) and capacity --
+  get placeKind() {
+    return this.selectedElement?.placeKind ?? '';
+  }
+
+  get capacityInfinite() {
+    return this.selectedElement?.capacity === 'infinite';
+  }
+
+  get capacityNumber() {
+    const capacity = this.selectedElement?.capacity;
+    return typeof capacity === 'number' ? capacity : 1;
+  }
+
+  // A stack place holds 1 token or infinitely many (FMC), nothing between.
+  get showsCapacityNumber() {
+    return this.placeKind !== 'stack' && !this.capacityInfinite;
+  }
+
+  // Grows a place to at least 50px (keeping its center) when it becomes
+  // a multi-token place -- FMC draws those enlarged.
+  setCapacity(element, capacity) {
+    const view = this.modelStore.activeView;
+    this.modelStore.mutate(() => {
+      element.capacity = capacity;
+      const box = view?.boxes.get(element.id);
+      if (capacity && box && Math.min(box.width, box.height) < 50) {
+        view.boxes.set(element.id, {
+          ...box,
+          x: box.x + box.width / 2 - 25,
+          y: box.y + box.height / 2 - 25,
+          width: 50,
+          height: 50,
+        });
+      }
+    });
+  }
+
+  @action
+  updatePlaceKind(event) {
+    const element = this.selectedElement;
+    if (!element) return;
+    this.modelStore.mutate(() => {
+      element.placeKind = event.target.value || null;
+      if (
+        element.placeKind === 'stack' &&
+        typeof element.capacity === 'number'
+      ) {
+        element.capacity = null;
+      }
+    });
+  }
+
+  @action
+  updateCapacity(event) {
+    const element = this.selectedElement;
+    const n = parseInt(event.target.value, 10);
+    if (!element || !(n >= 1)) return;
+    this.setCapacity(element, n > 1 ? n : null);
+  }
+
+  @action
+  toggleCapacityInfinite(event) {
+    const element = this.selectedElement;
+    if (!element) return;
+    this.setCapacity(element, event.target.checked ? 'infinite' : null);
+  }
+
   get showsStartOption() {
     return this.selectedElement?.type === 'place';
   }
@@ -575,6 +643,36 @@ export default class PropertiesPanel extends Component {
           </label>
         {{/if}}
         {{#if this.showsStartOption}}
+          <label class="properties-panel-field">
+            Place kind
+            <select
+              value={{this.placeKind}}
+              {{on "change" this.updatePlaceKind}}
+            >
+              <option value="">Ordinary place</option>
+              <option value="stack">Stack place (recursion)</option>
+              <option value="return">Return place (recursion)</option>
+            </select>
+          </label>
+          {{#if this.showsCapacityNumber}}
+            <label class="properties-panel-field">
+              Capacity (tokens it can hold)
+              <input
+                type="number"
+                min="1"
+                value={{this.capacityNumber}}
+                {{on "input" this.updateCapacity}}
+              />
+            </label>
+          {{/if}}
+          <label class="properties-panel-field properties-panel-checkbox">
+            <input
+              type="checkbox"
+              checked={{this.capacityInfinite}}
+              {{on "change" this.toggleCapacityInfinite}}
+            />
+            Infinite capacity (double circle)
+          </label>
           <label class="properties-panel-field properties-panel-checkbox">
             <input
               type="checkbox"

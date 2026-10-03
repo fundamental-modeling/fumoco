@@ -579,12 +579,19 @@
           bar</td></tr>
         <tr><td><a>Swimlane</a> divider</td><td>dashed line between the
           areas of competence of two agents</td></tr>
-        <tr><td><a>Multi-token place</a></td><td>enlarged place with its
-          capacity written in it; infinite capacity as a double
-          circle</td></tr>
-        <tr><td><a>Stack place</a>, <a>return place</a></td><td>places,
-          see <a href="#pn-recursion">Recursion elements</a></td></tr>
+        <tr><td><a>Multi-token place</a></td><td>enlarged place with
+          its capacity written beside it (<code>cap. n</code>); infinite
+          capacity as a double circle</td></tr>
+        <tr><td><a>Stack place</a>, <a>return place</a></td><td>a place
+          marked <code>S</code> (its name beside it; a double circle if
+          its capacity is infinite) or <code>R</code>, see
+          <a href="#pn-recursion">Recursion elements</a></td></tr>
       </table>
+      <figure id="fig-pn-places">
+        <img src="figures/petri-places.svg" alt="A multi-token place holding two tokens with capacity 5, an infinite-capacity place drawn as a double circle, a stack place named calls, and a return place" />
+        <figcaption>Multi-token, infinite-capacity, stack and return
+          places, drawn with Fumoco.</figcaption>
+      </figure>
       <p>
         By convention a Petri net flows top to bottom: arcs leave a node
         at its bottom and enter the next at its top.
@@ -1094,10 +1101,6 @@
       open items in its implementation plan:
     </p>
     <ul>
-      <li>Petri nets: editing an arc's <a>weight</a> (weights are stored
-        and drawn, but can't yet be changed), <a>multi-token places</a>
-        with capacity annotations and infinite-capacity places, and the
-        <a href="#pn-recursion">recursion elements</a>.</li>
       <li>ER diagrams: <a>structure entity</a> sets, and entity-set
         attributes other than as free text.</li>
     </ul>

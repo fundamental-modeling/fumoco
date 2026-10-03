@@ -480,11 +480,19 @@ now"): four new `ElementType`s (`PLACE`/`TRANSITION` for Petri nets,
   `removeElement`'s arc-sweep are equally generic.
 - `Element.tokens` (place-only, default 0, same "only meaningful for one
   type" spirit as `dashed`/`channel`) holds a place's marking. No firing
-  rule, no capacity, no multi-token/infinite-capacity place styling --
-  just a settable count, editable via the properties panel's `showsTokensOption`
+  rule -- just a settable count, editable via the properties panel's `showsTokensOption`
   field and rendered inline with the label (`"label (n)"`) in
   `buildShape` rather than as per-token dots, which stop being legible
   past a handful.
+- `Element.capacity` (place-only: `null` = an ordinary place holding 1,
+  an integer n >= 2, or `'infinite'`) and `Element.placeKind` (`null`,
+  `'stack'`, `'return'`). `buildShape` draws an infinite place's inner
+  circle, writes S/R inside a stack/return place (its name then moves
+  out), and puts "cap. n" and that name beside the place through the
+  same `outsideLabels` mechanism as human agents' labels. The panel
+  enlarges a place to 50x50 (keeping its center) when it gets a
+  capacity, and offers a stack place only capacity 1 or infinite.
+  `validate()` flags `tokens > capacity`.
 - `canvas-view.gjs`'s `buildArcs`/`drawArc` mirror `buildEdges`/
   `drawAccessEdge` structurally but are much simpler: a single directed
   leg, an optional weight label when `weight !== 1`, and a `contextmenu`
