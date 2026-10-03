@@ -1,1 +1,1 @@
-{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":1,"timestamp":1791037810,"nonce":"I3NZai/K9Mwi4G5lLiPso5FXcak=","title":"Set a Petri arc's weight in its properties","message":"Set a Petri arc's weight in its properties\n\n(Migrated from docs/implementation_plan.org.)","files":null}]}
+{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":5,"timestamp":1791037810,"nonce":"ObkZI1Y4WJgCrAoovhhZUpuzOjQ=","added":["milestone-B"],"removed":null}]}
