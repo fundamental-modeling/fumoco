@@ -1,1 +1,1 @@
-{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":1,"timestamp":1791037811,"nonce":"1ynp7hEN01YR94Xul5D8/8MYxOQ=","title":"Create entity sets and (possibly n-ary) relations (primitive)","message":"Create entity sets and (possibly n-ary) relations (primitive)\n\n(Migrated from docs/implementation_plan.org.)","files":null}]}
+{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":5,"timestamp":1791037811,"nonce":"1Cr+0QSiAYy8lMKmTeB2yENGo1o=","added":["milestone-C"],"removed":null}]}
