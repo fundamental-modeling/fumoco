@@ -8,12 +8,32 @@ import { tracked } from '@glimmer/tracking';
 import { action } from '@ember/object';
 import { service } from '@ember/service';
 import { on } from '@ember/modifier';
+import { fn } from '@ember/helper';
 import { modifier } from 'ember-modifier';
 
 const focusOnInsert = modifier((element) => element.focus());
 
 export default class ViewRow extends Component {
   @service modelStore;
+  @service selection;
+
+  get elements() {
+    const { elements } = this.modelStore.model;
+    return this.args.view.included
+      .map((id) => elements.get(id))
+      .filter(Boolean)
+      .map((element) => ({
+        id: element.id,
+        type: element.type.replace('_', ' '),
+        name: element.displayName ?? element.label ?? `(unnamed)`,
+      }));
+  }
+
+  @action
+  showElement(id) {
+    this.modelStore.activeViewId = this.args.view.id;
+    this.selection.select(id);
+  }
 
   @tracked isEditing = false;
   @tracked draftName = '';
@@ -98,6 +118,25 @@ export default class ViewRow extends Component {
             {{on "click" this.deleteView}}
           >&times;</button>
         </div>
+      {{/if}}
+      {{#if this.elements.length}}
+        <details class="view-row-elements">
+          <summary>{{this.elements.length}} element(s)</summary>
+          <ul>
+            {{#each this.elements as |element|}}
+              <li>
+                <button
+                  type="button"
+                  class="model-tree-node-label"
+                  {{on "click" (fn this.showElement element.id)}}
+                >
+                  <span class="model-tree-node-type">{{element.type}}</span>
+                  {{element.name}}
+                </button>
+              </li>
+            {{/each}}
+          </ul>
+        </details>
       {{/if}}
     </li>
   </template>

@@ -33,7 +33,9 @@ parts. There is no auto-layout solver.
   and orthogonal partitioning drawn as a triangle.
 - "Validate model" checks well-formedness rules that shouldn't block you
   while you're still editing, such as a channel's minimum number of
-  accessing agents.
+  accessing agents. It also warns about elements that share a kind and
+  name, and lists elements that are in no view, which you can then
+  remove in one step.
 
 **Layout and drawing**
 

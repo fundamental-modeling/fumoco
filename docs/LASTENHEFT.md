@@ -286,6 +286,14 @@ implementation notes here — that's the other two documents' job.
 - As a modeler, I want to reify a relation into an entity set by nesting
   the relation inside it, so the reified entity set can then participate
   in further relations of its own.
+- As a modeler, I want "Validate model" to find elements that are in no
+  view and offer to remove them, with their connections, so a model
+  doesn't accumulate cruft.
+- As a modeler, I want "Validate model" to warn about elements of the
+  same kind with the same name; unnamed elements (plain channels, NOP
+  bars) aren't compared.
+- As a modeler, I want the model pane's sections collapsible, and each
+  view to list its elements (collapsed by default).
 - As a modeler, I want to give a place a capacity: a multi-token place
   is drawn enlarged with "cap. n" beside it, an infinite-capacity place
   as a double circle; "Validate model" flags a place marked with more

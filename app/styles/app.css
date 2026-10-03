@@ -202,8 +202,15 @@ body {
   margin-bottom: 16px;
 }
 
+.model-tree-section > summary {
+  cursor: pointer;
+  color: #888;
+  margin-bottom: 4px;
+}
+
 .model-tree-section h3 {
-  margin: 0 0 4px;
+  display: inline;
+  margin: 0;
   font-size: 12px;
   text-transform: uppercase;
   color: #888;
@@ -509,3 +516,23 @@ body {
   background: #f2f2f2;
 }
 /* stylelint-enable no-descending-specificity */
+
+.view-row-elements {
+  margin: 0 0 4px 12px;
+  font-size: 12px;
+}
+
+.view-row-elements summary {
+  cursor: pointer;
+  color: #888;
+}
+
+.view-row-elements ul {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+}
+
+.model-tree-validation-unused {
+  margin-bottom: 8px;
+}

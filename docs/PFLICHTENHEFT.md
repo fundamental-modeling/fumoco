@@ -372,6 +372,25 @@ Ember templates treat an empty array as falsy too, hence the separate
 `hasValidated` getter) and renders the results in a small dismissible
 panel, each issue clickable to `selection.select` the offending element.
 
+Two more checks run with it:
+
+- `unusedElements()`: elements no view includes -- cruft, since Delete
+  only removes an element from a view. The panel lists them with a
+  "Remove them" button calling `removeUnusedElements()`, which removes
+  each through `removeElement`, so its accesses and arcs go too, even
+  to elements that are still shown. It runs through `modelStore.mutate`,
+  so undo brings them back. Not a modal confirm: the list is the
+  question.
+- `duplicateIssues()`: elements of the same type whose names match
+  (trimmed, case-insensitive) -- probably one thing modeled twice. It
+  only warns; merging them is left to the modeler. Unnamed elements
+  (plain channels, NOP bars), glyphs, shorthand channels (all named
+  "R▶") and stack places (coupled by name on purpose) are skipped.
+
+The model pane's sections are native `<details>` elements, and each
+view row has a collapsed `<details>` listing the view's elements;
+clicking one switches to that view and selects it.
+
 ## Draw order / z-index (`canvas-view.gjs`: `buildDrawOrder`)
 
 `syncShapes` used to add shapes to the Konva layer in "every depth-0

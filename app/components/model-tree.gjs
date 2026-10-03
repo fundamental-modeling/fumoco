@@ -28,6 +28,7 @@ export default class ModelTree extends Component {
 
   // null = not run yet (no panel shown); [] = run, nothing to report.
   @tracked validationIssues = null;
+  @tracked unusedElements = [];
 
   get rootElements() {
     // An element with no containers is shown here at the root; one that's
@@ -112,6 +113,24 @@ export default class ModelTree extends Component {
   @action
   validate() {
     this.validationIssues = this.modelStore.model.validate();
+    this.unusedElements = this.modelStore.model.unusedElements();
+  }
+
+  get isClean() {
+    return !this.validationIssues?.length && !this.unusedElements.length;
+  }
+
+  get unusedNames() {
+    return this.unusedElements
+      .map((e) => e.label ?? `(unnamed ${e.type.replace('_', ' ')})`)
+      .join(', ');
+  }
+
+  // Undo brings them back.
+  @action
+  removeUnused() {
+    this.modelStore.mutate((model) => model.removeUnusedElements());
+    this.validate();
   }
 
   @action
@@ -184,6 +203,20 @@ export default class ModelTree extends Component {
                 {{on "click" this.dismissValidation}}
               >&times;</button>
             </div>
+            {{#if this.unusedElements.length}}
+              <div class="model-tree-validation-unused">
+                <p>
+                  {{this.unusedElements.length}}
+                  element(s) in no view:
+                  {{this.unusedNames}}
+                </p>
+                <button
+                  type="button"
+                  title="Removes them and their connections (undo brings them back)"
+                  {{on "click" this.removeUnused}}
+                >Remove them</button>
+              </div>
+            {{/if}}
             {{#if this.validationIssues.length}}
               <ul>
                 {{#each this.validationIssues as |issue|}}
@@ -195,15 +228,15 @@ export default class ModelTree extends Component {
                   </li>
                 {{/each}}
               </ul>
-            {{else}}
+            {{else if this.isClean}}
               <p>No issues found.</p>
             {{/if}}
           </div>
         {{/if}}
       </div>
 
-      <div class="model-tree-section">
-        <h3>Views</h3>
+      <details class="model-tree-section" open>
+        <summary><h3>Views</h3></summary>
         <select
           aria-label="New view's diagram type"
           {{on "change" this.setNewViewType}}
@@ -220,25 +253,25 @@ export default class ModelTree extends Component {
             <ViewRow @view={{modelView}} @onDelete={{this.deleteView}} />
           {{/each}}
         </ul>
-      </div>
+      </details>
 
-      <div class="model-tree-section">
-        <h3>Elements</h3>
+      <details class="model-tree-section" open>
+        <summary><h3>Elements</h3></summary>
         <ul class="model-tree-list">
           {{#each this.rootElements as |element|}}
             <ModelTreeNode @element={{element}} />
           {{/each}}
         </ul>
-      </div>
+      </details>
 
-      <div class="model-tree-section">
-        <h3>Arrows</h3>
+      <details class="model-tree-section" open>
+        <summary><h3>Arrows</h3></summary>
         <ul class="model-tree-list">
           {{#each this.accesses as |access|}}
             <ArrowRow @access={{access}} />
           {{/each}}
         </ul>
-      </div>
+      </details>
     </div>
   </template>
 }

@@ -915,4 +915,43 @@ module('Unit | Utility | fmc-model (arc waypoints)', function () {
       [{ x: 1, y: 2 }],
     );
   });
+
+  test('unused elements: those in no view, removed with their connections', function (assert) {
+    const model = new FmcModel();
+    const agent = model.addElement(ElementType.AGENT, { label: 'shown' });
+    const storage = model.addElement(ElementType.LOCATION, { label: 'gone' });
+    model.addAccess(agent, 'read', storage);
+    const view = model.views.get(model.createView('v'));
+    view.included.push(agent);
+    assert.deepEqual(
+      model.unusedElements().map((e) => e.id),
+      [storage],
+    );
+    assert.strictEqual(model.removeUnusedElements(), 1);
+    assert.deepEqual([...model.elements.keys()], [agent]);
+    assert.strictEqual(model.accesses.length, 0);
+  });
+
+  test('validate warns about same-kind, same-name elements, skipping unnamed ones', function (assert) {
+    const model = new FmcModel();
+    model.addElement(ElementType.AGENT, { label: 'Server' });
+    model.addElement(ElementType.AGENT, { label: ' server ' });
+    model.addElement(ElementType.LOCATION, { label: 'Server' }); // other kind
+    model.addElement(ElementType.TRANSITION, { isNop: true });
+    model.addElement(ElementType.TRANSITION, { isNop: true });
+    model.addElement(ElementType.PLACE, { label: 'parse', placeKind: 'stack' });
+    model.addElement(ElementType.PLACE, { label: 'parse', placeKind: 'stack' });
+    model.addElement(ElementType.LOCATION, {
+      label: 'R▶',
+      channel: { shorthand: true },
+    });
+    model.addElement(ElementType.LOCATION, {
+      label: 'R▶',
+      channel: { shorthand: true },
+    });
+    assert.deepEqual(
+      model.duplicateIssues().map((issue) => issue.message),
+      ['2 agents are named "Server".'],
+    );
+  });
 });

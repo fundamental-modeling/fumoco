@@ -405,6 +405,23 @@ export class FmcModel {
     return id;
   }
 
+  // Elements no view shows: cruft left behind once they're removed from
+  // every view (Delete only removes from the view).
+  unusedElements() {
+    const shown = new Set(
+      [...this.views.values()].flatMap((view) => view.included),
+    );
+    return [...this.elements.values()].filter((e) => !shown.has(e.id));
+  }
+
+  // Removes them, with their connections -- also connections to elements
+  // that are still shown.
+  removeUnusedElements() {
+    const unused = this.unusedElements();
+    for (const element of unused) this.removeElement(element.id);
+    return unused.length;
+  }
+
   removeElement(id) {
     for (const element of this.elements.values()) {
       const index = element.parents.indexOf(id);
@@ -783,7 +800,35 @@ export class FmcModel {
         });
       }
     }
+    issues.push(...this.duplicateIssues());
     return issues;
+  }
+
+  // Same kind, same name -- probably one thing modeled twice. Unnamed
+  // elements (plain channels, NOP bars, ...) and glyphs have nothing to
+  // compare; shorthand channels all carry "R▶", and stack places of the
+  // same name are coupled into one stack on purpose.
+  duplicateIssues() {
+    const groups = new Map();
+    for (const element of this.elements.values()) {
+      const name = element.label?.trim().toLowerCase();
+      if (
+        !name ||
+        isGlyphType(element.type) ||
+        element.channel?.shorthand ||
+        element.placeKind === 'stack'
+      ) {
+        continue;
+      }
+      const key = `${element.type}\u0000${name}`;
+      groups.set(key, [...(groups.get(key) ?? []), element]);
+    }
+    return [...groups.values()]
+      .filter((group) => group.length > 1)
+      .map((group) => ({
+        elementId: group[0].id,
+        message: `${group.length} ${group[0].type.replace('_', ' ')}s are named "${group[0].label.trim()}".`,
+      }));
   }
 
   // Creates the channel's place (a Location Element with `channel` render
