@@ -255,7 +255,7 @@ export default class ModelTree extends Component {
         </ul>
       </details>
 
-      <details class="model-tree-section" open>
+      <details class="model-tree-section">
         <summary><h3>Elements</h3></summary>
         <ul class="model-tree-list">
           {{#each this.rootElements as |element|}}
@@ -264,7 +264,7 @@ export default class ModelTree extends Component {
         </ul>
       </details>
 
-      <details class="model-tree-section" open>
+      <details class="model-tree-section">
         <summary><h3>Arrows</h3></summary>
         <ul class="model-tree-list">
           {{#each this.accesses as |access|}}

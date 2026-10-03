@@ -387,7 +387,8 @@ Two more checks run with it:
   (plain channels, NOP bars), glyphs, shorthand channels (all named
   "R▶") and stack places (coupled by name on purpose) are skipped.
 
-The model pane's sections are native `<details>` elements, and each
+The model pane's sections are native `<details>` elements (Elements and
+Arrows collapsed by default), and each
 view row has a collapsed `<details>` listing the view's elements;
 clicking one switches to that view and selects it.
 

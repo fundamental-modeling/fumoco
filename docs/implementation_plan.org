@@ -76,7 +76,7 @@ needs a decision recorded.
 - [X] Shaped agents (sharp corners); nesting, drop targets and marquee selection test the shape, not its bounding box
 - [X] Validate lists elements in no view, removable in one step (with their connections; undoable)
 - [X] Validate warns about same-kind, same-name elements (not unnamed ones, R▶ channels or coupled stack places)
-- [X] Collapsible sections in the model pane; each view lists its elements (collapsed by default)
+- [X] Collapsible sections in the model pane (Elements and Arrows collapsed by default); each view lists its elements (collapsed by default)
 
 * Milestone A.5 — Formal FMC specification [2/2]
 - [X] Formal, W3C-ReSpec-based specification of FMC's block diagram notation (=spec/index.html=)
