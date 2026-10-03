@@ -1,1 +1,1 @@
-{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":1,"timestamp":1791037803,"nonce":"UAnwI8UcIj3t+S++M+dkpOCvNe0=","title":"Ellipsis (\"…\") element in all three diagram types","message":"Ellipsis (\"…\") element in all three diagram types\n\n(Migrated from docs/implementation_plan.org.)","files":null}]}
+{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":5,"timestamp":1791037803,"nonce":"xF/5zHAzxfLsjZ162phiQw83d4I=","added":["milestone-A"],"removed":null}]}
