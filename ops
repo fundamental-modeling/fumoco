@@ -1,1 +1,1 @@
-{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":1,"timestamp":1791037809,"nonce":"e35blK9OXhHaAxhfYoD9nDDIOOQ=","title":"A place shows its marking (token count)","message":"A place shows its marking (token count)\n\n(Migrated from docs/implementation_plan.org.)","files":null}]}
+{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":5,"timestamp":1791037809,"nonce":"SdaQox0GGcDnpOR/oQgjMGPobSc=","added":["milestone-B"],"removed":null}]}
