@@ -901,4 +901,18 @@ module('Unit | Utility | fmc-model (arc waypoints)', function () {
     assert.strictEqual(copy.elements.get(p.id).capacity, 'infinite');
     assert.strictEqual(copy.elements.get(p.id).placeKind, 'stack');
   });
+
+  test('arc waypoints survive a save and load', function (assert) {
+    const model = new FmcModel();
+    const p = model.addElement(ElementType.PLACE);
+    const t = model.addElement(ElementType.TRANSITION);
+    const arc = model.addArc(p, t);
+    const view = model.views.get(model.createView('Net', 'petri'));
+    view.edgeWaypoints.set(arc.id, [{ x: 1, y: 2 }]);
+    const copy = FmcModel.fromJSON(JSON.parse(JSON.stringify(model.toJSON())));
+    assert.deepEqual(
+      [...copy.views.get(view.id).edgeWaypoints.get(arc.id)],
+      [{ x: 1, y: 2 }],
+    );
+  });
 });

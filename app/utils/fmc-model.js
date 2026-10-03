@@ -971,10 +971,10 @@ export class FmcModel {
       }
     }
     model.accesses.push(...accesses);
-    const accessIds = new Set(accesses.map((a) => a.id));
     for (const arc of json.arcs ?? []) {
       model.arcs.push({ id: makeId(), ...arc });
     }
+    const edgeIds = new Set([...accesses, ...model.arcs].map((e) => e.id));
     for (const [id, view] of Object.entries(json.views ?? {})) {
       const v = new View(id, view.name, view.diagramType, {
         createdAt: view.createdAt ?? null,
@@ -992,7 +992,7 @@ export class FmcModel {
       ))
         v.nestedUnder.set(elementId, parentId);
       for (const [edgeId, points] of Object.entries(view.edgeWaypoints ?? {})) {
-        if (!accessIds.has(edgeId)) continue; // merged away on load
+        if (!edgeIds.has(edgeId)) continue; // merged away on load
         v.edgeWaypoints.set(
           edgeId,
           new TrackedArray(points.map((p) => ({ ...p }))),
