@@ -417,9 +417,10 @@ export class FmcModel {
     // is just an ordinary element losing an ordinary access edge -- no
     // separate channel-cleanup needed now that a channel isn't its own
     // edge type.
-    const removedEdgeIds = this.accesses
-      .filter((a) => a.agent === id || a.location === id)
-      .map((a) => a.id);
+    const removedEdgeIds = [
+      ...this.accesses.filter((a) => a.agent === id || a.location === id),
+      ...this.arcs.filter((a) => a.source === id || a.target === id),
+    ].map((a) => a.id);
     this._removeInPlace(
       this.accesses,
       (a) => a.agent === id || a.location === id,
@@ -482,6 +483,7 @@ export class FmcModel {
 
   removeArc(id) {
     this._removeInPlace(this.arcs, (a) => a.id === id);
+    for (const view of this.views.values()) view.edgeWaypoints.delete(id);
   }
 
   // Arcs are recreated wholesale on edit (see makeAccessEdge's comment for

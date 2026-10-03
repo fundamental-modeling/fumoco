@@ -870,3 +870,20 @@ module('Unit | Utility | fmc-model (reconnecting connectors)', function () {
     );
   });
 });
+
+module('Unit | Utility | fmc-model (arc waypoints)', function () {
+  test('removing an arc, or an element it touches, drops its waypoints', function (assert) {
+    const model = new FmcModel();
+    const p = model.addElement(ElementType.PLACE);
+    const t = model.addElement(ElementType.TRANSITION);
+    const a1 = model.addArc(p, t);
+    const a2 = model.addArc(t, p);
+    const view = model.views.get(model.createView('v', 'petri'));
+    view.edgeWaypoints.set(a1.id, [{ x: 1, y: 1 }]);
+    view.edgeWaypoints.set(a2.id, [{ x: 2, y: 2 }]);
+    model.removeArc(a1.id);
+    assert.false(view.edgeWaypoints.has(a1.id));
+    model.removeElement(t);
+    assert.false(view.edgeWaypoints.has(a2.id));
+  });
+});

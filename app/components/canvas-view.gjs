@@ -836,6 +836,21 @@ export function pathMidpoint(points) {
   return { ...points.at(-1) };
 }
 
+// A route through `anchors` (boxes, waypoints as zero-size boxes), each
+// leg bent whichever way keeps the path from doubling back (joinLegs).
+export function routeThrough(anchors) {
+  const legs = [];
+  for (let i = 0; i < anchors.length - 1; i++) {
+    const bends = [
+      orthogonalPath(anchors[i], anchors[i + 1]),
+      orthogonalPath(anchors[i], anchors[i + 1], true),
+    ];
+    const same = JSON.stringify(bends[0]) === JSON.stringify(bends[1]);
+    legs.push(same ? [bends[0]] : bends);
+  }
+  return joinLegs(legs);
+}
+
 // Joins an edge's legs (anchor to anchor) into one path. Each leg comes
 // as its alternative routes, default first -- a bent leg can bend either
 // way. Picks the combination with the fewest non-default bends in which
@@ -1480,6 +1495,8 @@ export default class CanvasView extends Component {
         sourceType === ElementType.PARTITION ||
         targetType === ElementType.PARTITION;
       const path = this.drawArc(arc, sourceBox, targetBox, {
+        view,
+        waypoints: view.edgeWaypoints.get(arc.id) ?? [],
         vertical: isPetriArc,
         relationEnd,
         isPartitionArc,
@@ -1614,6 +1631,8 @@ export default class CanvasView extends Component {
     sourceBox,
     targetBox,
     {
+      view = null,
+      waypoints = [],
       vertical = false,
       relationEnd = null,
       isPartitionArc = false,
@@ -1621,12 +1640,16 @@ export default class CanvasView extends Component {
       targetCircular = false,
     } = {},
   ) {
-    const path = vertical
-      ? verticalArcPath(sourceBox, targetBox, {
-          sourceCircular,
-          targetCircular,
-        })
-      : orthogonalPath(sourceBox, targetBox);
+    // Through user waypoints, leg by leg like an access edge; without
+    // any, Petri arcs keep their top-to-bottom ports.
+    const path = waypoints.length
+      ? routeThrough([sourceBox, ...waypoints.map(pointBox), targetBox])
+      : vertical
+        ? verticalArcPath(sourceBox, targetBox, {
+            sourceCircular,
+            targetCircular,
+          })
+        : orthogonalPath(sourceBox, targetBox);
     // A plain ER arc (not partitioning, not Petri) can toggle its
     // cardinality; the other kinds don't have the concept.
     const isErArc = !vertical && !isPartitionArc && relationEnd;
@@ -1649,11 +1672,30 @@ export default class CanvasView extends Component {
       event.cancelBubble = true;
       this.selection.selectEdge(arc.id);
     });
+    mainShape.on('dblclick dbltap', (event) => {
+      event.cancelBubble = true;
+      if (view) {
+        this.insertWaypoint(
+          arc.id,
+          view,
+          this.stage.getRelativePointerPosition(),
+        );
+      }
+    });
     mainShape.on('contextmenu', (event) => {
       event.evt.preventDefault();
       event.cancelBubble = true;
       this.selection.selectEdge(arc.id);
+      const point = this.stage.getRelativePointerPosition();
       const items = [
+        ...(view
+          ? [
+              {
+                label: 'Insert waypoint here',
+                action: () => this.insertWaypoint(arc.id, view, point),
+              },
+            ]
+          : []),
         {
           label: 'Annotate…',
           action: () =>
@@ -1992,11 +2034,15 @@ export default class CanvasView extends Component {
   // (drawAccessEdge re-orders for display -- see its comment).
   insertWaypoint(edgeId, view, point) {
     const model = this.modelStore.model;
+    // stored from agent to location (access edges), source to target (arcs)
     const access = model.accesses.find((a) => a.id === edgeId);
-    if (!access) return;
+    const arc = !access && model.arcs.find((a) => a.id === edgeId);
+    if (!access && !arc) return;
     const effectiveBoxes = computeEffectiveBoxes(model, view);
-    const agentBox = effectiveBoxes.get(access.agent);
-    const locationBox = effectiveBoxes.get(access.location);
+    const agentBox = effectiveBoxes.get(access ? access.agent : arc.source);
+    const locationBox = effectiveBoxes.get(
+      access ? access.location : arc.target,
+    );
     if (!agentBox || !locationBox) return;
     this.modelStore.mutate(() => {
       if (!view.edgeWaypoints.has(edgeId)) {

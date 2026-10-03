@@ -79,8 +79,7 @@ needs a decision recorded.
 - [X] Formal, W3C-ReSpec-based specification of FMC's block diagram notation (=spec/index.html=)
 - [X] Petri net and ER/value-range sections, normative, with symbol tables and figures drawn with Fumoco (=spec/figures/=, =npm run docs:figures=)
 
-* Milestone B — Petri nets [7/10]
-- [ ] Waypoints on Petri/ER arcs (block-diagram edges have them)
+* Milestone B — Petri nets [8/10]
 - [ ] Multi-token places: an enlarged place with a capacity annotation; infinite capacity as a double circle
 - [ ] Recursion notation: stack places and return places
 - [X] Create places, transitions, and arcs, laid out manually like block diagrams (primitive)
@@ -90,6 +89,7 @@ needs a decision recorded.
 - [X] A place shows its marking (token count)
 - [X] Select Petri/ER arcs by clicking: highlight, properties panel (endpoints, annotation, delete), Delete key
 - [X] Set a Petri arc's weight in its properties
+- [X] Waypoints on Petri/ER arcs: double-click or the context menu, dragged and removed like a block diagram edge's
 
 * Milestone C — ER / value-range diagrams [6/6]
 - [X] Create entity sets and (possibly n-ary) relations (primitive)
