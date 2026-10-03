@@ -1,1 +1,1 @@
-{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":1,"timestamp":1791037798,"nonce":"wbGTkTQ2P+vF2/Rnfwp9QrSiORU=","title":"Manipulate an arrow's routing via addable/movable waypoints","message":"Manipulate an arrow's routing via addable/movable waypoints\n\n(Migrated from docs/implementation_plan.org.)","files":null}]}
+{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":5,"timestamp":1791037798,"nonce":"guXoXdqD7QuLg4VDtxj1mXc0Y1g=","added":["milestone-A"],"removed":null}]}
