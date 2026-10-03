@@ -23,6 +23,7 @@ import {
 } from 'fumoco/utils/fmc-model';
 import { ConnectorKind, connectorRule } from 'fumoco/services/connector-tool';
 import { defaultBoxSize } from 'fumoco/utils/box-layout';
+import { fittedOutline, labelArea, outlineEntry } from 'fumoco/utils/outline';
 import config from 'fumoco/config/environment';
 
 const GRID = 10;
@@ -922,6 +923,57 @@ function nearestWaypointInsertIndex(point, anchorCenters) {
   return bestIndex;
 }
 
+// A closed rectilinear outline with every corner rounded -- the same
+// quadratic-curve corners as drawRoundedPolyline, convex and concave alike.
+function drawRoundedPolygon(ctx, points, radius) {
+  const n = points.length;
+  const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+  const start = mid(points[n - 1], points[0]);
+  ctx.beginPath();
+  ctx.moveTo(start.x, start.y);
+  for (let i = 0; i < n; i++) {
+    const [prev, corner, next] = [
+      points[(i - 1 + n) % n],
+      points[i],
+      points[(i + 1) % n],
+    ];
+    const legIn = Math.hypot(corner.x - prev.x, corner.y - prev.y);
+    const legOut = Math.hypot(next.x - corner.x, next.y - corner.y);
+    const r = Math.min(radius, legIn / 2, legOut / 2);
+    ctx.lineTo(
+      corner.x + ((prev.x - corner.x) * r) / legIn,
+      corner.y + ((prev.y - corner.y) * r) / legIn,
+    );
+    ctx.quadraticCurveTo(
+      corner.x,
+      corner.y,
+      corner.x + ((next.x - corner.x) * r) / legOut,
+      corner.y + ((next.y - corner.y) * r) / legOut,
+    );
+  }
+  ctx.closePath();
+}
+
+// Where a connector ending at `point` on `box`'s bounding box meets the
+// box's actual outline (a shaped location's notch lets it in deeper).
+function onOutline(box, point) {
+  const outline = fittedOutline(box);
+  if (!outline) return point;
+  const near = (a, b) => Math.abs(a - b) < 0.5;
+  const side = near(point.x, box.x)
+    ? 'w'
+    : near(point.x, box.x + box.width)
+      ? 'e'
+      : near(point.y, box.y)
+        ? 'n'
+        : near(point.y, box.y + box.height)
+          ? 's'
+          : null;
+  if (!side) return point;
+  const abs = outline.map((p) => ({ x: p.x + box.x, y: p.y + box.y }));
+  return outlineEntry(abs, point, side);
+}
+
 // Each corner is cut `radius` back along both legs (at most half of
 // either leg) and joined with a quadratic curve through the corner --
 // reads as a rounded corner, and unlike arcTo, the SVG export's
@@ -1727,6 +1779,7 @@ export default class CanvasView extends Component {
       !waypoints.length &&
       lensEnds(agentBox, locationBox);
     if (lens) {
+      lens.q = onOutline(locationBox, lens.q);
       this.drawLensEdge(access.id, lens, view, [access.agent, access.location]);
       // in the middle of the lens, between its two curves
       this.addEdgeAnnotation(
@@ -1769,7 +1822,9 @@ export default class CanvasView extends Component {
       if (!side) return null;
       const key = `${end.id}:${side}`;
       if (!trunks.has(key)) {
-        trunks.set(key, { ...trunkPoints(end.box, side), heads: [] });
+        const trunk = trunkPoints(end.box, side);
+        trunk.mid = onOutline(end.box, trunk.mid);
+        trunks.set(key, { ...trunk, heads: [] });
       }
       trunks.get(key).heads.push(end.head);
       end.head = false;
@@ -1796,6 +1851,11 @@ export default class CanvasView extends Component {
       }
     }
     const path = joinLegs(legs);
+    // a shaped location's outline, not its bounding box, is where an
+    // edge ends -- only the end point moves, along its last leg
+    if (!branches[0]) path[0] = onOutline(ends[0].box, path[0]);
+    if (!branches[1])
+      path[path.length - 1] = onOutline(ends[1].box, path.at(-1));
     this.addRoutedEdge(path, {
       arrowStart: ends[0].head,
       arrowEnd: ends[1].head,
@@ -3224,6 +3284,7 @@ export default class CanvasView extends Component {
     // the top (where the partitioned superset's arc attaches) and base at
     // the bottom (where each part/subset's arc attaches) -- see
     // docs/spec/index.html's "Orthogonal partitioning" section.
+    const outline = isLocation && !isChannel ? fittedOutline(box) : null;
     const rect = isPartition
       ? new Konva.Line({
           points: [box.width / 2, 0, box.width, box.height, 0, box.height],
@@ -3232,18 +3293,34 @@ export default class CanvasView extends Component {
           stroke: '#000000',
           strokeWidth: NODE_STROKE_WIDTH,
         })
-      : new Konva.Rect({
-          name: 'fumoco-body',
-          width: box.width,
-          height: box.height,
-          // a glyph is just its drawing: a transparent (still clickable)
-          // body with no outline
-          fill: isGlyph ? 'rgba(0,0,0,0)' : (element.fill ?? '#ffffff'),
-          stroke: isGlyph ? null : '#000000',
-          strokeWidth: NODE_STROKE_WIDTH,
-          cornerRadius,
-          dash: isLocation && element.dashed ? [6, 4] : undefined,
-        });
+      : outline
+        ? // a shaped location: its rectilinear outline, every corner
+          // rounded; width/height keep the Transformer's frame right
+          new Konva.Shape({
+            name: 'fumoco-body',
+            width: box.width,
+            height: box.height,
+            fill: element.fill ?? '#ffffff',
+            stroke: '#000000',
+            strokeWidth: NODE_STROKE_WIDTH,
+            dash: element.dashed ? [6, 4] : undefined,
+            sceneFunc: (ctx, shape) => {
+              drawRoundedPolygon(ctx, outline, 12);
+              ctx.fillStrokeShape(shape);
+            },
+          })
+        : new Konva.Rect({
+            name: 'fumoco-body',
+            width: box.width,
+            height: box.height,
+            // a glyph is just its drawing: a transparent (still clickable)
+            // body with no outline
+            fill: isGlyph ? 'rgba(0,0,0,0)' : (element.fill ?? '#ffffff'),
+            stroke: isGlyph ? null : '#000000',
+            strokeWidth: NODE_STROKE_WIDTH,
+            cornerRadius,
+            dash: isLocation && element.dashed ? [6, 4] : undefined,
+          });
     // "N similar boxes": two copies stacked behind, offset down-right.
     if (element.multiple) {
       for (const offset of [2 * MULTIPLE_OFFSET, MULTIPLE_OFFSET]) {
@@ -3366,10 +3443,16 @@ export default class CanvasView extends Component {
       this.shapeLayer.add(outside);
     } else {
       const isText = element.type === ElementType.TEXT;
+      // a shaped location's label goes in its largest part, off any notch
+      const area = outline
+        ? labelArea(outline)
+        : { x: 0, y: 0, width: box.width, height: box.height };
       label = new Konva.Text({
         text: labelText,
-        width: box.width,
-        height: box.height,
+        x: area.x,
+        y: area.y,
+        width: area.width,
+        height: area.height,
         // free text reads like text: top-left, wrapping, multi-line
         align: isText ? 'left' : 'center',
         verticalAlign: isText ? 'top' : 'middle',
