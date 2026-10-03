@@ -1,0 +1,1 @@
+{"author":{"id":"184022b3607ba23f7a77732840fea0e7c4ff71bfef758ea5a93c2a2127ca594f"},"ops":[{"type":1,"timestamp":1791037815,"nonce":"h/gOp4DA405LV4aET2JJT5MUBmE=","title":"Drop an arc's empty waypoint list when its last waypoint is removed","message":"Removing the last waypoint leaves `edgeWaypoints: { \"\u003cid\u003e\": [] }` in the view. Harmless, but cruft.","files":null}]}
